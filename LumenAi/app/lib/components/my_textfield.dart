@@ -24,6 +24,7 @@ class MyTextfield extends StatelessWidget {
         controller: controller,
         obscureText: obscureText,
         decoration: InputDecoration(
+          
           prefixIcon: prefixIcon != null
           ? Icon(prefixIcon, color: Colors.grey)
           : null,
@@ -32,6 +33,7 @@ class MyTextfield extends StatelessWidget {
 
           enabledBorder: OutlineInputBorder(
             borderSide: BorderSide(color: Colors.blueGrey),
+            borderRadius: BorderRadius.circular(30)
           ),
           focusedBorder: OutlineInputBorder(
             borderSide: BorderSide(color: Colors.black),
