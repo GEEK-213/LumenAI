@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'login.dart';
 
 class SignUpPage extends StatelessWidget {
   const SignUpPage({super.key});
@@ -7,112 +8,119 @@ class SignUpPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child:SingleChildScrollView(
+        child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 24.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 80),
 
-            const Text(
-              "CREATE AN ACCOUNT",
-              style: TextStyle(
-                fontSize: 40,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Text(
-              "Start Your Journey With Us ",
-              style: TextStyle(
-                fontSize: 20,
-                color: Colors.grey.shade500,
-              ),
-            ),
-            const SizedBox(height: 40),
-            //full name 
-            _buildInputField(
-              hintText: "Fill Name",
-              icon : Icons.person_outline
-            ),
-             const SizedBox(height: 20),
-            //full name 
-            _buildInputField(
-              hintText: "Email or Phone",
-              icon : Icons.email_outlined,
-            ),
-             const SizedBox(height: 20),
-            //full name 
-            _buildInputField(
-              hintText: "Password",
-              icon : Icons.lock_outline,
-            ),
-            const SizedBox(height: 50),
-            //signup button
-            Container(
-              width: double.infinity,
-              height: 55,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(30),
-                gradient: const LinearGradient(
-                  colors: [
-                    Color(0xFF448AFF),
-                     Color(0xFF9C27B0)
-                  ],
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                ),
-              ),
-              child: ElevatedButton(
-                onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.transparent,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-              ),
-              child: const Text(
-                "Sign Up",
+              const Text(
+                "CREATE AN ACCOUNT",
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 40,
                   fontWeight: FontWeight.bold,
                   color: Colors.white,
                 ),
               ),
+              const SizedBox(height: 20),
+              Text(
+                "Start Your Journey With Us ",
+                style: TextStyle(fontSize: 20, color: Colors.grey.shade500),
               ),
+              const SizedBox(height: 40),
+              //full name
+              _buildInputField(
+                hintText: "Fill Name",
+                icon: Icons.person_outline,
+              ),
+              const SizedBox(height: 20),
+              //full name
+              _buildInputField(
+                hintText: "Email or Phone",
+                icon: Icons.email_outlined,
+              ),
+              const SizedBox(height: 20),
+              //full name
+              _buildInputField(hintText: "Password", icon: Icons.lock_outline),
+              const SizedBox(height: 50),
+
+              //signup button
+              Container(
+                width: double.infinity,
+                height: 55,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(30),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF448AFF), Color(0xFF9C27B0)],
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                  ),
+                  // --- START OF SHADOW CODE ---
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF448AFF).withOpacity(0.1),
+                      blurRadius: 10,
+                      spreadRadius: 2.0,
+                      offset: const Offset(-4, 4),
+                    ),
+                    BoxShadow(
+                      color: const Color(0xFF9C27B0).withOpacity(0.1),
+                      blurRadius: 10,
+                      spreadRadius: 2.0,
+                      offset: const Offset(4, 4),
+                    ),
+                  ],
+                ),
+                child: ElevatedButton(
+                  onPressed: () {},
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                  child: const Text(
+                    "Sign Up",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
               ),
 
               const SizedBox(height: 50),
 
-                // --- Social Login Divider ---
-                Row(
-                  children: [
-                    Expanded(child: Divider(color: Colors.grey.shade800)),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text(
-                        "Or continue with",
-                        style: TextStyle(color: Colors.grey.shade600),
-                      ),
+              // --- Social Login Divider ---
+              Row(
+                children: [
+                  Expanded(child: Divider(color: Colors.grey.shade800)),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Text(
+                      "Or continue with",
+                      style: TextStyle(color: Colors.grey.shade600),
                     ),
-                    Expanded(child: Divider(color: Colors.grey.shade800)),
-                  ],
-                ),
+                  ),
+                  Expanded(child: Divider(color: Colors.grey.shade800)),
+                ],
+              ),
 
-                const SizedBox(height: 30),
+              const SizedBox(height: 30),
 
-                // Social Buttons
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    _buildSocialButton(Icons.g_mobiledata, size: 40), 
-                    const SizedBox(width: 20),
-                    _buildSocialButton(Icons.apple, size: 30),
-                    const SizedBox(width: 20),
-                    _buildSocialButton(Icons.facebook, size: 30),
-                  ],
-                ),
+              // Social Buttons
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _buildSocialButton(Icons.g_mobiledata, size: 40),
+                  const SizedBox(width: 20),
+                  _buildSocialButton(Icons.apple, size: 30),
+                  const SizedBox(width: 20),
+                  _buildSocialButton(Icons.facebook, size: 30),
+                ],
+              ),
               const SizedBox(height: 30),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -123,7 +131,12 @@ class SignUpPage extends StatelessWidget {
                   ),
                   TextButton(
                     onPressed: () {
-                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const LoginPage(),
+                        ),
+                      );
                     },
                     child: const Text(
                       "Login",
@@ -134,13 +147,14 @@ class SignUpPage extends StatelessWidget {
                     ),
                   ),
                 ],
-              )
+              ),
             ],
           ),
         ),
       ),
     );
   }
+
   Widget _buildInputField({
     required String hintText,
     required IconData icon,
@@ -148,7 +162,7 @@ class SignUpPage extends StatelessWidget {
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1E2746), 
+        color: const Color(0xFF1E2746),
         borderRadius: BorderRadius.circular(30),
       ),
       child: TextField(
@@ -159,11 +173,15 @@ class SignUpPage extends StatelessWidget {
           hintStyle: TextStyle(color: Colors.grey.shade500),
           prefixIcon: Icon(icon, color: Colors.grey.shade500),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
+          contentPadding: const EdgeInsets.symmetric(
+            vertical: 18,
+            horizontal: 20,
+          ),
         ),
       ),
     );
   }
+
   //  Widget for Social Buttons
   Widget _buildSocialButton(IconData icon, {double size = 30}) {
     return Container(
