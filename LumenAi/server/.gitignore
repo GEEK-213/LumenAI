@@ -1,8 +1,2 @@
-.env
-.env.local
-
-server/.env
-server/.env.local
-
 # Created by venv; see https://docs.python.org/3/library/venv.html
 *
