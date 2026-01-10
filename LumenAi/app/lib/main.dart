@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-// import 'pages/login.dart';
+import 'pages/login.dart';
 import 'pages/homePage.dart';
 
 void main() async {
@@ -24,7 +24,7 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFF080E22),
         primaryColor: const Color(0xFF1E88E5),
       ),
-      home: const HomePage(),
+      home: const LoginPage(),
     );
   }
 }
