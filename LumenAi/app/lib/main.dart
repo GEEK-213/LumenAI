@@ -1,3 +1,9 @@
+<<<<<<< HEAD
+=======
+import 'package:app/pages/account_page.dart';
+import 'package:app/pages/login.dart';
+import 'package:app/pages/splash_page.dart';
+>>>>>>> b7afa2d4d215c06b389ab8d0721c0625938e24ee
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 // import 'pages/login.dart';
@@ -8,11 +14,13 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
   await Supabase.initialize(
-    url: 'https://knonzasojytvmxhkchvg.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtub256YXNvanl0dm14aGtjaHZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NTU4NTIsImV4cCI6MjA4MjIzMTg1Mn0.WnxSictcwfY-1xBH8pHGVczR2BO_ArddpQpR4yCgc-I',
+    url: 'https://yydgvgxczxecfslbrdtj.supabase.co',
+    anonKey: 'sb_publishable_dCLTLfWXSK3f-WL2DxpDzA_M4ZlH4cb',
   );
   runApp(const MyApp());
 }
+
+final supabase = Supabase.instance.client;
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -25,7 +33,17 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFF080E22),
         primaryColor: const Color(0xFF1E88E5),
       ),
+<<<<<<< HEAD
       home: const HomePage(),
+=======
+      // home: const LoginPage(),
+      initialRoute: '/',
+      routes: {
+        '/' : (context) => const SplashPage(),
+        '/login': (context) => const LoginPage(),
+        'account': (context) => const AccountPage(),
+      },
+>>>>>>> b7afa2d4d215c06b389ab8d0721c0625938e24ee
     );
   }
 }
