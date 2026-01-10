@@ -1,3 +1,5 @@
+import 'package:app/components/card.dart';
+import 'package:app/pages/recorder.dart';
 import 'package:flutter/material.dart';
 
 class HomePage extends StatefulWidget {
@@ -116,7 +118,12 @@ class _HomePageState extends State<HomePage> {
 
       //floating action button
       floatingActionButton: FloatingActionButton(
-        onPressed: () {},
+        onPressed: () {
+          Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const FlashCardPage()),
+                  );
+        },
         backgroundColor: const Color.fromARGB(255, 77, 158, 220),
         child: const Icon(Icons.mic),
       ),
