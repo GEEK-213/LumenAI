@@ -1,8 +1,61 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'login.dart';
 
-class SignUpPage extends StatelessWidget {
+class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
+
+  @override
+  State<SignUpPage> createState() => _SignUpPageState();
+}
+
+class _SignUpPageState extends State<SignUpPage> {
+  final nameController = TextEditingController();
+  final emailController = TextEditingController();
+  final passwordController = TextEditingController();
+
+  Future<void> signUpUser() async {
+  final supabase = Supabase.instance.client;
+
+  try {
+    final res = await supabase.auth.signUp(
+      email: emailController.text.trim(),
+      password: passwordController.text.trim(),
+      data: {
+        "full_name": nameController.text.trim(),
+      },
+    );
+
+    // DEBUG: print result
+    debugPrint("Signup response: ${res.user}");
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Signup successful. Please login.")),
+    );
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(builder: (_) => const LoginPage()),
+    );
+  } on AuthException catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Auth error: ${e.message}")),
+    );
+  } catch (e) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("Error: $e")),
+    );
+  }
+}
+
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    emailController.dispose();
+    passwordController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,23 +82,29 @@ class SignUpPage extends StatelessWidget {
                 style: TextStyle(fontSize: 20, color: Colors.grey.shade500),
               ),
               const SizedBox(height: 40),
-              //full name
+
               _buildInputField(
                 hintText: "Fill Name",
                 icon: Icons.person_outline,
+                controller: nameController,
               ),
               const SizedBox(height: 20),
-              //full name
+
               _buildInputField(
                 hintText: "Email or Phone",
                 icon: Icons.email_outlined,
+                controller: emailController,
               ),
               const SizedBox(height: 20),
-              //full name
-              _buildInputField(hintText: "Password", icon: Icons.lock_outline),
+
+              _buildInputField(
+                hintText: "Password",
+                icon: Icons.lock_outline,
+                controller: passwordController,
+                isPassword: true,
+              ),
               const SizedBox(height: 50),
 
-              //signup button
               Container(
                 width: double.infinity,
                 height: 55,
@@ -56,7 +115,6 @@ class SignUpPage extends StatelessWidget {
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
                   ),
-                  // --- START OF SHADOW CODE ---
                   boxShadow: [
                     BoxShadow(
                       color: const Color(0xFF448AFF).withOpacity(0.1),
@@ -73,7 +131,7 @@ class SignUpPage extends StatelessWidget {
                   ],
                 ),
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: signUpUser,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.transparent,
                     shape: RoundedRectangleBorder(
@@ -93,7 +151,6 @@ class SignUpPage extends StatelessWidget {
 
               const SizedBox(height: 50),
 
-              // --- Social Login Divider ---
               Row(
                 children: [
                   Expanded(child: Divider(color: Colors.grey.shade800)),
@@ -110,7 +167,6 @@ class SignUpPage extends StatelessWidget {
 
               const SizedBox(height: 30),
 
-              // Social Buttons
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -121,7 +177,9 @@ class SignUpPage extends StatelessWidget {
                   _buildSocialButton(Icons.facebook, size: 30),
                 ],
               ),
+
               const SizedBox(height: 30),
+
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -131,10 +189,10 @@ class SignUpPage extends StatelessWidget {
                   ),
                   TextButton(
                     onPressed: () {
-                      Navigator.push(
+                      Navigator.pushReplacement(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const LoginPage(),
+                          builder: (_) => const LoginPage(),
                         ),
                       );
                     },
@@ -158,6 +216,7 @@ class SignUpPage extends StatelessWidget {
   Widget _buildInputField({
     required String hintText,
     required IconData icon,
+    required TextEditingController controller,
     bool isPassword = false,
   }) {
     return Container(
@@ -166,6 +225,7 @@ class SignUpPage extends StatelessWidget {
         borderRadius: BorderRadius.circular(30),
       ),
       child: TextField(
+        controller: controller,
         obscureText: isPassword,
         style: const TextStyle(color: Colors.white),
         decoration: InputDecoration(
@@ -182,7 +242,6 @@ class SignUpPage extends StatelessWidget {
     );
   }
 
-  //  Widget for Social Buttons
   Widget _buildSocialButton(IconData icon, {double size = 30}) {
     return Container(
       height: 60,

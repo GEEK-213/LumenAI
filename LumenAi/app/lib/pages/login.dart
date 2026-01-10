@@ -3,7 +3,10 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:app/components/my_button.dart';
 import 'package:app/components/my_textfield.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'register.dart';
+import 'homePage.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -15,7 +18,6 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   bool _hidePassword = true;
 
-  //text editing controller
   final usernameController = TextEditingController();
   final passwordController = TextEditingController();
 
@@ -26,35 +28,59 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  //sign User In method
-  void signUserIn() {}
+  Future<void> signUserIn() async {
+    final supabase = Supabase.instance.client;
+
+    if (usernameController.text.isEmpty ||
+        passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please fill all fields")),
+      );
+      return;
+    }
+
+    try {
+      final res = await supabase.auth.signInWithPassword(
+        email: usernameController.text.trim(),
+        password: passwordController.text.trim(),
+      );
+
+      if (res.session != null) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const HomePage()),
+        );
+      }
+    } on AuthException catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message)),
+      );
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Something went wrong")),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // backgroundColor: Colors.grey[300],
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(height: 60),
+            const SizedBox(height: 60),
 
             Container(
-              padding: EdgeInsets.all(30),
-
-              //lets sign you in
-              child: Column(
+              padding: const EdgeInsets.all(30),
+              child: const Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-
-                children: const [
+                children: [
                   Text(
-                    r"Let's Sign you In.",
+                    "Let's Sign you In.",
                     style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold),
                   ),
-
                   SizedBox(height: 10),
-
-                  //welcome back you have been missed
                   Text(
                     "Welcome back. \nYou have been missed!",
                     style: TextStyle(fontSize: 26),
@@ -63,19 +89,17 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
 
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
 
-            //username text field
             MyTextfield(
               controller: usernameController,
-              hintText: "Username",
+              hintText: "Email",
               obscureText: false,
               prefixIcon: Icons.email,
             ),
 
-            SizedBox(height: 20),
+            const SizedBox(height: 20),
 
-            //password textfield
             MyTextfield(
               controller: passwordController,
               hintText: "Password",
@@ -93,61 +117,10 @@ class _LoginPageState extends State<LoginPage> {
               ),
             ),
 
-            SizedBox(height: 10),
+            const SizedBox(height: 30),
 
-            //forgot password
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 25.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(
-                    "Forgot Password?",
-                    style: TextStyle(color: Color(0xFF2B8CEE), fontSize: 15),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 30),
-
-            //signin button
             MyButton(onTap: signUserIn),
-            SizedBox(height: 50),
 
-            //continue with
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 25.0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Divider(thickness: 2, color: Colors.grey[400]),
-                  ),
-
-                  Text(
-                    "  Or continue with  ",
-                    style: TextStyle(color: Colors.grey[700], fontSize: 16),
-                  ),
-
-                  Expanded(
-                    child: Divider(thickness: 2, color: Colors.grey[400]),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 30),
-
-            //google,apple,facebook login
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                socialButtons(FontAwesomeIcons.google),
-                SizedBox(width: 10),
-                socialButtons(FontAwesomeIcons.apple),
-                SizedBox(width: 10),
-                socialButtons(FontAwesomeIcons.facebook),
-              ],
-            ),
-            //dont have account, register
             const Spacer(),
 
             Center(
@@ -155,20 +128,21 @@ class _LoginPageState extends State<LoginPage> {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const SignUpPage()),
+                    MaterialPageRoute(builder: (_) => const SignUpPage()),
                   );
                 },
                 child: RichText(
                   text: TextSpan(
-                    text: r"Don't have an account? ",
-
-                    style: GoogleFonts.inter(color: Colors.black, fontSize: 15),
+                    text: "Don't have an account? ",
+                    style: GoogleFonts.inter(
+                      color: Colors.white,
+                      fontSize: 15,
+                    ),
                     children: const [
                       TextSpan(
                         text: "Register",
                         style: TextStyle(
                           color: Color(0xFF2B8CEE),
-                          fontSize: 15,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -177,27 +151,10 @@ class _LoginPageState extends State<LoginPage> {
                 ),
               ),
             ),
+
             const SizedBox(height: 24),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget socialButtons(IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.all(8.0),
-      child: Container(
-        width: 56,
-        height: 56,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: Colors.black.withValues(alpha: .2),
-            width: 1,
-          ),
-        ),
-        child: Center(child: Icon(icon, size: 30)),
       ),
     );
   }
