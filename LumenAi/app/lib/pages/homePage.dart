@@ -1,6 +1,7 @@
 import 'package:app/components/card.dart';
 import 'package:app/pages/recorder.dart';
 import 'package:flutter/material.dart';
+import 'profilePage.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -33,12 +34,22 @@ class _HomePageState extends State<HomePage> {
             child: Stack(
               children: [
                 // 1. Profile Image
-                const CircleAvatar(
+                GestureDetector(
+                    onTap: () {
+                      // Navigate to your Home Page (DashboardShell)
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => const Profilepage()), 
+                      );
+                    },
+                child: const CircleAvatar(
                   radius: 25,
                   backgroundImage: NetworkImage(
                     'https://i.pravatar.cc/150?u=a042581f4e29026704d',
                   ), // Profile Pic
                 ),
+                ),
+
                 // 2. Online Status Dot
                 Positioned(
                   bottom: 0,
