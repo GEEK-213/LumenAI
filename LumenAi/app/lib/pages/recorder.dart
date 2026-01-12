@@ -36,7 +36,12 @@
     }
   }
   */
-  import 'package:app/components/audio_player.dart';
+  // import 'package:app/components/audio_player.dart';
+  import '../components/audio_player_ui.dart';
+import '../services/audio_service.dart';
+import 'dart:async';
+
+
 import 'package:app/components/bottom_controls.dart';
 import 'package:app/components/progress.dart';
 import 'package:flutter/material.dart';
@@ -53,8 +58,53 @@ class FlashCardPage extends StatefulWidget {
 class _FlashCardPageState extends State<FlashCardPage> {
   int currentIndex = 0;
   bool isFront = true;
-  bool isPlaying = false;
-  double audioProgress = 0.3;
+  // bool isPlaying = false;
+  // double audioProgress = 0.3;
+
+  bool isRecording = false;
+  String recordTime = "00:00";
+  Timer? _timer;
+  int _seconds = 0;
+  bool _isToggling = false;
+    @override
+    void initState() {
+      super.initState();
+      _audioService.init();
+    }
+
+
+  void _startTimer() {
+  _seconds = 0;
+  _timer?.cancel();
+  _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+    setState(() {
+      _seconds++;
+      recordTime = _formatTime(_seconds);
+    });
+  });
+}
+
+void _stopTimer() {
+  _timer?.cancel();
+}
+
+@override
+void dispose() {
+  _timer?.cancel();
+  _audioService.dispose();
+  super.dispose();
+}
+
+String _formatTime(int seconds) {
+  final m = (seconds ~/ 60).toString().padLeft(2, '0');
+  final s = (seconds % 60).toString().padLeft(2, '0');
+  return "$m:$s";
+}
+
+
+
+  final AudioService _audioService = AudioService();
+  String? currentRecordingPath;
 
   final List<MainCard> cards = [
     MainCard(term: "microchondria", definition: "powehouse of cell"),
@@ -109,11 +159,34 @@ class _FlashCardPageState extends State<FlashCardPage> {
               ),
 
 //audio controls
-              AudioPlayerUI(isPlaying: isPlaying, progress: audioProgress, onPlayPause: () {
-                setState(() {
-                  isPlaying = !isPlaying;
-                });
-              }),
+              // AudioPlayerUI(isPlaying: isPlaying, progress: audioProgress, onPlayPause: () {
+              //   setState(() {
+              //     isPlaying = !isPlaying;
+              //   });
+              // }),
+
+              AudioRecorderUI(
+  isRecording: isRecording,
+  time: recordTime,
+ onRecordTap: () async {
+  if (!_audioService.isRunning) {
+    final path = await _audioService.start();
+    _startTimer();
+    setState(() {
+      isRecording = true;
+      currentRecordingPath = path;
+    });
+  } else {
+    final path = await _audioService.stop();
+    _stopTimer();
+    setState(() {
+      isRecording = false;
+      currentRecordingPath = path;
+    });
+  }
+},
+),
+
 
               //bottom controls
               BottomControls(
