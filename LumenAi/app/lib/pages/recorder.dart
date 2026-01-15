@@ -65,7 +65,7 @@ class _FlashCardPageState extends State<FlashCardPage> {
   String recordTime = "00:00";
   Timer? _timer;
   int _seconds = 0;
-  bool _isToggling = false;
+  // bool _isToggling = false;
     @override
     void initState() {
       super.initState();
@@ -186,7 +186,6 @@ String _formatTime(int seconds) {
   }
 },
 ),
-
 
               //bottom controls
               BottomControls(

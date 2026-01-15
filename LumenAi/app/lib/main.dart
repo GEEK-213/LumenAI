@@ -30,7 +30,7 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFF080E22),
         primaryColor: const Color(0xFF1E88E5),
       ),
-      home: const HomePage(),
+      home: const LoginPage(),
       // initialRoute: '/',
       // routes: {
       //   '/' : (context) => const SplashPage(),

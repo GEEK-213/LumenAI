@@ -95,7 +95,7 @@ class _LoginPageState extends State<LoginPage> {
               controller: usernameController,
               hintText: "Email",
               obscureText: false,
-              prefixIcon: Icons.email,
+              prefixIcon: Icons.email_outlined,
             ),
 
             const SizedBox(height: 20),
@@ -104,10 +104,10 @@ class _LoginPageState extends State<LoginPage> {
               controller: passwordController,
               hintText: "Password",
               obscureText: _hidePassword,
-              prefixIcon: Icons.lock,
+              prefixIcon: Icons.lock_outline,
               suffixIcon: IconButton(
                 icon: Icon(
-                  _hidePassword ? Icons.visibility_off : Icons.visibility,
+                  _hidePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
                 ),
                 onPressed: () {
                   setState(() {
@@ -119,7 +119,10 @@ class _LoginPageState extends State<LoginPage> {
 
             const SizedBox(height: 30),
 
-            MyButton(onTap: signUserIn),
+            MyButton(
+              text: "Login",
+              onPressed: signUserIn,
+          ),
 
             const Spacer(),
 

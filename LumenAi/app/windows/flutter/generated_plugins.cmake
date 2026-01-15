@@ -6,7 +6,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   app_links
   flutter_sound
   permission_handler_windows
-  record_windows
   url_launcher_windows
 )
 

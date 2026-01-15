@@ -13,35 +13,35 @@ class MyTextfield extends StatelessWidget {
     required this.hintText,
     required this.obscureText,
     this.prefixIcon,
-    this.suffixIcon
+    this.suffixIcon,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 25),
-      child: TextField(
-        controller: controller,
-        obscureText: obscureText,
-        decoration: InputDecoration(
-          
-          prefixIcon: prefixIcon != null
-          ? Icon(prefixIcon, color: Colors.grey)
-          : null,
-
-          suffixIcon: suffixIcon,
-
-          enabledBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.blueGrey),
-            borderRadius: BorderRadius.circular(30)
+      padding: const EdgeInsets.symmetric(horizontal: 25),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E2746),
+          borderRadius: BorderRadius.circular(30),
+        ),
+        child: TextField(
+          controller: controller,
+          obscureText: obscureText,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            prefixIcon: prefixIcon != null
+                ? Icon(prefixIcon, color: Colors.grey)
+                : null,
+            suffixIcon: suffixIcon,
+            border: InputBorder.none,
+            hintText: hintText,
+            hintStyle: TextStyle(color: Colors.grey.shade500),
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 18,
+              horizontal: 20,
+            ),
           ),
-          focusedBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Colors.black),
-          ),
-          fillColor: Colors.grey.shade200,
-          filled: true,
-          hintText: hintText,
-          hintStyle: TextStyle(color: Colors.grey[700]),
         ),
       ),
     );
