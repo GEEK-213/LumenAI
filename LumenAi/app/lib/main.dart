@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 // import 'pages/login.dart';
 // import 'pages/register.dart';
-import 'pages/homePage.dart';
+// import 'pages/homePage.dart';
+import 'pages/profilePage.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,7 +31,7 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: const Color(0xFF080E22),
         primaryColor: const Color(0xFF1E88E5),
       ),
-      home: const LoginPage(),
+      home: const Profilepage(),
       // initialRoute: '/',
       // routes: {
       //   '/' : (context) => const SplashPage(),
