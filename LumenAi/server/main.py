@@ -1,30 +1,45 @@
-# from fastapi import FastAPI
-# from pydantic import BaseModel
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from engine.analyzer import LectureAnalyzer
+from dotenv import load_dotenv
+import shutil
+import os
+import json
 
-# app = FastAPI()
-
-# class UserCreate(BaseModel):
-#     name: str
-#     email: str
-#     password: str
-
-# @app.post('/signup')
-# def signup_user(user: UserCreate):
-#     #request data
-#     print(user.name)
-#     print(user.email)
-#     print(user.password)
-#     pass
-
-
-from fastapi import FastAPI
-from models.base import Base
-from routes import auth, song
-from database import engine
+# 1. Load environment variables
+load_dotenv()
 
 app = FastAPI()
+analyzer = LectureAnalyzer()
 
-app.include_router(auth.router, prefix='/auth')
-app.include_router(song.router, prefix='/song')
+@app.post("/lecture/analyze")
+async def analyze_lecture(file: UploadFile = File(...)):
+    # Validate file type
+    if not file.filename.endswith(".mp3"):
+        raise HTTPException(status_code=400, detail="Only MP3 files are supported.")
 
-Base.metadata.create_all(engine)
+    temp_path = f"temp_{file.filename}"
+    
+    try:
+        # Save the uploaded file locally
+        with open(temp_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        # Call your engine
+        analysis_json_str = await analyzer.analyze_audio(temp_path)
+        
+        # Clean and return JSON
+        clean_json = analysis_json_str.strip().replace("```json", "").replace("```", "")
+        return json.loads(clean_json)
+
+    except Exception as e:
+        print(f"Engine Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
+    finally:
+        # Cleanup
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
