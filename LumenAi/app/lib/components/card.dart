@@ -3,12 +3,9 @@ import 'package:flutter/material.dart';
 class Flashcard extends StatelessWidget {
   final String text;
   final bool isFront;
+  final bool hasAudio;
 
-  const Flashcard({
-    super.key,
-    required this.text,
-    required this.isFront,
-  });
+  const Flashcard({super.key, required this.text, required this.isFront, required this.hasAudio});
 
   @override
   Widget build(BuildContext context) {
@@ -32,12 +29,20 @@ class Flashcard extends StatelessWidget {
           children: [
             Text(
               isFront ? "TERM" : "DEFINITION",
-              style: const TextStyle(
-                color: Colors.white54,
-                letterSpacing: 1.2,
-              ),
+              style: const TextStyle(color: Colors.white54, letterSpacing: 1.2),
             ),
             const SizedBox(height: 12),
+
+            if (hasAudio) 
+              const Padding(
+                padding: EdgeInsets.only(bottom: 12),
+                child: Icon(
+                  Icons.mic,
+                  color: Colors.white,
+                  size: 28,
+                ),
+            ),
+
             Text(
               text,
               textAlign: TextAlign.center,
@@ -48,10 +53,7 @@ class Flashcard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 12),
-            const Text(
-              "Tap to flip",
-              style: TextStyle(color: Colors.white38),
-            ),
+            const Text("Tap to flip", style: TextStyle(color: Colors.white38)),
           ],
         ),
       ),

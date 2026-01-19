@@ -1,5 +1,4 @@
-
-  /*
+/*
   //  SUPABASE UPLOAD LOGIC ---
   Future<void> _uploadToSupabase() async {
     if (_recordedFilePath == null) return;
@@ -36,11 +35,10 @@
     }
   }
   */
-  // import 'package:app/components/audio_player.dart';
-  import '../components/audio_player_ui.dart';
+// import 'package:app/components/audio_player.dart';
+import '../components/audio_player_ui.dart';
 import '../services/audio_service.dart';
 import 'dart:async';
-
 
 import 'package:app/components/bottom_controls.dart';
 import 'package:app/components/progress.dart';
@@ -66,42 +64,39 @@ class _FlashCardPageState extends State<FlashCardPage> {
   Timer? _timer;
   int _seconds = 0;
   // bool _isToggling = false;
-    @override
-    void initState() {
-      super.initState();
-      _audioService.init();
-    }
-
+  @override
+  void initState() {
+    super.initState();
+    _audioService.init();
+  }
 
   void _startTimer() {
-  _seconds = 0;
-  _timer?.cancel();
-  _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-    setState(() {
-      _seconds++;
-      recordTime = _formatTime(_seconds);
+    _seconds = 0;
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      setState(() {
+        _seconds++;
+        recordTime = _formatTime(_seconds);
+      });
     });
-  });
-}
+  }
 
-void _stopTimer() {
-  _timer?.cancel();
-}
+  void _stopTimer() {
+    _timer?.cancel();
+  }
 
-@override
-void dispose() {
-  _timer?.cancel();
-  _audioService.dispose();
-  super.dispose();
-}
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _audioService.dispose();
+    super.dispose();
+  }
 
-String _formatTime(int seconds) {
-  final m = (seconds ~/ 60).toString().padLeft(2, '0');
-  final s = (seconds % 60).toString().padLeft(2, '0');
-  return "$m:$s";
-}
-
-
+  String _formatTime(int seconds) {
+    final m = (seconds ~/ 60).toString().padLeft(2, '0');
+    final s = (seconds % 60).toString().padLeft(2, '0');
+    return "$m:$s";
+  }
 
   final AudioService _audioService = AudioService();
   String? currentRecordingPath;
@@ -152,40 +147,41 @@ String _formatTime(int seconds) {
                             ? currentCard.term
                             : currentCard.definition,
                         isFront: isFront,
+                        hasAudio : currentCard.audioPath != null,
                       ),
                     ),
                   ),
                 ),
               ),
 
-//audio controls
+              //audio controls
               // AudioPlayerUI(isPlaying: isPlaying, progress: audioProgress, onPlayPause: () {
               //   setState(() {
               //     isPlaying = !isPlaying;
               //   });
               // }),
-
               AudioRecorderUI(
-  isRecording: isRecording,
-  time: recordTime,
- onRecordTap: () async {
-  if (!_audioService.isRunning) {
-    final path = await _audioService.start();
-    _startTimer();
-    setState(() {
-      isRecording = true;
-      currentRecordingPath = path;
-    });
-  } else {
-    final path = await _audioService.stop();
-    _stopTimer();
-    setState(() {
-      isRecording = false;
-      currentRecordingPath = path;
-    });
-  }
-},
-),
+                isRecording: isRecording,
+                time: recordTime,
+                onRecordTap: () async {
+                  if (!_audioService.isRunning) {
+                    final path = await _audioService.start();
+                    _startTimer();
+                    setState(() {
+                      isRecording = true;
+                      currentRecordingPath = path;
+                    });
+                  } else {
+                    final path = await _audioService.stop();
+                    _stopTimer();
+                    setState(() {
+                      isRecording = false;
+                      currentRecordingPath = path;
+                      cards[currentIndex].audioPath = path;
+                    });
+                  }
+                },
+              ),
 
               //bottom controls
               BottomControls(

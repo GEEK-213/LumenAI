@@ -1,9 +1,7 @@
 class MainCard {
-  final String term;
-  final String definition;
+  String term;
+  String definition;
+  String? audioPath;
 
-  MainCard({
-    required this.term,
-    required this.definition,
-  });
+  MainCard({required this.term, required this.definition, this.audioPath});
 }
