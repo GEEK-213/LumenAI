@@ -85,9 +85,18 @@ class Profilepage extends StatelessWidget {
 
             const SizedBox(height: 25),
             //interests
+
             //settings
+            _buildSectionHeader("Settings"),
+            const SizedBox(height: 10),
+            _buildSettingsTile(Icons.person, "Account Details"),
+            _buildSettingsTile(Icons.notifications, "Notifications",),
+            _buildSettingsTile(Icons.tune, "AI Preferences"),
+            _buildSettingsTile(Icons.lock, "Privacy & Security"),
+            _buildSettingsTile(Icons.help_outline, "Help & Support"),
+
+            const SizedBox(height: 25),
             // logout
-            // 5. Logout Button
             Container(
               width: double.infinity,
               height: 55,
@@ -325,3 +334,37 @@ Widget _buildWideStatCard() {
     );
   }
 }
+
+Widget _buildSettingsTile(IconData icon, String title, {int badgeCount = 0}) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF101628),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: ListTile(
+        leading: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A2235),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, color: Colors.blueAccent, size: 18),
+        ),
+        title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 14)),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (badgeCount > 0)
+              Container(
+                margin: const EdgeInsets.only(right: 8),
+                padding: const EdgeInsets.all(6),
+                decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                child: Text(badgeCount.toString(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+              ),
+            Icon(Icons.chevron_right, color: Colors.grey.shade600, size: 20),
+          ],
+        ),
+      ),
+    );
+  }
