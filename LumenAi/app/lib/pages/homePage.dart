@@ -111,7 +111,7 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
 
-      // 2. The Body (Empty State)
+      //  The Body 
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
@@ -124,6 +124,10 @@ class _HomePageState extends State<HomePage> {
 
               //stats bar
               _buildStatsRow(),
+              const SizedBox(height: 24),
+
+               // Subjects Section
+              _buildSubjectsSection(),
               const SizedBox(height: 24),
 
               //recenet lectures
@@ -179,12 +183,12 @@ class _HomePageState extends State<HomePage> {
 Widget _buildSearchBar() {
   return Container(
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: const Color.fromARGB(255, 29, 28, 28),
       borderRadius: BorderRadius.circular(30),
     ),
     child: const TextField(
       decoration: InputDecoration(
-        hintText: "cyber security",
+        hintText: "cyber security...",
         prefixIcon: null,
         border: InputBorder.none,
         contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
@@ -297,6 +301,59 @@ Widget _buildRecentLecturesSection() {
     ],
   );
 }
+
+Widget _buildSubjectsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              "Subjects",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            TextButton(
+              onPressed: () {},
+              child: const Text("View all"),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _buildSubjectChip("All", isActive: true),
+              const SizedBox(width: 12),
+              _buildSubjectChip("Biology"),
+              const SizedBox(width: 12),
+              _buildSubjectChip("History"),
+              const SizedBox(width: 12),
+              _buildSubjectChip("Calculus"),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSubjectChip(String label, {bool isActive = false}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+      decoration: BoxDecoration(
+        color: isActive ? const Color(0xFF1E88E5) : const Color(0xFF1A2036),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: isActive ? Colors.white : Colors.grey[400],
+          fontWeight: FontWeight.w500,
+        ),
+      ),
+    );
+  }
 
 Widget _buildLectureCard({
   required IconData icon,
