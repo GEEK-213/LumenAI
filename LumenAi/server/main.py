@@ -1,45 +1,79 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from engine.analyzer import LectureAnalyzer
-from dotenv import load_dotenv
-import shutil
 import os
 import json
+import asyncio
+import re
+from app.engine.analyzer import LectureAnalyzer
+from dotenv import load_dotenv
 
-# 1. Load environment variables
 load_dotenv()
 
-app = FastAPI()
-analyzer = LectureAnalyzer()
+ASSETS_DIR = "tests/assets"
+RESULTS_DIR = "processed_results"
+TRACKER_FILE = "processed_files.json"
 
-@app.post("/lecture/analyze")
-async def analyze_lecture(file: UploadFile = File(...)):
-    # Validate file type
-    if not file.filename.endswith(".mp3"):
-        raise HTTPException(status_code=400, detail="Only MP3 files are supported.")
+os.makedirs(RESULTS_DIR, exist_ok=True)
 
-    temp_path = f"temp_{file.filename}"
+def sanitize_filename(filename):
+    # Removes emojis and special characters that cause ASCII errors
+    return re.sub(r'[^\x00-\x7f]', r'', filename).strip()
+
+def get_processed_list():
+    if os.path.exists(TRACKER_FILE):
+        with open(TRACKER_FILE, "r") as f:
+            try: return json.load(f)
+            except: return []
+    return []
+
+def save_processed_file(filename):
+    processed = get_processed_list()
+    if filename not in processed:
+        processed.append(filename)
+        with open(TRACKER_FILE, "w") as f:
+            json.dump(processed, f, indent=4)
+
+async def start_interactive_analysis():
+    analyzer = LectureAnalyzer()
     
-    try:
-        # Save the uploaded file locally
-        with open(temp_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
+    # RENAME FILES WITH EMOJIS BEFORE LISTING
+    for f in os.listdir(ASSETS_DIR):
+        clean_name = sanitize_filename(f)
+        if clean_name != f:
+            os.rename(os.path.join(ASSETS_DIR, f), os.path.join(ASSETS_DIR, clean_name))
 
-        # Call your engine
-        analysis_json_str = await analyzer.analyze_audio(temp_path)
+    processed = get_processed_list()
+    valid_exts = ('.mp3', '.pdf', '.pptx', '.docx', '.xlsx', ".wav", ".mp4", ".mov")
+    all_files = [f for f in os.listdir(ASSETS_DIR) if f.lower().endswith(valid_exts)]
+    new_files = [f for f in all_files if f not in processed]
+
+    if not new_files:
+        print("\n✨ Assets already analyzed!")
+        return
+
+    print("\n--- LUMEN AI: Pending Files ---")
+    for i, file in enumerate(new_files):
+        print(f"[{i}] {file}")
+
+    choice = input("\nEnter choice (number or 'all'): ")
+    to_process = new_files if choice.lower() == 'all' else [new_files[int(x.strip())] for x in choice.split(",")]
+
+    for file_name in to_process:
+        print(f"\n🚀 Processing: {file_name}")
+        file_path = os.path.join(ASSETS_DIR, file_name)
         
-        # Clean and return JSON
-        clean_json = analysis_json_str.strip().replace("```json", "").replace("```", "")
-        return json.loads(clean_json)
-
-    except Exception as e:
-        print(f"Engine Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-    
-    finally:
-        # Cleanup
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
+        try:
+            result_raw = await analyzer.analyze_multimodal([file_path])
+            if result_raw:
+                result_data = json.loads(result_raw.strip().replace("```json", "").replace("```", ""))
+                output_name = f"{os.path.splitext(file_name)[0]}_result.json"
+                output_path = os.path.join(RESULTS_DIR, output_name)
+                with open(output_path, "w") as f:
+                    json.dump(result_data, f, indent=4)
+                save_processed_file(file_name)
+                print(f"✅ Success! Data saved to: {output_path}")
+            else:
+                print(f"❌ Failed to get response.")
+        except Exception as e:
+            print(f"❌ Fatal Error: {e}")
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    asyncio.run(start_interactive_analysis())
