@@ -36,18 +36,16 @@
   }
   */
 // import 'package:app/components/audio_player.dart';
-import 'package:app/services/audio_player_service.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-
-import '../components/audio_player_ui.dart';
-import '../services/audio_service.dart';
 import 'dart:async';
-
-import 'package:app/components/progress.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; //newly added- for small sound when card swipes
+import 'package:flutter/services.dart';
+
 import '../models/flashcard.dart';
 import '../components/card.dart';
+import '../components/audio_player_ui.dart';
+import '../components/progress.dart';
+import '../services/audio_service.dart';
+import '../services/audio_player_service.dart';
 
 class FlashCardPage extends StatefulWidget {
   const FlashCardPage({super.key});
@@ -72,8 +70,8 @@ class _FlashCardPageState extends State<FlashCardPage> {
   String recordTime = "00:00";
 
   final List<MainCard> cards = [
-    MainCard(term: "microchondria", definition: "powerhouse of cell"),
-    MainCard(term: "nucleus", definition: "controls cell activities"),
+    MainCard(term: "Mitochondria", definition: "Powerhouse of the cell"),
+    MainCard(term: "Nucleus", definition: "Controls cell activities"),
   ];
 
   @override
@@ -92,8 +90,10 @@ class _FlashCardPageState extends State<FlashCardPage> {
   }
 
   void _startTimer() {
-    _seconds = 0;
     _timer?.cancel();
+    _seconds = 0;
+    recordTime = "00:00";
+
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       setState(() {
         _seconds++;
@@ -106,35 +106,43 @@ class _FlashCardPageState extends State<FlashCardPage> {
     _timer?.cancel();
   }
 
+  void _resetRecording(MainCard card) {
+    _timer?.cancel();
+    setState(() {
+      _seconds = 0;
+      recordTime = "00:00";
+      isRecording = false;
+      card.audioPath = null;
+    });
+  }
+
   String _formatTime(int seconds) {
     final m = (seconds ~/ 60).toString().padLeft(2, '0');
     final s = (seconds % 60).toString().padLeft(2, '0');
     return "$m:$s";
   }
 
-  Widget swipeTransition(Widget child, Animation<double> animation) {
+  Widget _swipeTransition(Widget child, Animation<double> animation) {
     final tween = Tween<Offset>(
       begin: Offset(swipeDirection.toDouble(), 0),
       end: Offset.zero,
     ).chain(CurveTween(curve: Curves.easeOut));
 
-    return SlideTransition(
-      position: animation.drive(tween),
-      child: child,
-    );
+    return SlideTransition(position: animation.drive(tween), child: child);
   }
 
-  Widget flipTransition(Widget child, Animation<double> animation) {
-    final flipAnim = Tween<double>(begin: -1, end: 1).animate(animation);
+  Widget _flipTransition(Widget child, Animation<double> animation) {
+    final rotate = Tween<double>(begin: 3.1416, end: 0).animate(animation);
 
     return AnimatedBuilder(
-      animation: flipAnim,
+      animation: rotate,
       child: child,
       builder: (context, child) {
-        final scaleX = flipAnim.value.abs();
         return Transform(
           alignment: Alignment.center,
-          transform: Matrix4.identity()..scale(scaleX, 1.0),
+          transform: Matrix4.identity()
+            ..setEntry(3, 2, 0.001)
+            ..rotateY(rotate.value),
           child: child,
         );
       },
@@ -165,84 +173,113 @@ class _FlashCardPageState extends State<FlashCardPage> {
               ProgressBar(current: currentIndex, total: cards.length),
 
               Expanded(
-                child: Center(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
 
-                    onTap: () {
-                      if (isPlayingAudio) return;
-                      setState(() => isFront = !isFront);
-                    },
+                  onTap: () {
+                    if (isPlayingAudio) return;
+                    setState(() => isFront = !isFront);
+                  },
 
-                    onHorizontalDragEnd: (details) {
-                      if (isRecording || isPlayingAudio) return;
+                  onHorizontalDragEnd: (details) {
+                    if (isRecording || isPlayingAudio) return;
 
-                      final velocity = details.primaryVelocity ?? 0;
-                      if (velocity.abs() < 300) return;
+                    final v = details.primaryVelocity ?? 0;
+                    if (v.abs() < 300) return;
 
-                      if (velocity < 0 && currentIndex < cards.length - 1) {
-                        setState(() {
-                          swipeDirection = 1;
-                          currentIndex++;
-                          isFront = true;
-                        });
-                      } else if (velocity > 0 && currentIndex > 0) {
-                        setState(() {
-                          swipeDirection = -1;
-                          currentIndex--;
-                          isFront = true;
-                        });
+                    setState(() {
+                      if (v < 0 && currentIndex < cards.length - 1) {
+                        swipeDirection = 1;
+                        currentIndex++;
+                        isFront = true;
+                      } else if (v > 0 && currentIndex > 0) {
+                        swipeDirection = -1;
+                        currentIndex--;
+                        isFront = true;
                       }
+                    });
 
-                      HapticFeedback.selectionClick();
-                    },
+                    HapticFeedback.selectionClick();
+                  },
 
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 280),
+                    transitionBuilder: _swipeTransition,
                     child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 280),
-                      transitionBuilder: swipeTransition,
-                      child: AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 300),
-                        transitionBuilder: flipTransition,
-                        child: Flashcard(
-                          key: ValueKey(isFront),
-                          text: isFront
-                              ? currentCard.term
-                              : currentCard.definition,
-                          isFront: isFront,
-                          hasAudio: currentCard.audioPath != null,
-                          isPlaying: isPlayingAudio,
-                          onPlay: () async {
-                            final path = currentCard.audioPath;
-                            if (path == null) return;
+                      duration: const Duration(milliseconds: 350),
+                      transitionBuilder: _flipTransition,
+                      child: Flashcard(
+                        key: ValueKey(isFront),
+                        text: isFront
+                            ? currentCard.term
+                            : currentCard.definition,
+                        isFront: isFront,
+                        hasAudio: currentCard.audioPath != null,
+                        isPlaying: isPlayingAudio,
+                        onPlay: () async {
+                          final path = currentCard.audioPath;
+                          if (path == null) return;
 
-                            setState(() => isPlayingAudio = true);
-                            await _playerService.play(path);
-                            setState(() => isPlayingAudio = false);
-                          },
-                        ),
+                          setState(() => isPlayingAudio = true);
+                          await _playerService.play(path);
+                          setState(() => isPlayingAudio = false);
+                        },
                       ),
                     ),
                   ),
                 ),
               ),
 
-              AudioRecorderUI(
-                isRecording: isRecording,
-                time: recordTime,
-                onRecordTap: () async {
-                  if (!_audioService.isRunning) {
-                    final path = await _audioService.start();
-                    _startTimer();
-                    setState(() {
-                      isRecording = true;
-                      currentCard.audioPath = path;
-                    });
-                  } else {
-                    await _audioService.stop();
-                    _stopTimer();
-                    setState(() => isRecording = false);
-                  }
-                },
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                child: AudioRecorderUI(
+                  isRecording: isRecording,
+                  time: recordTime,
+                  hasAudio: currentCard.audioPath != null,
+                  onRecordTap: () async {
+                    if (!_audioService.isRunning) {
+                      await _audioService.start(); 
+                      _startTimer();
+                      setState(() {
+                        isRecording = true;
+                      });
+                    } else {
+                      final path = await _audioService.stop();
+                      _stopTimer();
+                      setState(() {
+                        isRecording = false;
+                        currentCard.audioPath = path;
+                      });
+                    }
+                  },
+                  onReset: () {
+                    showDialog(
+                      context: context,
+                      builder: (_) => AlertDialog(
+                        title: const Text("Reset recording?"),
+                        content: const Text(
+                          "This will delete the recorded audio for this card.",
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text("Cancel"),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              _resetRecording(currentCard);
+                              Navigator.pop(context);
+                            },
+                            child: const Text(
+                              "Reset",
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
               ),
             ],
           ),
