@@ -59,8 +59,12 @@ class _FlashCardPageState extends State<FlashCardPage> {
   bool isFront = true;
   int swipeDirection = 1;
 
+  int? recordingCardIndex;
+
   bool isRecording = false;
   bool isPlayingAudio = false;
+
+  Offset cardOffset = Offset.zero;
 
   final AudioService _audioService = AudioService();
   final AudioPlayerService _playerService = AudioPlayerService();
@@ -112,7 +116,7 @@ class _FlashCardPageState extends State<FlashCardPage> {
       _seconds = 0;
       recordTime = "00:00";
       isRecording = false;
-      card.audioPath = null;
+      // card.audioPath = null;
     });
   }
 
@@ -120,15 +124,6 @@ class _FlashCardPageState extends State<FlashCardPage> {
     final m = (seconds ~/ 60).toString().padLeft(2, '0');
     final s = (seconds % 60).toString().padLeft(2, '0');
     return "$m:$s";
-  }
-
-  Widget _swipeTransition(Widget child, Animation<double> animation) {
-    final tween = Tween<Offset>(
-      begin: Offset(swipeDirection.toDouble(), 0),
-      end: Offset.zero,
-    ).chain(CurveTween(curve: Curves.easeOut));
-
-    return SlideTransition(position: animation.drive(tween), child: child);
   }
 
   Widget _flipTransition(Widget child, Animation<double> animation) {
@@ -159,11 +154,7 @@ class _FlashCardPageState extends State<FlashCardPage> {
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF0F2027),
-              Color(0xFF203A43),
-              Color(0xFF2C5364),
-            ],
+            colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
           ),
         ),
         child: SafeArea(
@@ -187,24 +178,40 @@ class _FlashCardPageState extends State<FlashCardPage> {
                     final v = details.primaryVelocity ?? 0;
                     if (v.abs() < 300) return;
 
-                    setState(() {
-                      if (v < 0 && currentIndex < cards.length - 1) {
-                        swipeDirection = 1;
-                        currentIndex++;
-                        isFront = true;
-                      } else if (v > 0 && currentIndex > 0) {
-                        swipeDirection = -1;
-                        currentIndex--;
-                        isFront = true;
-                      }
-                    });
+                    if (v < 0 && currentIndex < cards.length - 1) {
+                      setState(() => cardOffset = const Offset(-1, 0));
+
+                      Future.delayed(const Duration(milliseconds: 220), () {
+                        setState(() {
+                          
+                          _resetRecording(currentCard);
+                          currentIndex++;
+                          isFront = true;
+                          cardOffset = Offset.zero;
+                        });
+                      });
+                    }
+
+                    if (v > 0 && currentIndex > 0) {
+                      setState(() => cardOffset = const Offset(1, 0));
+
+                      Future.delayed(const Duration(milliseconds: 220), () {
+                        setState(() {
+                          _resetRecording(currentCard);
+                          currentIndex--;
+                          isFront = true;
+                          cardOffset = Offset.zero;
+                        });
+                      });
+                    }
 
                     HapticFeedback.selectionClick();
                   },
 
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 280),
-                    transitionBuilder: _swipeTransition,
+                  child: AnimatedSlide(
+                    offset: cardOffset,
+                    duration: const Duration(milliseconds: 220),
+                    curve: Curves.easeOut,
                     child: AnimatedSwitcher(
                       duration: const Duration(milliseconds: 350),
                       transitionBuilder: _flipTransition,
@@ -238,17 +245,27 @@ class _FlashCardPageState extends State<FlashCardPage> {
                   hasAudio: currentCard.audioPath != null,
                   onRecordTap: () async {
                     if (!_audioService.isRunning) {
-                      await _audioService.start(); 
+                      await _audioService.start();
+
                       _startTimer();
+
                       setState(() {
                         isRecording = true;
+                        recordingCardIndex = currentIndex;
                       });
+                      await _audioService.start();
                     } else {
                       final path = await _audioService.stop();
+
                       _stopTimer();
+
                       setState(() {
                         isRecording = false;
-                        currentCard.audioPath = path;
+                        if (recordingCardIndex != null) {
+                          cards[recordingCardIndex!].audioPath = path;
+                        }
+
+                        recordingCardIndex = null;
                       });
                     }
                   },
