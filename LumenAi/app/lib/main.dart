@@ -28,8 +28,11 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF080E22),
+        scaffoldBackgroundColor: const Color(0xFF0C1223),
         primaryColor: const Color(0xFF1E88E5),
+        colorScheme: const ColorScheme.dark(
+           secondary: Color(0xFF1E88E5),
+         ),
       ),
       home: const Profilepage(),
       // initialRoute: '/',

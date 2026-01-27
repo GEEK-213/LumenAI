@@ -3,6 +3,27 @@ import 'package:app/pages/recorder.dart';
 import 'package:flutter/material.dart';
 import 'profilePage.dart';
 
+//  class to hold Lecture Data
+class LectureData {
+  final String title;
+  final String subject; // filtering
+  final String time;
+  final IconData icon;
+  final Color iconBgColor;
+  final String? badgeText;
+  final Color? badgeColor;
+
+  LectureData({
+    required this.title,
+    required this.subject,
+    required this.time,
+    required this.icon,
+    required this.iconBgColor,
+    this.badgeText,
+    this.badgeColor,
+  });
+}
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -10,8 +31,57 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
+//WIDGETS
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
+  //  variable to track the currently selected subject
+  String _selectedSubject = "All";
+
+  // 4. Define your data list here
+  final List<LectureData> _allLectures = [
+    LectureData(
+      title: "Intro to Molecular Biology",
+      subject: "Biology",
+      time: "45 mins • Today",
+      icon: Icons.science,
+      iconBgColor: Colors.purple[300]!,
+      badgeText: "PROCESSED",
+      badgeColor: Colors.green[700]!,
+    ),
+    LectureData(
+      title: "European History: 1800s",
+      subject: "History",
+      time: "1hr 10m • Yesterday",
+      icon: Icons.history_edu,
+      iconBgColor: Colors.orange[300]!,
+      badgeText: "REVIEW",
+      badgeColor: Colors.blue[700]!,
+    ),
+    LectureData(
+      title: "Linear Algebra 101",
+      subject: "Calculus", // Grouping Math under Calculus for this example
+      time: "55 mins • Oct 24",
+      icon: Icons.functions,
+      iconBgColor: Colors.teal[300]!,
+    ),
+    LectureData(
+      title: "Python Data Structures",
+      subject: "Computer Science",
+      time: "1hr 20m • Oct 22",
+      icon: Icons.code,
+      iconBgColor: Colors.pink[300]!,
+    ),
+  ];
+
+  //  Helper function to get the list to display based on selection
+  List<LectureData> get _filteredLectures {
+    if (_selectedSubject == "All") {
+      return _allLectures;
+    }
+    return _allLectures
+        .where((lecture) => lecture.subject == _selectedSubject)
+        .toList();
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -111,7 +181,7 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
 
-      //  The Body 
+      //  The Body
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
@@ -126,7 +196,7 @@ class _HomePageState extends State<HomePage> {
               _buildStatsRow(),
               const SizedBox(height: 24),
 
-               // Subjects Section
+              // Subjects Section
               _buildSubjectsSection(),
               const SizedBox(height: 24),
 
@@ -177,132 +247,104 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-}
-//WIDGETS
 
-Widget _buildSearchBar() {
-  return Container(
-    decoration: BoxDecoration(
-      color: const Color.fromARGB(255, 29, 28, 28),
-      borderRadius: BorderRadius.circular(30),
-    ),
-    child: const TextField(
-      decoration: InputDecoration(
-        hintText: "cyber security...",
-        prefixIcon: null,
-        border: InputBorder.none,
-        contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+  Widget _buildSearchBar() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color.fromARGB(255, 29, 28, 28),
+        borderRadius: BorderRadius.circular(30),
       ),
-    ),
-  );
-}
-
-Widget _buildStatsRow() {
-  return Row(
-    children: [
-      Expanded(
-        child: _buildStatsCard(
-          title: "Study Streak",
-          count: "5",
-          unit: "days",
-          icon: Icons.local_fire_department,
-          iconColor: Colors.blue,
+      child: const TextField(
+        decoration: InputDecoration(
+          hintText: "cyber security...",
+          prefixIcon: null,
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
         ),
       ),
-      const SizedBox(width: 16),
-      Expanded(
-        child: _buildStatsCard(
-          title: "Tasks Due",
-          count: "3",
-          unit: "pending",
-          icon: Icons.assignment_turned_in,
-          iconColor: Colors.purple,
-        ),
-      ),
-    ],
-  );
-}
+    );
+  }
 
-Widget _buildStatsCard({
-  required String title,
-  required String count,
-  required String unit,
-  required IconData icon,
-  required Color iconColor,
-}) {
-  return Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: const Color(0xFF1A2036),
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Row(
+  Widget _buildStatsRow() {
+    return Row(
       children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: TextStyle(color: Colors.grey[400], fontSize: 14),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(
-                  count,
-                  style: const TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  unit,
-                  style: TextStyle(color: Colors.grey[400], fontSize: 14),
-                ),
-              ],
-            ),
-          ],
+        Expanded(
+          child: _buildStatsCard(
+            title: "Study Streak",
+            count: "5",
+            unit: "days",
+            icon: Icons.local_fire_department,
+            iconColor: Colors.blue,
+          ),
         ),
-        const Spacer(),
-        Icon(icon, size: 40, color: iconColor),
+        const SizedBox(width: 16),
+        Expanded(
+          child: _buildStatsCard(
+            title: "Tasks Due",
+            count: "3",
+            unit: "pending",
+            icon: Icons.assignment_turned_in,
+            iconColor: Colors.purple,
+          ),
+        ),
       ],
-    ),
-  );
-}
+    );
+  }
 
-Widget _buildRecentLecturesSection() {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      const Text(
-        "Recent Lectures",
-        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+  Widget _buildStatsCard({
+    required String title,
+    required String count,
+    required String unit,
+    required IconData icon,
+    required Color iconColor,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A2036),
+        borderRadius: BorderRadius.circular(20),
       ),
-      const SizedBox(height: 16),
-      _buildLectureCard(
-        icon: Icons.code,
-        iconBgColor: Colors.purple[300]!,
-        title: "Intro to python",
-        time: "60 mins • Today",
-        badgeText: "PROCESSED",
-        badgeColor: Colors.green[700]!,
+      child: Row(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(color: Colors.grey[400], fontSize: 14),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.baseline,
+                textBaseline: TextBaseline.alphabetic,
+                children: [
+                  Text(
+                    count,
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    unit,
+                    style: TextStyle(color: Colors.grey[400], fontSize: 14),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const Spacer(),
+          Icon(icon, size: 40, color: iconColor),
+        ],
       ),
-      _buildLectureCard(
-        icon: Icons.code,
-        iconBgColor: Colors.pink[300]!,
-        title: " Data Structures in C",
-        time: "1hr 40m • Oct 25",
-        badgeText: "PREVIEW",
-        badgeColor: const Color.fromARGB(255, 12, 80, 198),
-      ),
-    ],
-  );
-}
+    );
+  }
 
-Widget _buildSubjectsSection() {
+  Widget _buildSubjectsSection() {
+    // List of subjects to display as chips
+    final subjects = ["All", "Biology", "History", "Calculus"];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -313,25 +355,25 @@ Widget _buildSubjectsSection() {
               "Subjects",
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            TextButton(
-              onPressed: () {},
-              child: const Text("View all"),
-            ),
+            TextButton(onPressed: () {}, child: const Text("View all")),
           ],
         ),
         const SizedBox(height: 12),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
-            children: [
-              _buildSubjectChip("All", isActive: true),
-              const SizedBox(width: 12),
-              _buildSubjectChip("Biology"),
-              const SizedBox(width: 12),
-              _buildSubjectChip("History"),
-              const SizedBox(width: 12),
-              _buildSubjectChip("Calculus"),
-            ],
+            // Generate chips dynamically
+            children: subjects.map((subject) {
+              return Padding(
+                padding: const EdgeInsets.only(right: 12.0),
+                child: _buildSubjectChip(
+                  subject,
+                  isActive:
+                      _selectedSubject ==
+                      subject, // Check if this matches selected
+                ),
+              );
+            }).toList(),
           ),
         ),
       ],
@@ -339,84 +381,131 @@ Widget _buildSubjectsSection() {
   }
 
   Widget _buildSubjectChip(String label, {bool isActive = false}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      decoration: BoxDecoration(
-        color: isActive ? const Color(0xFF1E88E5) : const Color(0xFF1A2036),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: isActive ? Colors.white : Colors.grey[400],
-          fontWeight: FontWeight.w500,
+    return GestureDetector(
+      // Add tap handler to update state
+      onTap: () {
+        setState(() {
+          _selectedSubject = label;
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFF1E88E5) : const Color(0xFF1A2036),
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isActive ? Colors.white : Colors.grey[400],
+            fontWeight: FontWeight.w500,
+          ),
         ),
       ),
     );
   }
 
-Widget _buildLectureCard({
-  required IconData icon,
-  required Color iconBgColor,
-  required String title,
-  required String time,
-  String? badgeText,
-  Color? badgeColor,
-}) {
-  return Container(
-    margin: const EdgeInsets.only(bottom: 16),
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: const Color(0xFF1A2036),
-      borderRadius: BorderRadius.circular(20),
-    ),
-    child: Row(
+  Widget _buildRecentLecturesSection() {
+    // Get the filtered list
+    final lecturesToDisplay = _filteredLectures;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        CircleAvatar(
-          radius: 24,
-          backgroundColor: iconBgColor,
-          child: Icon(icon, color: Colors.white, size: 24),
+        const Text(
+          "Recent Lectures",
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 4),
-              Text(
-                time,
-                style: TextStyle(color: Colors.grey[400], fontSize: 12),
-              ),
-            ],
-          ),
-        ),
-        if (badgeText != null && badgeColor != null)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: badgeColor,
-              borderRadius: BorderRadius.circular(8),
-            ),
+        const SizedBox(height: 16),
+
+        // If list is empty, show a message
+        if (lecturesToDisplay.isEmpty)
+          const Padding(
+            padding: EdgeInsets.all(20.0),
             child: Text(
-              badgeText,
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
+              "No lectures found for this subject.",
+              style: TextStyle(color: Colors.grey),
+            ),
+          )
+        else
+          // Map the data model to the Widget
+          ...lecturesToDisplay.map(
+            (data) => _buildLectureCard(
+              icon: data.icon,
+              iconBgColor: data.iconBgColor,
+              title: data.title,
+              time: data.time,
+              badgeText: data.badgeText,
+              badgeColor: data.badgeColor,
             ),
           ),
-        const SizedBox(width: 8),
-        Icon(Icons.chevron_right, color: Colors.grey[400]),
       ],
-    ),
-  );
+    );
+  }
+
+  Widget _buildLectureCard({
+    required IconData icon,
+    required Color iconBgColor,
+    required String title,
+    required String time,
+    String? badgeText,
+    Color? badgeColor,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A2036),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundColor: iconBgColor,
+            child: Icon(icon, color: Colors.white, size: 24),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  time,
+                  style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+          if (badgeText != null && badgeColor != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: badgeColor,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                badgeText,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          const SizedBox(width: 8),
+          Icon(Icons.chevron_right, color: Colors.grey[400]),
+        ],
+      ),
+    );
+  }
 }
