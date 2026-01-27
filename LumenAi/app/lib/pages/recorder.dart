@@ -36,13 +36,16 @@
   }
   */
 // import 'package:app/components/audio_player.dart';
+import 'package:app/services/audio_player_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../components/audio_player_ui.dart';
 import '../services/audio_service.dart';
 import 'dart:async';
 
-import 'package:app/components/bottom_controls.dart';
 import 'package:app/components/progress.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; //newly added- for small sound when card swipes
 import '../models/flashcard.dart';
 import '../components/card.dart';
 
@@ -56,18 +59,36 @@ class FlashCardPage extends StatefulWidget {
 class _FlashCardPageState extends State<FlashCardPage> {
   int currentIndex = 0;
   bool isFront = true;
-  // bool isPlaying = false;
-  // double audioProgress = 0.3;
+  int swipeDirection = 1;
 
   bool isRecording = false;
-  String recordTime = "00:00";
+  bool isPlayingAudio = false;
+
+  final AudioService _audioService = AudioService();
+  final AudioPlayerService _playerService = AudioPlayerService();
+
   Timer? _timer;
   int _seconds = 0;
-  // bool _isToggling = false;
+  String recordTime = "00:00";
+
+  final List<MainCard> cards = [
+    MainCard(term: "microchondria", definition: "powerhouse of cell"),
+    MainCard(term: "nucleus", definition: "controls cell activities"),
+  ];
+
   @override
   void initState() {
     super.initState();
     _audioService.init();
+    _playerService.init();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _audioService.dispose();
+    _playerService.dispose();
+    super.dispose();
   }
 
   void _startTimer() {
@@ -85,81 +106,126 @@ class _FlashCardPageState extends State<FlashCardPage> {
     _timer?.cancel();
   }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    _audioService.dispose();
-    super.dispose();
-  }
-
   String _formatTime(int seconds) {
     final m = (seconds ~/ 60).toString().padLeft(2, '0');
     final s = (seconds % 60).toString().padLeft(2, '0');
     return "$m:$s";
   }
 
-  final AudioService _audioService = AudioService();
-  String? currentRecordingPath;
+  Widget swipeTransition(Widget child, Animation<double> animation) {
+    final tween = Tween<Offset>(
+      begin: Offset(swipeDirection.toDouble(), 0),
+      end: Offset.zero,
+    ).chain(CurveTween(curve: Curves.easeOut));
 
-  final List<MainCard> cards = [
-    MainCard(term: "microchondria", definition: "powehouse of cell"),
-    MainCard(term: "nucleus", definition: "powehouse "),
-  ];
+    return SlideTransition(
+      position: animation.drive(tween),
+      child: child,
+    );
+  }
+
+  Widget flipTransition(Widget child, Animation<double> animation) {
+    final flipAnim = Tween<double>(begin: -1, end: 1).animate(animation);
+
+    return AnimatedBuilder(
+      animation: flipAnim,
+      child: child,
+      builder: (context, child) {
+        final scaleX = flipAnim.value.abs();
+        return Transform(
+          alignment: Alignment.center,
+          transform: Matrix4.identity()..scale(scaleX, 1.0),
+          child: child,
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final currentCard = cards[currentIndex];
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
+            colors: [
+              Color(0xFF0F2027),
+              Color(0xFF203A43),
+              Color(0xFF2C5364),
+            ],
           ),
         ),
         child: SafeArea(
           child: Column(
             children: [
               const SizedBox(height: 16),
-              //progress bar
               ProgressBar(current: currentIndex, total: cards.length),
 
-              //flashcard
               Expanded(
                 child: Center(
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
+
                     onTap: () {
-                      setState(() {
-                        isFront = !isFront;
-                        debugPrint("FLIPPED: $isFront");
-                        debugPrint(isFront.toString());
-                      });
+                      if (isPlayingAudio) return;
+                      setState(() => isFront = !isFront);
                     },
+
+                    onHorizontalDragEnd: (details) {
+                      if (isRecording || isPlayingAudio) return;
+
+                      final velocity = details.primaryVelocity ?? 0;
+                      if (velocity.abs() < 300) return;
+
+                      if (velocity < 0 && currentIndex < cards.length - 1) {
+                        setState(() {
+                          swipeDirection = 1;
+                          currentIndex++;
+                          isFront = true;
+                        });
+                      } else if (velocity > 0 && currentIndex > 0) {
+                        setState(() {
+                          swipeDirection = -1;
+                          currentIndex--;
+                          isFront = true;
+                        });
+                      }
+
+                      HapticFeedback.selectionClick();
+                    },
+
                     child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      child: Flashcard(
-                        key: ValueKey(
-                          isFront ? currentCard.term : currentCard.definition,
+                      duration: const Duration(milliseconds: 280),
+                      transitionBuilder: swipeTransition,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        transitionBuilder: flipTransition,
+                        child: Flashcard(
+                          key: ValueKey(isFront),
+                          text: isFront
+                              ? currentCard.term
+                              : currentCard.definition,
+                          isFront: isFront,
+                          hasAudio: currentCard.audioPath != null,
+                          isPlaying: isPlayingAudio,
+                          onPlay: () async {
+                            final path = currentCard.audioPath;
+                            if (path == null) return;
+
+                            setState(() => isPlayingAudio = true);
+                            await _playerService.play(path);
+                            setState(() => isPlayingAudio = false);
+                          },
                         ),
-                        text: isFront
-                            ? currentCard.term
-                            : currentCard.definition,
-                        isFront: isFront,
-                        hasAudio : currentCard.audioPath != null,
                       ),
                     ),
                   ),
                 ),
               ),
 
-              //audio controls
-              // AudioPlayerUI(isPlaying: isPlaying, progress: audioProgress, onPlayPause: () {
-              //   setState(() {
-              //     isPlaying = !isPlaying;
-              //   });
-              // }),
               AudioRecorderUI(
                 isRecording: isRecording,
                 time: recordTime,
@@ -169,35 +235,13 @@ class _FlashCardPageState extends State<FlashCardPage> {
                     _startTimer();
                     setState(() {
                       isRecording = true;
-                      currentRecordingPath = path;
+                      currentCard.audioPath = path;
                     });
                   } else {
-                    final path = await _audioService.stop();
+                    await _audioService.stop();
                     _stopTimer();
-                    setState(() {
-                      isRecording = false;
-                      currentRecordingPath = path;
-                      cards[currentIndex].audioPath = path;
-                    });
+                    setState(() => isRecording = false);
                   }
-                },
-              ),
-
-              //bottom controls
-              BottomControls(
-                isFirst: currentIndex == 0,
-                isLast: currentIndex == cards.length - 1,
-                onNext: () {
-                  setState(() {
-                    currentIndex++;
-                    isFront = true;
-                  });
-                },
-                onPrevios: () {
-                  setState(() {
-                    currentIndex--;
-                    isFront = true;
-                  });
                 },
               ),
             ],
