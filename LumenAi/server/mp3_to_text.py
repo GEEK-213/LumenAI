@@ -18,3 +18,4 @@ if __name__ == "__main__":
     # Running on 0.0.0.0 allows your Flutter app (on a phone/emulator) 
     # to connect to your local machine's IP.
     uvicorn.run(app, host="0.0.0.0", port=8000)
+    

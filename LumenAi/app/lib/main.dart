@@ -1,19 +1,16 @@
-import 'package:app/pages/account_page.dart';
-import 'package:app/pages/login.dart';
 import 'package:app/pages/splash_page.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-// import 'pages/login.dart';
-// import 'pages/register.dart';
-// import 'pages/homePage.dart';
+import 'pages/login.dart';
 import 'pages/profilePage.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   await Supabase.initialize(
-    url: 'https://yydgvgxczxecfslbrdtj.supabase.co',
-    anonKey: 'sb_publishable_dCLTLfWXSK3f-WL2DxpDzA_M4ZlH4cb',
+    url: 'https://knonzasojytvmxhkchvg.supabase.co',
+    anonKey:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtub256YXNvanl0dm14aGtjaHZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NTU4NTIsImV4cCI6MjA4MjIzMTg1Mn0.WnxSictcwfY-1xBH8pHGVczR2BO_ArddpQpR4yCgc-I',
   );
   runApp(const MyApp());
 }
@@ -22,7 +19,7 @@ final supabase = Supabase.instance.client;
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
-   
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -30,17 +27,15 @@ class MyApp extends StatelessWidget {
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: const Color(0xFF0C1223),
         primaryColor: const Color(0xFF1E88E5),
-        colorScheme: const ColorScheme.dark(
-           secondary: Color(0xFF1E88E5),
-         ),
+        colorScheme: const ColorScheme.dark(secondary: Color(0xFF1E88E5)),
       ),
-      home: const Profilepage(),
-      // initialRoute: '/',
-      // routes: {
-      //   '/' : (context) => const SplashPage(),
-      //   '/login': (context) => const LoginPage(),
-      //   'account': (context) => const AccountPage(),
-      // },
+      // home: const Profilepage(),
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const SplashPage(),
+        '/login': (context) => const LoginPage(),
+        '/account': (context) => const Profilepage(),
+      },
     );
   }
 }
