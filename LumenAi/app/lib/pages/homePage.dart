@@ -1,4 +1,5 @@
 import 'package:app/components/card.dart';
+import 'package:app/pages/notes_page.dart';
 import 'package:app/pages/recorder.dart';
 import 'package:flutter/material.dart';
 import 'profilePage.dart';
@@ -169,7 +170,7 @@ class _HomePageState extends State<HomePage> {
               decoration: BoxDecoration(
                 color: Theme.of(
                   context,
-                ).colorScheme.surfaceVariant.withOpacity(0.5),
+                ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
                 shape: BoxShape.circle,
               ),
               child: IconButton(
@@ -182,42 +183,11 @@ class _HomePageState extends State<HomePage> {
       ),
 
       //  The Body
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              //search bar
-              _buildSearchBar(),
-              const SizedBox(height: 20),
-
-              //stats bar
-              _buildStatsRow(),
-              const SizedBox(height: 24),
-
-              // Subjects Section
-              _buildSubjectsSection(),
-              const SizedBox(height: 24),
-
-              //recenet lectures
-              _buildRecentLecturesSection(),
-            ],
-          ),
-        ),
-      ),
+      body: _getBody(),
 
       //floating action button
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const FlashCardPage()),
-          );
-        },
-        backgroundColor: const Color.fromARGB(255, 77, 158, 220),
-        child: const Icon(Icons.mic),
-      ),
+      floatingActionButton: _buildFAB(),
+
       //botttom navigation
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
@@ -246,6 +216,33 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
     );
+  }
+
+  FloatingActionButton? _buildFAB() {
+    switch (_selectedIndex) {
+      case 0:
+        return FloatingActionButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const FlashCardPage()),
+            );
+          },
+          child: const Icon(Icons.mic),
+        );
+
+      case 2: 
+        return FloatingActionButton(
+          onPressed: () {
+            
+            debugPrint("Add new note");
+          },
+          child: const Icon(Icons.add),
+        );
+
+      default:
+        return null; 
+    }
   }
 
   Widget _buildSearchBar() {
@@ -507,5 +504,40 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
     );
+  }
+
+  Widget _getBody() {
+    switch (_selectedIndex) {
+      case 0:
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildSearchBar(),
+                const SizedBox(height: 20),
+                _buildStatsRow(),
+                const SizedBox(height: 24),
+                _buildSubjectsSection(),
+                const SizedBox(height: 24),
+                _buildRecentLecturesSection(),
+              ],
+            ),
+          ),
+        );
+
+      case 1:
+        return const Center(child: Text("Projects"));
+
+      case 2:
+        return const NotesPage();
+
+      case 3:
+        return const Profilepage();
+
+      default:
+        return const SizedBox();
+    }
   }
 }

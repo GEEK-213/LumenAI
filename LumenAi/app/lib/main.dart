@@ -1,3 +1,5 @@
+import 'package:app/pages/homePage.dart';
+import 'package:app/pages/notes_page.dart';
 import 'package:app/pages/splash_page.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -29,13 +31,13 @@ class MyApp extends StatelessWidget {
         primaryColor: const Color(0xFF1E88E5),
         colorScheme: const ColorScheme.dark(secondary: Color(0xFF1E88E5)),
       ),
-      // home: const Profilepage(),
-      initialRoute: '/',
-      routes: {
-        '/': (context) => const SplashPage(),
-        '/login': (context) => const LoginPage(),
-        '/account': (context) => const Profilepage(),
-      },
+      home: const HomePage(),
+      // initialRoute: '/',
+      // routes: {
+      //   '/': (context) => const SplashPage(),
+      //   '/login': (context) => const LoginPage(),
+      //   '/account': (context) => const Profilepage(),
+      // },
     );
   }
 }

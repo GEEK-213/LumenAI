@@ -1,41 +1,53 @@
 import 'package:flutter/material.dart';
+import 'notes_view.dart';
+import 'package:app/models/note.dart';
 
-class Notespage extends StatefulWidget {
-  const Notespage({super.key});
+class NotesPage extends StatefulWidget {
+  const NotesPage({super.key});
 
   @override
-  State<Notespage> createState() => _NotespageState();
+  State<NotesPage> createState() => _NotesPageState();
 }
 
-class _NotespageState extends State<Notespage> {
+class _NotesPageState extends State<NotesPage> {
+  String selectedFilter = "All";
+  String searchQuery = "";
+
+  final List<Notes> _notes = [
+  Notes(
+    id: "1",
+    title: "Intro to Neural Networks",
+    preview: "Layers allow the model to learn hierarchical features...",
+    subject: "Computer Science",
+    tags: ["AI", "ML", "Exam"],
+    updatedAt: DateTime.now().subtract(const Duration(hours: 2)),
+    isFavorite: true,
+  ),
+  Notes(
+    id: "2",
+    title: "European History Timeline",
+    preview: "The Treaty of Versailles marked the end of World War I...",
+    subject: "History",
+    tags: ["History", "ML", "Exam"],
+    updatedAt: DateTime.now().subtract(const Duration(days: 1)),
+    isFavorite: false,
+  ),
+];
+
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Container(
-              height: 200,
-              color: Colors.deepPurple[200],
-            ),
-          ),
-           Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Container(
-              height: 200,
-              color: Colors.deepPurple[200],
-            ),
-          ),
-           Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Container(
-              height: 200,
-              color: Colors.deepPurple[200],
-            ),
-          ),
-        ],
-      ),
+    return NotesView(
+      notes: _notes,
+      selectedFilter: selectedFilter,
+      searchQuery: searchQuery,
+      onFilterChange: (value) {
+        setState(() => selectedFilter = value);
+      },
+      onSearchChange: (value) {
+        setState(() => searchQuery = value);
+      },
     );
   }
+  
 }
