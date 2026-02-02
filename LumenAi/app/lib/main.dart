@@ -1,3 +1,5 @@
+import 'package:app/pages/homePage.dart';
+import 'package:app/pages/notes_page.dart';
 import 'package:app/pages/splash_page.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
