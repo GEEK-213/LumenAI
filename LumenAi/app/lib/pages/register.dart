@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../models/profile.dart';
+import '../services/profile_service.dart';
 import 'login.dart';
 
 class SignUpPage extends StatefulWidget {
@@ -11,47 +14,66 @@ class SignUpPage extends StatefulWidget {
 
 class _SignUpPageState extends State<SignUpPage> {
   final nameController = TextEditingController();
+  final roleController = TextEditingController();
+  final interestsController = TextEditingController();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
 
   Future<void> signUpUser() async {
-  final supabase = Supabase.instance.client;
+    final supabase = Supabase.instance.client;
 
-  try {
-    final res = await supabase.auth.signUp(
-      email: emailController.text.trim(),
-      password: passwordController.text.trim(),
-      data: {
-        "full_name": nameController.text.trim(),
-      },
-    );
+    try {
+      final res = await supabase.auth.signUp(
+        email: emailController.text.trim(),
+        password: passwordController.text.trim(),
+        data: {"full_name": nameController.text.trim()},
+      );
 
-    // DEBUG: print result
-    debugPrint("Signup response: ${res.user}");
+      // DEBUG: print result
+      debugPrint("Signup response: ${res.user}");
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Signup successful. Please login.")),
-    );
+      if (res.user != null) {
+        // Create profile with extra details
+        final profile = Profile(
+          id: res.user!.id,
+          fullName: nameController.text.trim(),
+          role: roleController.text.trim(),
+          interests: interestsController.text.trim().isNotEmpty
+              ? interestsController.text
+                    .split(',')
+                    .map((e) => e.trim())
+                    .toList()
+              : [],
+        );
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => const LoginPage()),
-    );
-  } on AuthException catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Auth error: ${e.message}")),
-    );
-  } catch (e) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text("Error: $e")),
-    );
+        // Save to Supabase
+        await ProfileService().updateProfile(profile);
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Signup successful. Please login.")),
+      );
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const LoginPage()),
+      );
+    } on AuthException catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Auth error: ${e.message}")));
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+    }
   }
-}
-
 
   @override
   void dispose() {
     nameController.dispose();
+    roleController.dispose();
+    interestsController.dispose();
     emailController.dispose();
     passwordController.dispose();
     super.dispose();
@@ -87,6 +109,20 @@ class _SignUpPageState extends State<SignUpPage> {
                 hintText: "Fill Name",
                 icon: Icons.person_outline,
                 controller: nameController,
+              ),
+              const SizedBox(height: 20),
+
+              _buildInputField(
+                hintText: "Role (e.g. Student)",
+                icon: Icons.work_outline,
+                controller: roleController,
+              ),
+              const SizedBox(height: 20),
+
+              _buildInputField(
+                hintText: "Interests (comma separated)",
+                icon: Icons.favorite_border,
+                controller: interestsController,
               ),
               const SizedBox(height: 20),
 
@@ -191,9 +227,7 @@ class _SignUpPageState extends State<SignUpPage> {
                     onPressed: () {
                       Navigator.pushReplacement(
                         context,
-                        MaterialPageRoute(
-                          builder: (_) => const LoginPage(),
-                        ),
+                        MaterialPageRoute(builder: (_) => const LoginPage()),
                       );
                     },
                     child: const Text(

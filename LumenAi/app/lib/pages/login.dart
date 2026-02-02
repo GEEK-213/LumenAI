@@ -6,7 +6,7 @@ import 'package:app/components/my_textfield.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'register.dart';
-import 'homePage.dart';
+import 'main_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -31,11 +31,10 @@ class _LoginPageState extends State<LoginPage> {
   Future<void> signUserIn() async {
     final supabase = Supabase.instance.client;
 
-    if (usernameController.text.isEmpty ||
-        passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please fill all fields")),
-      );
+    if (usernameController.text.isEmpty || passwordController.text.isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Please fill all fields")));
       return;
     }
 
@@ -48,17 +47,17 @@ class _LoginPageState extends State<LoginPage> {
       if (res.session != null) {
         Navigator.pushReplacement(
           context,
-          MaterialPageRoute(builder: (_) => const HomePage()),
+          MaterialPageRoute(builder: (_) => const MainPage()),
         );
       }
     } on AuthException catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
     } catch (_) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Something went wrong")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Something went wrong")));
     }
   }
 
@@ -107,7 +106,9 @@ class _LoginPageState extends State<LoginPage> {
               prefixIcon: Icons.lock_outline,
               suffixIcon: IconButton(
                 icon: Icon(
-                  _hidePassword ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                  _hidePassword
+                      ? Icons.visibility_off_outlined
+                      : Icons.visibility_outlined,
                 ),
                 onPressed: () {
                   setState(() {
@@ -119,10 +120,7 @@ class _LoginPageState extends State<LoginPage> {
 
             const SizedBox(height: 30),
 
-            MyButton(
-              text: "Login",
-              onPressed: signUserIn,
-          ),
+            MyButton(text: "Login", onPressed: signUserIn),
 
             const Spacer(),
 
@@ -137,10 +135,7 @@ class _LoginPageState extends State<LoginPage> {
                 child: RichText(
                   text: TextSpan(
                     text: "Don't have an account? ",
-                    style: GoogleFonts.inter(
-                      color: Colors.white,
-                      fontSize: 15,
-                    ),
+                    style: GoogleFonts.inter(color: Colors.white, fontSize: 15),
                     children: const [
                       TextSpan(
                         text: "Register",

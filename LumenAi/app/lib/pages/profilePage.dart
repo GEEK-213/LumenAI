@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/profile.dart';
 import '../services/profile_service.dart';
-import 'homePage.dart';
+
 import 'login.dart';
 
 class Profilepage extends StatefulWidget {
@@ -429,7 +429,7 @@ class _ProfilepageState extends State<Profilepage> {
                 ],
               ),
             ),
-      bottomNavigationBar: _buildBottomNavBar(),
+      // bottomNavigationBar: _buildBottomNavBar(),
     );
   }
 
@@ -811,79 +811,6 @@ class _ProfilepageState extends State<Profilepage> {
             Icon(Icons.chevron_right, color: Colors.grey.shade600, size: 20),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildBottomNavBar() {
-    return Container(
-      height: 80,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      decoration: const BoxDecoration(
-        color: Color(0xFF050B18),
-        border: Border(top: BorderSide(color: Color(0xFF1E2746))),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          IconButton(
-            icon: Icon(Icons.home, color: Colors.grey.shade600),
-            onPressed: () => Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const HomePage()),
-            ),
-          ),
-          IconButton(
-            icon: Icon(Icons.folder_open, color: Colors.grey.shade600),
-            onPressed: () {},
-          ),
-          // Floating Mic Button
-          Container(
-            height: 56,
-            width: 56,
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Colors.blueAccent, Colors.purpleAccent],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.blueAccent.withOpacity(0.4),
-                  blurRadius: 15,
-                  spreadRadius: 2,
-                ),
-              ],
-            ),
-            child: const Icon(Icons.mic, color: Colors.white, size: 28),
-          ),
-          IconButton(
-            icon: Icon(Icons.school, color: Colors.grey.shade600),
-            onPressed: () {},
-          ),
-          // Active Profile Icon
-          Stack(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.person, color: Colors.blueAccent),
-                onPressed: () {},
-              ),
-              Positioned(
-                top: 8,
-                right: 8,
-                child: Container(
-                  height: 8,
-                  width: 8,
-                  decoration: const BoxDecoration(
-                    color: Colors.blueAccent,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }

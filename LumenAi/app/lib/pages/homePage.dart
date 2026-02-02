@@ -1,5 +1,5 @@
 import 'package:app/components/card.dart';
-import 'package:app/pages/recorder.dart';
+
 import 'package:flutter/material.dart';
 import 'profilePage.dart';
 
@@ -33,7 +33,6 @@ class HomePage extends StatefulWidget {
 
 //WIDGETS
 class _HomePageState extends State<HomePage> {
-  int _selectedIndex = 0;
   //  variable to track the currently selected subject
   String _selectedSubject = "All";
 
@@ -81,12 +80,6 @@ class _HomePageState extends State<HomePage> {
     return _allLectures
         .where((lecture) => lecture.subject == _selectedSubject)
         .toList();
-  }
-
-  void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
   }
 
   @override
@@ -208,43 +201,43 @@ class _HomePageState extends State<HomePage> {
       ),
 
       //floating action button
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => const FlashCardPage()),
-          );
-        },
-        backgroundColor: const Color.fromARGB(255, 77, 158, 220),
-        child: const Icon(Icons.mic),
-      ),
+      // floatingActionButton: FloatingActionButton(
+      //   onPressed: () {
+      //     Navigator.push(
+      //       context,
+      //       MaterialPageRoute(builder: (context) => const FlashCardPage()),
+      //     );
+      //   },
+      //   backgroundColor: const Color.fromARGB(255, 77, 158, 220),
+      //   child: const Icon(Icons.mic),
+      // ),
       //botttom navigation
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _selectedIndex,
-        onDestinationSelected: _onItemTapped,
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.folder_outlined),
-            selectedIcon: Icon(Icons.folder),
-            label: 'Projects',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.note_outlined),
-            selectedIcon: Icon(Icons.analytics),
-            label: 'Notes',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_2_outlined),
-            selectedIcon: Icon(Icons.analytics),
-            label: 'Profile',
-          ),
-        ],
-      ),
+      // bottomNavigationBar: NavigationBar(
+      //   selectedIndex: _selectedIndex,
+      //   onDestinationSelected: _onItemTapped,
+      //   destinations: const [
+      //     NavigationDestination(
+      //       icon: Icon(Icons.home_outlined),
+      //       selectedIcon: Icon(Icons.home),
+      //       label: 'Home',
+      //     ),
+      //     NavigationDestination(
+      //       icon: Icon(Icons.folder_outlined),
+      //       selectedIcon: Icon(Icons.folder),
+      //       label: 'Projects',
+      //     ),
+      //     NavigationDestination(
+      //       icon: Icon(Icons.note_outlined),
+      //       selectedIcon: Icon(Icons.analytics),
+      //       label: 'Notes',
+      //     ),
+      //     NavigationDestination(
+      //       icon: Icon(Icons.person_2_outlined),
+      //       selectedIcon: Icon(Icons.analytics),
+      //       label: 'Profile',
+      //     ),
+      //   ],
+      // ),
     );
   }
 
