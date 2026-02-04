@@ -1,53 +1,48 @@
 import 'package:flutter/material.dart';
-import 'notes_view.dart';
-import 'package:app/models/note.dart';
 
-class NotesPage extends StatefulWidget {
-  const NotesPage({super.key});
+class NotesPage extends StatelessWidget {
+  final List<String> classes;
+  final Function(String className) onClassTap;
 
-  @override
-  State<NotesPage> createState() => _NotesPageState();
-}
-
-class _NotesPageState extends State<NotesPage> {
-  String selectedFilter = "All";
-  String searchQuery = "";
-
-  final List<Notes> _notes = [
-  Notes(
-    id: "1",
-    title: "Intro to Neural Networks",
-    preview: "Layers allow the model to learn hierarchical features...",
-    subject: "Computer Science",
-    tags: ["AI", "ML", "Exam"],
-    updatedAt: DateTime.now().subtract(const Duration(hours: 2)),
-    isFavorite: true,
-  ),
-  Notes(
-    id: "2",
-    title: "European History Timeline",
-    preview: "The Treaty of Versailles marked the end of World War I...",
-    subject: "History",
-    tags: ["History", "ML", "Exam"],
-    updatedAt: DateTime.now().subtract(const Duration(days: 1)),
-    isFavorite: false,
-  ),
-];
-
+  const NotesPage({
+    super.key,
+    required this.classes,
+    required this.onClassTap,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return NotesView(
-      notes: _notes,
-      selectedFilter: selectedFilter,
-      searchQuery: searchQuery,
-      onFilterChange: (value) {
-        setState(() => selectedFilter = value);
-      },
-      onSearchChange: (value) {
-        setState(() => searchQuery = value);
+    if (classes.isEmpty) {
+      return const Center(
+        child: Text(
+          "No classes yet.\nTap + to add one.",
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: classes.length,
+      itemBuilder: (_, index) {
+        final className = classes[index];
+        return ListTile(
+          title: Text(className),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => onClassTap(className),
+        );
       },
     );
   }
-  
 }
+
+  // return NotesView(
+  //   notes: _notes,
+  //   selectedFilter: selectedFilter,
+  //   searchQuery: searchQuery,
+  //   onFilterChange: (value) {
+  //     setState(() => selectedFilter = value);
+  //   },
+  //   onSearchChange: (value) {
+  //     setState(() => searchQuery = value);
+  //   },
+  // );

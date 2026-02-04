@@ -33,12 +33,12 @@ class MyApp extends StatelessWidget {
         colorScheme: const ColorScheme.dark(secondary: Color(0xFF1E88E5)),
       ),
       // home: const Profilepage(),
-      initialRoute: '/',
+      initialRoute: '/main',
       routes: {
-        '/': (context) => const SplashPage(),
-        '/login': (context) => const LoginPage(),
+        // '/': (context) => const SplashPage(),
+        // '/login': (context) => const LoginPage(),
         '/main': (context) => const MainPage(),
-        '/account': (context) => const Profilepage(),
+        // '/account': (context) => const Profilepage(),
       },
     );
   }
