@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'notes_page.dart';
+import 'input_type_page.dart';
 import 'homePage.dart';
 import 'profilePage.dart';
 import 'recorder.dart'; 
@@ -13,12 +15,14 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   int _selectedIndex = 0;
 
-  final List<Widget> _pages = [
+    List<Widget> get _pages => [
     const HomePage(),
     const Center(child: Text("Projects Page Placeholder")), // Placeholder
-    const Center(child: Text("Notes Page Placeholder")), // Placeholder
-    const Profilepage(),
+    NotesPage(classes : _classes, onClassTap: _openAudioInput),
+    const Profilepage(),  
   ];
+
+  final List<String> _classes = [];
 
   void _onItemTapped(int index) {
     setState(() {
@@ -31,15 +35,19 @@ class _MainPageState extends State<MainPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF0C1223),
       body: IndexedStack(index: _selectedIndex, children: _pages),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: _selectedIndex == 2
+    ? FloatingActionButton(
+        onPressed:  _showAddClassDialog,
+        child: const Icon(Icons.add),
+      )
+    : FloatingActionButton(
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (context) => const FlashCardPage(),
-            ), 
+            MaterialPageRoute(builder: (_) => const FlashCardPage()),
           );
         },
+
         backgroundColor: Colors.transparent,
         elevation: 0,
         child: Container(
@@ -84,6 +92,16 @@ class _MainPageState extends State<MainPage> {
     );
   }
 
+  void _openAudioInput(String className) {
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (_) => InputTypePage(className: className),
+    ),
+  );
+}
+
+
   Widget _buildNavItem(
     int index,
     IconData icon,
@@ -114,4 +132,42 @@ class _MainPageState extends State<MainPage> {
       ),
     );
   }
+  void _showAddClassDialog() {
+  final controller = TextEditingController();
+
+  showDialog(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text("Add Class"),
+      content: TextField(
+        controller: controller,
+        decoration: const InputDecoration(
+          hintText: "Enter class name",
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text("Cancel"),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            _addClass(controller.text);
+            Navigator.pop(context);
+          },
+          child: const Text("Add"),
+        ),
+      ],
+    ),
+  );
+}
+
+void _addClass(String name){
+   if (name.trim().isEmpty) return;
+
+  setState(() {
+    _classes.add(name.trim());
+  });
+}
+
 }
