@@ -1,6 +1,8 @@
+import 'package:app/pages/recorder.dart';
 import 'package:flutter/material.dart';
 // import '../models/add_notes.dart';
 // import 'results_page.dart';
+import 'file_input_page.dart';
 
 class InputTypePage extends StatelessWidget {
   final String className;
@@ -15,27 +17,38 @@ class InputTypePage extends StatelessWidget {
       body: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-            //  Text("Choose input type"),
+          //  Text("Choose input type"),
           _InputTypeButton(
-              icon: Icons.mic,
-              label: "Record Audio",
-              onTap: () {
-                //AudioInputPage
-              },
-            ),
-            const SizedBox(height: 20),
-            _InputTypeButton(
-              icon: Icons.upload_file,
-              label: "Upload File",
-              onTap: () {
-                //FileInputPage
-              }, 
+            icon: Icons.mic,
+            label: "Record Audio",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => FlashCardPage(),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 20),
+          _InputTypeButton(
+            icon: Icons.upload_file,
+            label: "Upload File",
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => FileInputPage(className: className),
+                ),
+              );
+            },
           ),
         ],
       ),
     );
   }
 }
+
 class _InputTypeButton extends StatelessWidget {
   final IconData icon;
   final String label;
