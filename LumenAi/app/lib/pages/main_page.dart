@@ -1,3 +1,4 @@
+import 'package:app/pages/calender/master_calender_page.dart';
 import 'package:flutter/material.dart';
 import 'notes_page.dart';
 import 'input_type_page.dart';
@@ -17,7 +18,7 @@ class _MainPageState extends State<MainPage> {
 
     List<Widget> get _pages => [
     const HomePage(),
-    const Center(child: Text("Projects Page Placeholder")), // Placeholder
+    MasterCalenderPage(), // Placeholder just for current use**
     NotesPage(classes : _classes, onClassTap: _openAudioInput),
     const Profilepage(),  
   ];

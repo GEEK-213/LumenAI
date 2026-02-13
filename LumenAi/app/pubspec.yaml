@@ -46,6 +46,9 @@ dependencies:
   supabase_flutter: ^2.00.0
   image_picker: ^1.2.1
 
+  #master calender
+  table_calendar: 3.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
