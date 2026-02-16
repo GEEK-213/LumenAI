@@ -1,7 +1,7 @@
 import 'package:app/components/card.dart';
 
 import 'package:flutter/material.dart';
-import 'profilePage.dart';
+import '../profile/profilePage.dart';
 
 //  class to hold Lecture Data
 class LectureData {

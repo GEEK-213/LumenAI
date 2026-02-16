@@ -40,12 +40,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../models/flashcard.dart';
-import '../components/card.dart';
-import '../components/audio_player_ui.dart';
-import '../components/progress.dart';
-import '../services/audio_service.dart';
-import '../services/audio_player_service.dart';
+import '../../models/flashcard.dart';
+import '../../components/card.dart';
+import '../../components/audio_player_ui.dart';
+import '../../components/progress.dart';
+import '../../services/audio_service.dart';
+import '../../services/audio_player_service.dart';
 
 class FlashCardPage extends StatefulWidget {
   const FlashCardPage({super.key});

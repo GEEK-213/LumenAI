@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
-import '../models/profile.dart';
-import '../services/profile_service.dart';
+import '../../models/profile.dart';
+import '../../services/profile_service.dart';
 
 import 'login.dart';
 

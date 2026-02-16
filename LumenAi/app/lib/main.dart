@@ -1,10 +1,10 @@
-import 'package:app/pages/homePage.dart';
-import 'package:app/pages/notes_page.dart';
-import 'package:app/pages/splash_page.dart';
+import 'package:app/pages/home/homePage.dart';
+import 'package:app/pages/notes/notes_page.dart';
+import 'package:app/pages/profile/splash_page.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'pages/login.dart';
-import 'pages/profilePage.dart';
+import 'pages/profile/login.dart';
+import 'pages/profile/profilePage.dart';
 import 'pages/main_page.dart';
 
 void main() async {

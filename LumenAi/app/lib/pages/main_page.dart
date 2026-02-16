@@ -1,10 +1,10 @@
 import 'package:app/pages/calender/master_calender_page.dart';
 import 'package:flutter/material.dart';
-import 'notes_page.dart';
-import 'input_type_page.dart';
-import 'homePage.dart';
-import 'profilePage.dart';
-import 'recorder.dart'; 
+import 'notes/notes_page.dart';
+import 'notes/input_type_page.dart';
+import 'home/homePage.dart';
+import 'profile/profilePage.dart';
+import 'notes/recorder.dart'; 
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});

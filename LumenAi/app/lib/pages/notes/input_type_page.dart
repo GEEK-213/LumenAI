@@ -1,4 +1,4 @@
-import 'package:app/pages/recorder.dart';
+import 'package:app/pages/notes/recorder.dart';
 import 'package:flutter/material.dart';
 // import '../models/add_notes.dart';
 // import 'results_page.dart';

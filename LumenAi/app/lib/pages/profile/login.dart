@@ -6,7 +6,7 @@ import 'package:app/components/my_textfield.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'register.dart';
-import 'main_page.dart';
+import '../main_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});

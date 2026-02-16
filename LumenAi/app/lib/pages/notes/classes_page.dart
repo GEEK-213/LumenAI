@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../models/add_notes.dart';
+import '../../models/add_notes.dart';
 import 'input_type_page.dart';
 
 class ClassesPage extends StatefulWidget {
