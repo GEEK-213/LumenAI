@@ -1,41 +1,72 @@
 import os
 import time
+import json
 import random
 from datetime import datetime
 from google import genai
 from google.genai import types
 from markitdown import MarkItDown
-from dotenv import load_dotenv
-
-load_dotenv() 
+from app.config import Config
 
 class LectureAnalyzer:
     def __init__(self):
-        api_key = os.environ.get("Gemini_API_key")
-        self.client = genai.Client(api_key=api_key)
+        self.client = genai.Client(api_key=Config.GEMINI_API_KEY)
         self.md = MarkItDown()
 
-    async def analyze_multimodal(self, file_paths: list[str]):
+    async def analyze_multimodal(self, file_paths: list[str], syllabus_context: str = ""):
         today_date = datetime.now().strftime("%Y-%m-%d")
         
         # --- THE MASTER PROMPT ---
-        # This is the "Brain" that tells Gemini what to do with all the data.
         master_instructions = f"""
-        You are an advanced academic assistant for 'Project Lumen'.
+        You are 'Lumen AI', an advanced academic assistant.
         Today's date is {today_date}.
         
-        You will be provided with a mix of lecture materials (audio, video, or document text).
-        Your goal is to cross-reference ALL provided materials to create a study guide.
+        INPUTS:
+        1. Lecture Media (Audio/Video/Text).
+        2. SYLLABUS CONTEXT (Ground Truth): 
+        "{syllabus_context[:50000] if syllabus_context else "No specific syllabus provided."}"
+        (Note: If syllabus is provided, prioritize its definitions and terminology.)
+
+        GOAL:
+        Analyze the lecture. CROSS-REFERENCE it with the SYLLABUS CONTEXT.
+        - If a topic in the lecture matches the syllabus, elaborate on it using syllabus definitions.
+        - If the lecture contains "noise" (off-topic chat), IGNORE it unless it's a deadline.
         
-        RETURN A STRICT JSON OBJECT WITH:
-        - "summary": A professional overview of the entire lecture.
-        - "topics": Key concepts/chapters discussed.
-        - "tasks": Any assignments or deadlines. Format: {{"task_name": "...", "due_date": "YYYY-MM-DD"}}.
-        - "teacher_questions": Specific questions the teacher asked.
-        - "important_dates": Exam dates or holidays mentioned.
-        - "transcript": The full word-for-word transcription of the audio/video.
+        OUTPUT FORMAT:
+        Return a STRICT JSON object with the following schema:
+        {{
+            "summary": "A detailed, exam-focused summary in Markdown.",
+            "topics": ["Chapter 1", "Concept X"],
+            "flashcards": [
+                {{"front": "Term (e.g., Polymorphism)", "back": "Definition based on syllabus"}}
+            ],
+            "quiz_questions": [
+                {{
+                    "question": "Exam-style MCQ question",
+                    "options": ["Option A", "Option B", "Option C", "Option D"],
+                    "correct_answer": "Option A", 
+                    "explanation": "Brief explanation"
+                }}
+            ],
+            "mind_map": {{
+                "nodes": [{{"id": 1, "label": "Central Topic"}}],
+                "edges": [{{"from": 1, "to": 2}}]
+            }},
+            "code_snippets": [
+                {{"title": "Example Function", "language": "python", "code_content": "def foo(): pass"}}
+            ],
+            "extracted_tasks": [
+                {{"title": "Assignment 1", "due_date": "YYYY-MM-DD (or null)"}}
+            ],
+            "teacher_questions": ["Question asked by teacher?"],
+            "important_dates": ["2024-12-25"],
+            "transcript": "Full word-for-word transcript (if audio provided)"
+        }}
         
-        If no data exists for a field, return [].
+        IMPORTANT:
+        - Return ONLY valid JSON.
+        - Do not include markdown code blocks (```json).
+        - If a field has no data, return an empty list/null.
         """
 
         # This list holds EVERYTHING we send to Gemini
@@ -49,11 +80,14 @@ class LectureAnalyzer:
             if ext in NATIVE_SUPPORT:
                 # 1. Native Upload (Gemini "listens" and "watches" these)
                 print(f"  📤 Uploading Native Media: {os.path.basename(path)}")
-                file = self.client.files.upload(file=path)
-                while file.state.name == "PROCESSING":
-                    time.sleep(5)
-                    file = self.client.files.get(name=file.name)
-                contents.append(file)
+                try:
+                    file = self.client.files.upload(file=path)
+                    while file.state.name == "PROCESSING":
+                        time.sleep(2)
+                        file = self.client.files.get(name=file.name)
+                    contents.append(file)
+                except Exception as e:
+                    print(f"  ❌ Gemini Upload Failed: {e}")
             
             else:
                 # 2. Text Extraction (Gemini "reads" these as Markdown)
@@ -74,14 +108,16 @@ class LectureAnalyzer:
                 response = self.client.models.generate_content(
                     model="gemini-2.0-flash", 
                     contents=contents,
-                    config=types.GenerateContentConfig(response_mime_type="application/json")
+                    config=types.GenerateContentConfig(
+                        response_mime_type="application/json",
+                        response_modalities=["TEXT"]
+                    )
                 )
                 return response.text
             except Exception as e:
+                print(f"  ⚠️ Gemini Error (Attempt {attempt+1}): {e}")
                 if "503" in str(e) or "429" in str(e):
-                    wait_time = (2 ** attempt) + 15
-                    print(f"  ⚠️ Model busy. Retrying in {int(wait_time)}s...")
-                    time.sleep(wait_time)
+                    time.sleep((2 ** attempt) + 5)
                 else:
-                    raise e
+                    break # Fatal error
         return None

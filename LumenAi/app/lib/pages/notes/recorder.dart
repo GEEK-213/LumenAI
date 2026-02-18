@@ -1,51 +1,14 @@
-/*
-  //  SUPABASE UPLOAD LOGIC ---
-  Future<void> _uploadToSupabase() async {
-    if (_recordedFilePath == null) return;
-
-    setState(() => _isUploading = true);
-
-    try {
-      final file = File(_recordedFilePath!);
-      final fileExt = _recordedFilePath!.split('.').last;
-      final fileName = '${DateTime.now().millisecondsSinceEpoch}.$fileExt';
-      final filePath = 'flashcard_audios/$fileName'; // Folder structure in Bucket
-
-      // A. Upload file to Storage Bucket named 'audio_bucket'
-      await _supabase.storage.from('audio_bucket').upload(
-        filePath,
-        file,
-        fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
-      );
-
-      // B. Get the Public URL (so we can listen to it later)
-      final publicUrl = _supabase.storage.from('audio_bucket').getPublicUrl(filePath);
-      
-      setState(() {
-        _remoteAudioUrl = publicUrl; // Switch to using the remote URL
-        _isUploading = false;
-      });
-
-      _showSnackBar("Audio saved to cloud successfully!");
-      print("File uploaded to: $publicUrl");
-
-    } catch (e) {
-      setState(() => _isUploading = false);
-      _showSnackBar("Upload failed: $e", isError: true);
-    }
-  }
-  */
-// import 'package:app/components/audio_player.dart';
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../models/flashcard.dart';
-import '../../components/card.dart';
-import '../../components/audio_player_ui.dart';
-import '../../components/progress.dart';
+import '../../models/data_models.dart'; // Import models
 import '../../services/audio_service.dart';
-import '../../services/audio_player_service.dart';
+import '../../services/api_service.dart'; // Import API Service
+import '../../components/audio_player_ui.dart';
+import 'results_page.dart'; // Import Results Page
 
 class FlashCardPage extends StatefulWidget {
   const FlashCardPage({super.key});
@@ -55,41 +18,58 @@ class FlashCardPage extends StatefulWidget {
 }
 
 class _FlashCardPageState extends State<FlashCardPage> {
-  int currentIndex = 0;
-  bool isFront = true;
-  int swipeDirection = 1;
-
-  int? recordingCardIndex;
-
-  bool isRecording = false;
-  bool isPlayingAudio = false;
-
-  Offset cardOffset = Offset.zero;
-
+  // Service Instances
   final AudioService _audioService = AudioService();
-  final AudioPlayerService _playerService = AudioPlayerService();
+  final ApiService _apiService = ApiService();
+  final SupabaseClient _supabase = Supabase.instance.client;
 
+  // State Variables
+  bool isRecording = false;
+  bool isProcessing = false;
+  String recordTime = "00:00";
   Timer? _timer;
   int _seconds = 0;
-  String recordTime = "00:00";
+  String? _recordedFilePath;
 
-  final List<MainCard> cards = [
-    MainCard(term: "Mitochondria", definition: "Powerhouse of the cell"),
-    MainCard(term: "Nucleus", definition: "Controls cell activities"),
-  ];
+  // Dropdown State
+  List<Subject> _subjects = [];
+  List<Unit> _units = [];
+  Subject? _selectedSubject;
+  Unit? _selectedUnit;
+  bool _isLoadingContext = true;
 
   @override
   void initState() {
     super.initState();
     _audioService.init();
-    _playerService.init();
+    _loadSubjects();
+  }
+
+  Future<void> _loadSubjects() async {
+    try {
+      final subjects = await _apiService.getSubjects();
+      setState(() {
+        _subjects = subjects;
+        _isLoadingContext = false;
+      });
+    } catch (e) {
+      print("Error loading subjects: $e");
+      setState(() => _isLoadingContext = false);
+    }
+  }
+
+  Future<void> _loadUnits(String subjectId) async {
+    final units = await _apiService.getUnits(subjectId);
+    setState(() {
+      _units = units;
+      _selectedUnit = null; // Reset unit when subject changes
+    });
   }
 
   @override
   void dispose() {
     _timer?.cancel();
     _audioService.dispose();
-    _playerService.dispose();
     super.dispose();
   }
 
@@ -97,7 +77,6 @@ class _FlashCardPageState extends State<FlashCardPage> {
     _timer?.cancel();
     _seconds = 0;
     recordTime = "00:00";
-
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       setState(() {
         _seconds++;
@@ -110,194 +89,253 @@ class _FlashCardPageState extends State<FlashCardPage> {
     _timer?.cancel();
   }
 
-  void _resetRecording(MainCard card) {
-    _timer?.cancel();
-    setState(() {
-      _seconds = 0;
-      recordTime = "00:00";
-      isRecording = false;
-      // card.audioPath = null;
-    });
-  }
-
   String _formatTime(int seconds) {
     final m = (seconds ~/ 60).toString().padLeft(2, '0');
     final s = (seconds % 60).toString().padLeft(2, '0');
     return "$m:$s";
   }
 
-  Widget _flipTransition(Widget child, Animation<double> animation) {
-    final rotate = Tween<double>(begin: 3.1416, end: 0).animate(animation);
-
-    return AnimatedBuilder(
-      animation: rotate,
-      child: child,
-      builder: (context, child) {
-        return Transform(
-          alignment: Alignment.center,
-          transform: Matrix4.identity()
-            ..setEntry(3, 2, 0.001)
-            ..rotateY(rotate.value),
-          child: child,
+  Future<void> _onRecordPressed() async {
+    if (isRecording) {
+      // STOP RECORDING
+      final path = await _audioService.stop();
+      _stopTimer();
+      setState(() {
+        isRecording = false;
+        _recordedFilePath = path;
+      });
+      _showUploadDialog();
+    } else {
+      // START RECORDING
+      if (_selectedUnit == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Please select a Subject and Unit first!"),
+          ),
         );
-      },
+        return;
+      }
+
+      await _audioService.start();
+      _startTimer();
+      setState(() => isRecording = true);
+    }
+  }
+
+  void _showUploadDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Analyze Lecture?"),
+        content: const Text("Submit this recording to Lumen AI for analysis?"),
+        actions: [
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _recordedFilePath = null;
+                recordTime = "00:00";
+              });
+              Navigator.pop(context);
+            },
+            child: const Text("Discard"),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _processRecording();
+            },
+            child: const Text("Analyze"),
+          ),
+        ],
+      ),
     );
+  }
+
+  Future<void> _processRecording() async {
+    if (_recordedFilePath == null || _selectedUnit == null) return;
+
+    setState(() => isProcessing = true);
+
+    try {
+      final userId = _supabase.auth.currentUser?.id ?? "anon"; // Handle auth
+
+      final result = await _apiService.processLecture(
+        audioFile: File(_recordedFilePath!),
+        unitId: _selectedUnit!.id,
+        userId: userId,
+        title: "Lecture on ${_selectedUnit!.name}",
+      );
+
+      if (!mounted) return;
+
+      // Navigate to Results
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => AnalysisResultScreen(result: result)),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed: $e"), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      setState(() => isProcessing = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final currentCard = cards[currentIndex];
-
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
-          ),
-        ),
-        child: SafeArea(
+      backgroundColor: const Color(0xFF0F2027),
+      appBar: AppBar(
+        title: const Text("New Recording"),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+      ),
+      body: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(20.0),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const SizedBox(height: 16),
-              ProgressBar(current: currentIndex, total: cards.length),
-
-              Expanded(
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-
-                  onTap: () {
-                    if (isPlayingAudio) return;
-                    setState(() => isFront = !isFront);
-                  },
-
-                  onHorizontalDragEnd: (details) {
-                    if (isRecording || isPlayingAudio) return;
-
-                    final v = details.primaryVelocity ?? 0;
-                    if (v.abs() < 300) return;
-
-                    if (v < 0 && currentIndex < cards.length - 1) {
-                      setState(() => cardOffset = const Offset(-1, 0));
-
-                      Future.delayed(const Duration(milliseconds: 220), () {
-                        setState(() {
-                          
-                          _resetRecording(currentCard);
-                          currentIndex++;
-                          isFront = true;
-                          cardOffset = Offset.zero;
-                        });
-                      });
-                    }
-
-                    if (v > 0 && currentIndex > 0) {
-                      setState(() => cardOffset = const Offset(1, 0));
-
-                      Future.delayed(const Duration(milliseconds: 220), () {
-                        setState(() {
-                          _resetRecording(currentCard);
-                          currentIndex--;
-                          isFront = true;
-                          cardOffset = Offset.zero;
-                        });
-                      });
-                    }
-
-                    HapticFeedback.selectionClick();
-                  },
-
-                  child: AnimatedSlide(
-                    offset: cardOffset,
-                    duration: const Duration(milliseconds: 220),
-                    curve: Curves.easeOut,
-                    child: AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 350),
-                      transitionBuilder: _flipTransition,
-                      child: Flashcard(
-                        key: ValueKey(isFront),
-                        text: isFront
-                            ? currentCard.term
-                            : currentCard.definition,
-                        isFront: isFront,
-                        hasAudio: currentCard.audioPath != null,
-                        isPlaying: isPlayingAudio,
-                        onPlay: () async {
-                          final path = currentCard.audioPath;
-                          if (path == null) return;
-
-                          setState(() => isPlayingAudio = true);
-                          await _playerService.play(path);
-                          setState(() => isPlayingAudio = false);
-                        },
+              // --- 1. Context Selector (The Digital Backpack) ---
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1E2746),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "📚 Context (Syllabus Grounding)",
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
                       ),
                     ),
+                    const SizedBox(height: 10),
+                    // Subject Dropdown
+                    _isLoadingContext
+                        ? const LinearProgressIndicator()
+                        : DropdownButtonFormField<Subject>(
+                            decoration: const InputDecoration(
+                              labelText: "Subject",
+                              border: OutlineInputBorder(),
+                              contentPadding: EdgeInsets.symmetric(
+                                horizontal: 10,
+                              ),
+                            ),
+                            dropdownColor: const Color(0xFF1E2746),
+                            value: _selectedSubject,
+                            items: _subjects.map((s) {
+                              return DropdownMenuItem(
+                                value: s,
+                                child: Text(
+                                  s.name,
+                                  style: const TextStyle(color: Colors.white),
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (val) {
+                              if (val != null) {
+                                setState(() => _selectedSubject = val);
+                                _loadUnits(val.id);
+                              }
+                            },
+                          ),
+                    const SizedBox(height: 10),
+                    // Unit Dropdown
+                    DropdownButtonFormField<Unit>(
+                      decoration: const InputDecoration(
+                        labelText: "Unit / Module",
+                        border: OutlineInputBorder(),
+                        contentPadding: EdgeInsets.symmetric(horizontal: 10),
+                      ),
+                      dropdownColor: const Color(0xFF1E2746),
+                      value: _selectedUnit,
+                      items: _units.map((u) {
+                        return DropdownMenuItem(
+                          value: u,
+                          child: Text(
+                            u.name,
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        setState(() => _selectedUnit = val);
+                      },
+                    ),
+                  ],
+                ),
+              ),
+
+              const Spacer(),
+
+              // --- 2. Recording Status ---
+              if (isProcessing)
+                const Column(
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 10),
+                    Text(
+                      "Analyzing with Gemini...",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ],
+                ),
+
+              const SizedBox(height: 20),
+
+              Center(
+                child: Text(
+                  recordTime,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 64,
+                    fontWeight: FontWeight.w200,
+                    fontFeatures: [FontFeature.tabularFigures()],
                   ),
                 ),
               ),
 
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                child: AudioRecorderUI(
-                  isRecording: isRecording,
-                  time: recordTime,
-                  hasAudio: currentCard.audioPath != null,
-                  onRecordTap: () async {
-                    if (!_audioService.isRunning) {
-                      await _audioService.start();
+              const Spacer(),
 
-                      _startTimer();
-
-                      setState(() {
-                        isRecording = true;
-                        recordingCardIndex = currentIndex;
-                      });
-                      await _audioService.start();
-                    } else {
-                      final path = await _audioService.stop();
-
-                      _stopTimer();
-
-                      setState(() {
-                        isRecording = false;
-                        if (recordingCardIndex != null) {
-                          cards[recordingCardIndex!].audioPath = path;
-                        }
-
-                        recordingCardIndex = null;
-                      });
-                    }
-                  },
-                  onReset: () {
-                    showDialog(
-                      context: context,
-                      builder: (_) => AlertDialog(
-                        title: const Text("Reset recording?"),
-                        content: const Text(
-                          "This will delete the recorded audio for this card.",
+              // --- 3. Record Button ---
+              Center(
+                child: GestureDetector(
+                  onTap: _onRecordPressed,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    height: isRecording ? 80 : 70,
+                    width: isRecording ? 80 : 70,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isRecording ? Colors.red : Colors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: isRecording
+                              ? Colors.red.withOpacity(0.5)
+                              : Colors.blueAccent.withOpacity(0.5),
+                          blurRadius: 20,
+                          spreadRadius: 5,
                         ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text("Cancel"),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              _resetRecording(currentCard);
-                              Navigator.pop(context);
-                            },
-                            child: const Text(
-                              "Reset",
-                              style: TextStyle(color: Colors.red),
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
+                      ],
+                    ),
+                    child: Icon(
+                      isRecording ? Icons.stop : Icons.mic,
+                      color: isRecording ? Colors.white : Colors.black,
+                      size: 32,
+                    ),
+                  ),
                 ),
               ),
+              const SizedBox(height: 30),
             ],
           ),
         ),
