@@ -55,8 +55,27 @@ async def process_lecture(
             raise HTTPException(status_code=500, detail="Gemini returned no response.")
 
         # Clean Markdown formatting if present
-        clean_json = result_json_str.strip().replace("```json", "").replace("```", "")
-        data = json.loads(clean_json)
+        import re
+        
+        try:
+            # 1. Try to find JSON in markdown code blocks
+            match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", result_json_str, re.DOTALL)
+            if match:
+                clean_json = match.group(1)
+            else:
+                # 2. Try to find first { and last }
+                match = re.search(r"(\{.*\})", result_json_str, re.DOTALL)
+                if match:
+                    clean_json = match.group(1)
+                else:
+                    clean_json = result_json_str # Fallback to original
+
+            data = json.loads(clean_json)
+            
+        except json.JSONDecodeError as e:
+            print(f"❌ JSON Decode Error: {e}")
+            print(f"📉 Raw Gemini Output:\n{result_json_str}\n")
+            raise e
 
         # 4. Save to Database (The Graph Logic)
         
@@ -146,8 +165,14 @@ async def process_lecture(
         print("❌ Gemini extraction failed: Invalid JSON received")
         raise HTTPException(status_code=500, detail="AI Model failed to generate valid structured data.")
     except Exception as e:
-        print(f"❌ Processing Error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        error_msg = str(e)
+        print(f"❌ Processing Error: {error_msg}")
+        if "429" in error_msg:
+            raise HTTPException(status_code=429, detail="Gemini API Quota Exceeded. Please try again in a minute.")
+        raise HTTPException(status_code=500, detail=error_msg)
     finally:
         if os.path.exists(tmp_path):
-            os.remove(tmp_path)
+            try:
+                os.remove(tmp_path)
+            except:
+                pass

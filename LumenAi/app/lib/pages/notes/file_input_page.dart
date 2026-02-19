@@ -59,7 +59,16 @@ class _FileInputPageState extends State<FileInputPage> {
   Future<void> pickFile() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['mp3', 'wav', 'm4a', 'mp4'],
+      allowedExtensions: [
+        'mp3',
+        'wav',
+        'm4a',
+        'mp4',
+        'pdf',
+        'doc',
+        'docx',
+        'txt',
+      ],
     );
 
     if (result == null) return;
@@ -70,12 +79,10 @@ class _FileInputPageState extends State<FileInputPage> {
   }
 
   Future<void> _analyzeFile() async {
-    if (selectedFile == null || _selectedUnit == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Please select a file, Subject, and Unit."),
-        ),
-      );
+    if (selectedFile == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Please select a file.")));
       return;
     }
 
@@ -86,9 +93,11 @@ class _FileInputPageState extends State<FileInputPage> {
 
       final result = await _apiService.processLecture(
         audioFile: selectedFile!,
-        unitId: _selectedUnit!.id,
+        unitId: _selectedUnit?.id,
         userId: userId,
-        title: "Uploaded Lecture: ${_selectedUnit!.name}",
+        title: _selectedUnit != null
+            ? "Uploaded Lecture: ${_selectedUnit!.name}"
+            : "Uploaded Lecture",
       );
 
       if (!mounted) return;

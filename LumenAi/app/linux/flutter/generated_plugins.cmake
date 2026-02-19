@@ -3,9 +3,10 @@
 #
 
 list(APPEND FLUTTER_PLUGIN_LIST
+  audioplayers_linux
   file_selector_linux
-  flutter_sound
   gtk
+  record_linux
   url_launcher_linux
 )
 

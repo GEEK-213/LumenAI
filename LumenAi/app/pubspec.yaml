@@ -41,11 +41,13 @@ dependencies:
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
-  flutter_sound: ^9.30.0
+  record: ^5.2.0
+  audioplayers: ^6.0.0
   permission_handler: ^12.0.1
   supabase_flutter: ^2.00.0
   image_picker: ^1.2.1
-
+  http: ^1.2.0
+  http_parser: ^4.0.0
   #master calender
   table_calendar: 3.2.0
 
@@ -103,3 +105,8 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+dependency_overrides:
+  # 1.4.0 was still too new. 1.1.0 matches the age of record_linux 0.7.2
+  record_platform_interface: 1.1.0
+  # If you see errors about "kType" or "xml", uncomment lines below:
+  # xml: 6.3.0

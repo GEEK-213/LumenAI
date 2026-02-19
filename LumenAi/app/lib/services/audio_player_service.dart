@@ -1,33 +1,28 @@
-import 'package:flutter_sound/flutter_sound.dart';
+import 'package:audioplayers/audioplayers.dart';
 
 class AudioPlayerService {
-  final FlutterSoundPlayer _player = FlutterSoundPlayer();
-  bool _ready = false;
+  final AudioPlayer _player = AudioPlayer();
 
   Future<void> init() async {
-    await _player.openPlayer();
-    _ready = true;
+    // No explicit init needed for audioplayers usually,
+    // but we can set context if needed.
   }
 
   Future<void> play(String path) async {
-    if (!_ready) return;
-
-    if (_player.isPlaying) {
-      await _player.stopPlayer();
+    if (path.startsWith('http')) {
+      await _player.play(UrlSource(path));
+    } else {
+      await _player.play(DeviceFileSource(path));
     }
-
-    await _player.startPlayer(fromURI: path, codec: Codec.aacADTS);
   }
 
   Future<void> stop() async {
-    if (_player.isPlaying) {
-      await _player.stopPlayer();
-    }
+    await _player.stop();
   }
 
-  bool get isPlaying => _player.isPlaying;
+  Future<bool> get isPlaying async => _player.state == PlayerState.playing;
 
   Future<void> dispose() async {
-    await _player.stopPlayer();
+    await _player.dispose();
   }
 }

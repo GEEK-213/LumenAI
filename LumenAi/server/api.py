@@ -27,4 +27,4 @@ def health_check():
 if __name__ == "__main__":
     import uvicorn
     # Host 0.0.0.0 is crucial for Android Emulator access (via 10.0.2.2)
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)

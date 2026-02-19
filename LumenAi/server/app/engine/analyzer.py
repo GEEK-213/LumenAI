@@ -65,7 +65,8 @@ class LectureAnalyzer:
         
         IMPORTANT:
         - Return ONLY valid JSON.
-        - Do not include markdown code blocks (```json).
+        - Do NOT wrap in markdown code blocks (e.g., ```json ... ```).
+        - No conversational filler (e.g., "Here is the JSON").
         - If a field has no data, return an empty list/null.
         """
 
@@ -106,7 +107,7 @@ class LectureAnalyzer:
             try:
                 # We send the WHOLE 'contents' list (Instructions + Media + Text)
                 response = self.client.models.generate_content(
-                    model="gemini-2.0-flash", 
+                    model="gemini-2.5-flash", 
                     contents=contents,
                     config=types.GenerateContentConfig(
                         response_mime_type="application/json",
@@ -118,6 +119,12 @@ class LectureAnalyzer:
                 print(f"  ⚠️ Gemini Error (Attempt {attempt+1}): {e}")
                 if "503" in str(e) or "429" in str(e):
                     time.sleep((2 ** attempt) + 5)
+                    last_error = e
                 else:
-                    break # Fatal error
+                    # Fatal error (e.g. 400 Bad Request, 401 Unauthorized), raise immediately
+                    raise e
+        
+        # If we exhausted retries, raise the last error
+        if last_error:
+            raise last_error
         return None

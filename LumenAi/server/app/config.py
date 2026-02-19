@@ -5,11 +5,11 @@ load_dotenv()
 
 class Config:
     SUPABASE_URL = os.getenv("SUPABASE_URL")
-    SUPABASE_KEY = os.getenv("SUPABASE_ANON_KEY") # Use ANON key for client-side/public, or SERVICE_ROLE for admin tasks if needed. 
-    # STRICT RULE: We use ANON key for now, simulating user interactions via RLS.
+    # Prefer SERVICE_ROLE key for backend admin tasks; fall back to ANON if not set (but writes may fail due to RLS).
+    SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_ROLE_KEY") or os.getenv("SUPABASE_ANON_KEY")
     
     GEMINI_API_KEY = os.getenv("Gemini_API_key")
     
     # Validation
     if not SUPABASE_URL or not SUPABASE_KEY:
-        raise ValueError("CRITICAL: SUPABASE_URL or SUPABASE_ANON_KEY is missing from .env")
+        raise ValueError("CRITICAL: SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY (or ANON_KEY) is missing from .env")

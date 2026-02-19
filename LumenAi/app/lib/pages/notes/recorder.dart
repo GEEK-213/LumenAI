@@ -107,14 +107,8 @@ class _FlashCardPageState extends State<FlashCardPage> {
       _showUploadDialog();
     } else {
       // START RECORDING
-      if (_selectedUnit == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Please select a Subject and Unit first!"),
-          ),
-        );
-        return;
-      }
+      // START RECORDING
+      // Unit selection is now optional
 
       await _audioService.start();
       _startTimer();
@@ -152,7 +146,7 @@ class _FlashCardPageState extends State<FlashCardPage> {
   }
 
   Future<void> _processRecording() async {
-    if (_recordedFilePath == null || _selectedUnit == null) return;
+    if (_recordedFilePath == null) return;
 
     setState(() => isProcessing = true);
 
@@ -161,9 +155,11 @@ class _FlashCardPageState extends State<FlashCardPage> {
 
       final result = await _apiService.processLecture(
         audioFile: File(_recordedFilePath!),
-        unitId: _selectedUnit!.id,
+        unitId: _selectedUnit?.id,
         userId: userId,
-        title: "Lecture on ${_selectedUnit!.name}",
+        title: _selectedUnit != null
+            ? "Lecture on ${_selectedUnit!.name}"
+            : "New Recording",
       );
 
       if (!mounted) return;

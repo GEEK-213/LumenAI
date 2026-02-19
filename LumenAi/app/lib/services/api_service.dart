@@ -9,8 +9,8 @@ class ApiService {
   // Android Emulator: 10.0.2.2, iOS/Web: localhost or 127.0.0.1
   // For physical device, use your machine's local IP (e.g., 192.168.1.X)
   final String _baseUrl = Platform.isAndroid
-      ? 'http://10.0.2.2:8000'
-      : 'http://127.0.0.1:8000';
+      ? 'http://10.0.2.2:8001'
+      : 'http://127.0.0.1:8001';
 
   Future<List<Subject>> getSubjects() async {
     final response = await _supabase
@@ -31,14 +31,16 @@ class ApiService {
 
   Future<AnalysisResult> processLecture({
     required File audioFile,
-    required String unitId,
     required String userId,
+    String? unitId,
     String? title,
   }) async {
     final uri = Uri.parse('$_baseUrl/analysis/process');
     final request = http.MultipartRequest('POST', uri);
 
-    request.fields['unit_id'] = unitId;
+    if (unitId != null && unitId.isNotEmpty) {
+      request.fields['unit_id'] = unitId;
+    }
     request.fields['user_id'] = userId;
     if (title != null) request.fields['title'] = title;
 

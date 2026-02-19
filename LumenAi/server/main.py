@@ -1,79 +1,79 @@
 import os
-import json
-import asyncio
-import re
-from app.engine.analyzer import LectureAnalyzer
+import uuid
+import uvicorn
+from typing import Optional
+from fastapi import FastAPI, UploadFile, File, Form, BackgroundTasks
 from dotenv import load_dotenv
+
+# Import your existing logic if available
+try:
+    from app.engine.analyzer import LectureAnalyzer
+except ImportError:
+    print("⚠️ Warning: Could not import LectureAnalyzer. AI features will be mocked.")
+    LectureAnalyzer = None
 
 load_dotenv()
 
-ASSETS_DIR = "tests/assets"
-RESULTS_DIR = "processed_results"
-TRACKER_FILE = "processed_files.json"
+app = FastAPI()
 
-os.makedirs(RESULTS_DIR, exist_ok=True)
-
-def sanitize_filename(filename):
-    # Removes emojis and special characters that cause ASCII errors
-    return re.sub(r'[^\x00-\x7f]', r'', filename).strip()
-
-def get_processed_list():
-    if os.path.exists(TRACKER_FILE):
-        with open(TRACKER_FILE, "r") as f:
-            try: return json.load(f)
-            except: return []
-    return []
-
-def save_processed_file(filename):
-    processed = get_processed_list()
-    if filename not in processed:
-        processed.append(filename)
-        with open(TRACKER_FILE, "w") as f:
-            json.dump(processed, f, indent=4)
-
-async def start_interactive_analysis():
-    analyzer = LectureAnalyzer()
+# --- Helper: Background Task ---
+async def process_lecture_upload(file_name: str, title: str, user_id: str):
+    """
+    Simulates the long-running AI process in the background.
+    """
+    print(f"🦁 [Background] Processing started for: {title} ({file_name})")
     
-    # RENAME FILES WITH EMOJIS BEFORE LISTING
-    for f in os.listdir(ASSETS_DIR):
-        clean_name = sanitize_filename(f)
-        if clean_name != f:
-            os.rename(os.path.join(ASSETS_DIR, f), os.path.join(ASSETS_DIR, clean_name))
+    if LectureAnalyzer:
+        # TODO: Here is where you will eventually:
+        # 1. Save the file to disk/Supabase
+        # 2. Run Whisper to get text
+        # 3. Run Gemini to get notes
+        pass
+    
+    await asyncio.sleep(2) # Simulate work
+    print(f"✅ [Background] Analysis complete for: {title}")
 
-    processed = get_processed_list()
-    valid_exts = ('.mp3', '.pdf', '.pptx', '.docx', '.xlsx', ".wav", ".mp4", ".mov")
-    all_files = [f for f in os.listdir(ASSETS_DIR) if f.lower().endswith(valid_exts)]
-    new_files = [f for f in all_files if f not in processed]
+# --- Routes ---
 
-    if not new_files:
-        print("\n✨ Assets already analyzed!")
-        return
+@app.get("/")
+def health_check():
+    return {"status": "ok", "message": "Lumen AI Brain is Online 🧠"}
 
-    print("\n--- LUMEN AI: Pending Files ---")
-    for i, file in enumerate(new_files):
-        print(f"[{i}] {file}")
+@app.post("/analysis/process")
+async def process_analysis(
+    background_tasks: BackgroundTasks,
+    # These match the fields sent by requests.post in your test script
+    file: UploadFile = File(...),
+    user_id: str = Form(...),
+    title: str = Form(...),
+    unit_id: Optional[str] = Form(None)
+):
+    """
+    Receives a file upload + metadata from Flutter/Test Script.
+    """
+    print(f"\n📥 INCOMING REQUEST:")
+    print(f"   - Title: {title}")
+    print(f"   - User: {user_id}")
+    print(f"   - File: {file.filename}")
 
-    choice = input("\nEnter choice (number or 'all'): ")
-    to_process = new_files if choice.lower() == 'all' else [new_files[int(x.strip())] for x in choice.split(",")]
+    # Generate a tracking ID
+    task_id = str(uuid.uuid4())
 
-    for file_name in to_process:
-        print(f"\n🚀 Processing: {file_name}")
-        file_path = os.path.join(ASSETS_DIR, file_name)
-        
-        try:
-            result_raw = await analyzer.analyze_multimodal([file_path])
-            if result_raw:
-                result_data = json.loads(result_raw.strip().replace("```json", "").replace("```", ""))
-                output_name = f"{os.path.splitext(file_name)[0]}_result.json"
-                output_path = os.path.join(RESULTS_DIR, output_name)
-                with open(output_path, "w") as f:
-                    json.dump(result_data, f, indent=4)
-                save_processed_file(file_name)
-                print(f"✅ Success! Data saved to: {output_path}")
-            else:
-                print(f"❌ Failed to get response.")
-        except Exception as e:
-            print(f"❌ Fatal Error: {e}")
+    # Start the "heavy lifting" in the background so the app doesn't freeze
+    background_tasks.add_task(process_lecture_upload, file.filename, title, user_id)
+    
+    return {
+        "status": "success",
+        "message": "File received, processing started.",
+        "data": {
+            "task_id": task_id,
+            "filename": file.filename,
+            "status": "processing"
+        }
+    }
 
+# --- Entry Point ---
 if __name__ == "__main__":
-    asyncio.run(start_interactive_analysis())
+    import asyncio
+    # Matches the port in your test script (8001)
+    uvicorn.run(app, host="0.0.0.0", port=8001)

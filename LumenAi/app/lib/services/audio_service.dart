@@ -1,37 +1,41 @@
-import 'package:flutter_sound/flutter_sound.dart';
+import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'dart:io';
 
 class AudioService {
-  final FlutterSoundRecorder _recorder = FlutterSoundRecorder();
-  bool _ready = false;
+  final AudioRecorder _recorder = AudioRecorder();
   String? _path;
 
   Future<void> init() async {
-    await Permission.microphone.request();
-    await _recorder.openRecorder();
-    _ready = true;
+    // Check and request permission
+    if (await _recorder.hasPermission()) {
+      // Permission granted
+    }
   }
 
   Future<String> start() async {
-    if (!_ready) throw Exception("Recorder not ready");
+    if (!await _recorder.hasPermission()) {
+      await Permission.microphone.request();
+    }
 
     final dir = await getApplicationDocumentsDirectory();
-    _path = '${dir.path}/rec_${DateTime.now().millisecondsSinceEpoch}.aac';
+    _path = '${dir.path}/rec_${DateTime.now().millisecondsSinceEpoch}.m4a';
 
-    await _recorder.startRecorder(toFile: _path);
+    // Start recording to file
+    await _recorder.start(const RecordConfig(), path: _path!);
     return _path!;
   }
 
   Future<String?> stop() async {
-    if (!_ready) return null;
-    await _recorder.stopRecorder();
-    return _path;
+    if (!await _recorder.isRecording()) return null;
+    final path = await _recorder.stop();
+    return path;
   }
 
-  bool get isRunning => _recorder.isRecording;
+  Future<bool> get isRunning async => await _recorder.isRecording();
 
   Future<void> dispose() async {
-    await _recorder.closeRecorder();
+    _recorder.dispose();
   }
 }
