@@ -151,7 +151,20 @@ class _FlashCardPageState extends State<FlashCardPage> {
     setState(() => isProcessing = true);
 
     try {
-      final userId = _supabase.auth.currentUser?.id ?? "anon"; // Handle auth
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("You must be logged in to process a recording."),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        setState(() => isProcessing = false);
+        return;
+      }
+      final userId = user.id;
 
       final result = await _apiService.processLecture(
         audioFile: File(_recordedFilePath!),

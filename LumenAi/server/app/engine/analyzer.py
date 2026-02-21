@@ -8,6 +8,12 @@ from google.genai import types
 from markitdown import MarkItDown
 from app.config import Config
 
+
+class RateLimitError(Exception):
+    """Raised when Gemini API is rate-limited or quota exceeded."""
+    pass
+
+
 class LectureAnalyzer:
     def __init__(self):
         self.client = genai.Client(api_key=Config.GEMINI_API_KEY)
@@ -79,7 +85,6 @@ class LectureAnalyzer:
             ext = os.path.splitext(path)[1].lower()
             
             if ext in NATIVE_SUPPORT:
-                # 1. Native Upload (Gemini "listens" and "watches" these)
                 print(f"  📤 Uploading Native Media: {os.path.basename(path)}")
                 try:
                     file = self.client.files.upload(file=path)
@@ -91,11 +96,9 @@ class LectureAnalyzer:
                     print(f"  ❌ Gemini Upload Failed: {e}")
             
             else:
-                # 2. Text Extraction (Gemini "reads" these as Markdown)
                 print(f"  📝 Converting Document to Text: {os.path.basename(path)}")
                 try:
                     result = self.md.convert(path)
-                    # We wrap the text in a clear header so Gemini knows which file it's from
                     file_text = f"\n\n--- START OF DOCUMENT: {os.path.basename(path)} ---\n{result.text_content}\n--- END OF DOCUMENT ---"
                     contents.append(file_text)
                 except Exception as e:
@@ -103,9 +106,9 @@ class LectureAnalyzer:
 
         # --- THE EXECUTION ---
         max_retries = 3
+        last_error = None
         for attempt in range(max_retries):
             try:
-                # We send the WHOLE 'contents' list (Instructions + Media + Text)
                 response = self.client.models.generate_content(
                     model="gemini-2.5-flash", 
                     contents=contents,
@@ -117,14 +120,13 @@ class LectureAnalyzer:
                 return response.text
             except Exception as e:
                 print(f"  ⚠️ Gemini Error (Attempt {attempt+1}): {e}")
-                if "503" in str(e) or "429" in str(e):
-                    time.sleep((2 ** attempt) + 5)
+                error_str = str(e)
+                if "429" in error_str or "503" in error_str or "quota" in error_str.lower():
                     last_error = e
+                    time.sleep((2 ** attempt) + 5)
                 else:
-                    # Fatal error (e.g. 400 Bad Request, 401 Unauthorized), raise immediately
                     raise e
         
-        # If we exhausted retries, raise the last error
-        if last_error:
-            raise last_error
-        return None
+        # Exhausted retries due to rate limiting — signal fallback
+        print("  🔄 Gemini rate limit exhausted. Signalling fallback to Local LLM...")
+        raise RateLimitError(f"Gemini rate limited after {max_retries} attempts: {last_error}")

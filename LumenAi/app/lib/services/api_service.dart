@@ -87,7 +87,22 @@ class ApiService {
         .single();
 
     if (response['raw_analysis'] != null) {
-      return AnalysisResult.fromJson(response['raw_analysis']);
+      final raw = response['raw_analysis'];
+      print("📊 raw_analysis type: ${raw.runtimeType}");
+      if (raw is Map) {
+        print("📊 raw_analysis keys: ${raw.keys.toList()}");
+        print(
+          "📊 summary preview: ${raw['summary']?.toString().substring(0, 100)}",
+        );
+        print("📊 topics: ${raw['topics']}");
+      } else {
+        print(
+          "📊 raw_analysis value (first 200): ${raw.toString().substring(0, 200)}",
+        );
+      }
+      return AnalysisResult.fromJson(
+        raw is Map<String, dynamic> ? raw : Map<String, dynamic>.from(raw),
+      );
     } else {
       throw Exception("Lecture processed but no analysis data found.");
     }

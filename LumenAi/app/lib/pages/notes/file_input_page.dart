@@ -60,14 +60,14 @@ class _FileInputPageState extends State<FileInputPage> {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: [
-        'mp3',
-        'wav',
-        'm4a',
-        'mp4',
-        'pdf',
-        'doc',
-        'docx',
-        'txt',
+        // Documents
+        'pdf', 'doc', 'docx', 'ppt', 'pptx', 'xls', 'xlsx',
+        // Text
+        'txt', 'md', 'rtf', 'csv',
+        // Audio
+        'mp3', 'wav', 'm4a', 'aac', 'ogg', 'flac', 'opus', 'wma',
+        // Video
+        'mp4', 'mov', 'avi', 'mkv', 'webm', '3gp',
       ],
     );
 
@@ -89,7 +89,20 @@ class _FileInputPageState extends State<FileInputPage> {
     setState(() => isProcessing = true);
 
     try {
-      final userId = _supabase.auth.currentUser?.id ?? "anon";
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("You must be logged in to process a lecture."),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        setState(() => isProcessing = false);
+        return;
+      }
+      final userId = user.id;
 
       final result = await _apiService.processLecture(
         audioFile: selectedFile!,

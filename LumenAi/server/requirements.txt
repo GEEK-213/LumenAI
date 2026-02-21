@@ -2,6 +2,10 @@ fastapi
 uvicorn
 supabase
 python-multipart
-markitdown
+markitdown[pdf]
+
 python-dotenv
 google-genai
+openai-whisper
+ollama
+httpx

@@ -4,10 +4,12 @@ import shutil
 import tempfile
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from app.database import supabase
-from app.engine.analyzer import LectureAnalyzer
+from app.engine.analyzer import LectureAnalyzer, RateLimitError
+from app.engine.local_analyzer import LocalAnalyzer
 
 router = APIRouter()
 analyzer = LectureAnalyzer()
+local_analyzer = LocalAnalyzer()
 
 @router.post("/process")
 async def process_lecture(
@@ -48,34 +50,74 @@ async def process_lecture(
             
             print(f"  📚 Found Syllabus Context: {len(syllabus_context)} chars")
 
-        # 3. Analyze with Gemini
-        result_json_str = await analyzer.analyze_multimodal([tmp_path], syllabus_context)
-        
+        # 3. Analyze — check if local-only mode is enabled
+        engine_used = "gemini"
+        result_json_str = None
+
+        use_local = os.getenv("USE_LOCAL_LLM", "false").lower() == "true"
+
+        if use_local:
+            print("  🔧 USE_LOCAL_LLM=true — Skipping Gemini, using Ollama directly.")
+            engine_used = "local_ollama"
+            result_json_str = await local_analyzer.analyze([tmp_path], syllabus_context)
+        else:
+            try:
+                result_json_str = await analyzer.analyze_multimodal([tmp_path], syllabus_context)
+            except RateLimitError as rle:
+                print(f"  ⚠️ Gemini unavailable: {rle}")
+                print("  🔄 Falling back to Local LLM (Ollama)...")
+                engine_used = "local_ollama"
+                result_json_str = await local_analyzer.analyze([tmp_path], syllabus_context)
+
         if not result_json_str:
-            raise HTTPException(status_code=500, detail="Gemini returned no response.")
+            raise HTTPException(status_code=500, detail="Both Gemini and Local LLM returned no response.")
 
-        # Clean Markdown formatting if present
+
+        # Clean and extract JSON from model response
         import re
-        
-        try:
-            # 1. Try to find JSON in markdown code blocks
-            match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", result_json_str, re.DOTALL)
-            if match:
-                clean_json = match.group(1)
-            else:
-                # 2. Try to find first { and last }
-                match = re.search(r"(\{.*\})", result_json_str, re.DOTALL)
-                if match:
-                    clean_json = match.group(1)
-                else:
-                    clean_json = result_json_str # Fallback to original
 
+        def extract_json(text: str) -> str:
+            """Extract JSON object using brace matching — handles markdown fences, preamble, etc."""
+            # First try: strip markdown code fences (use brace matcher on content inside fence)
+            fence_start = re.search(r"```(?:json)?\s*\n?", text)
+            if fence_start:
+                text = text[fence_start.end():]  # Strip the opening fence
+                fence_end = text.rfind("```")
+                if fence_end > 0:
+                    text = text[:fence_end]  # Strip the closing fence
+            # Find first { and match to its closing } using depth counting
+            start = text.find('{')
+            if start == -1:
+                return text
+            depth = 0
+            in_string = False
+            escape_next = False
+            for i, ch in enumerate(text[start:], start=start):
+                if escape_next:
+                    escape_next = False
+                    continue
+                if ch == '\\' and in_string:
+                    escape_next = True
+                    continue
+                if ch == '"' and not escape_next:
+                    in_string = not in_string
+                if not in_string:
+                    if ch == '{':
+                        depth += 1
+                    elif ch == '}':
+                        depth -= 1
+                        if depth == 0:
+                            return text[start:i+1]
+            return text[start:]  # Return from first { to end if no balanced close found
+
+        try:
+            clean_json = extract_json(result_json_str)
             data = json.loads(clean_json)
-            
         except json.JSONDecodeError as e:
             print(f"❌ JSON Decode Error: {e}")
-            print(f"📉 Raw Gemini Output:\n{result_json_str}\n")
+            print(f"📉 Raw Model Output (first 2000 chars):\n{result_json_str[:2000]}\n")
             raise e
+
 
         # 4. Save to Database (The Graph Logic)
         
@@ -158,12 +200,16 @@ async def process_lecture(
         return {
             "status": "success", 
             "lecture_id": lecture_id,
-            "summary_preview": data.get("summary")[:100] + "..."
+            "engine_used": engine_used,
+            "summary_preview": data.get("summary", "")[:100] + "..."
         }
 
-    except json.JSONDecodeError:
-        print("❌ Gemini extraction failed: Invalid JSON received")
-        raise HTTPException(status_code=500, detail="AI Model failed to generate valid structured data.")
+    except json.JSONDecodeError as jde:
+        short = result_json_str[:300] if result_json_str else 'EMPTY'
+        print(f"❌ JSON Decode Error: {jde}")
+        print(f"📉 Raw output snippet: {short}")
+        raise HTTPException(status_code=500, detail=f"AI Model returned invalid JSON: {jde}. Output start: {short[:100]}")
+
     except Exception as e:
         error_msg = str(e)
         print(f"❌ Processing Error: {error_msg}")
