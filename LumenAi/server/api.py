@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routes import ingestion, analysis
+from app.routes import ingestion, analysis, chat
 
 app = FastAPI(title="Lumen AI Backend", version="2.0")
 
@@ -19,6 +19,7 @@ app.add_middleware(
 # Register Routes
 app.include_router(ingestion.router, prefix="/ingestion", tags=["Ingestion"])
 app.include_router(analysis.router, prefix="/analysis", tags=["Analysis"])
+app.include_router(chat.router, prefix="/chat", tags=["Chat"])
 
 @app.get("/")
 def health_check():

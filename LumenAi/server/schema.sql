@@ -1,6 +1,18 @@
 -- Lumen AI Schema Definitions
 -- Run this in Supabase SQL Editor to create necessary tables.
 
+-- 0. Subjects Table (user's courses/subjects)
+create table if not exists public.subjects (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  user_id uuid references auth.users not null,
+  name text not null
+);
+
+alter table public.subjects enable row level security;
+create policy "Users can manage their own subjects" on public.subjects
+  for all using (auth.uid() = user_id);
+
 -- 1. Lectures Table
 create table if not exists public.lectures (
   id uuid default gen_random_uuid() primary key,
@@ -12,6 +24,7 @@ create table if not exists public.lectures (
   transcript text,
   raw_analysis jsonb -- Stores the full JSON from Gemini
 );
+
 
 -- 2. Flashcards Table
 create table if not exists public.flashcards (

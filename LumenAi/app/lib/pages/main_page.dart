@@ -1,10 +1,9 @@
-import 'package:app/pages/calender/master_calender_page.dart';
 import 'package:flutter/material.dart';
+import 'calender/master_calender_page.dart';
 import 'notes/notes_page.dart';
-import 'notes/input_type_page.dart';
 import 'home/homePage.dart';
 import 'profile/profilePage.dart';
-import 'notes/recorder.dart'; 
+import 'notes/recorder.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
@@ -16,62 +15,62 @@ class MainPage extends StatefulWidget {
 class _MainPageState extends State<MainPage> {
   int _selectedIndex = 0;
 
-    List<Widget> get _pages => [
-    const HomePage(),
-    MasterCalenderPage(), // Placeholder just for current use**
-    NotesPage(classes : _classes, onClassTap: _openAudioInput),
-    const Profilepage(),  
-  ];
-
-  final List<String> _classes = [];
+  Widget _buildPage() {
+    switch (_selectedIndex) {
+      case 0:
+        return const HomePage();
+      case 1:
+        return const MasterCalenderPage();
+      case 2:
+        return const NotesPage();
+      case 3:
+        return const Profilepage();
+      default:
+        return const HomePage();
+    }
+  }
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    setState(() => _selectedIndex = index);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0C1223),
-      body: IndexedStack(index: _selectedIndex, children: _pages),
-      floatingActionButton: _selectedIndex == 2
-    ? FloatingActionButton(
-        onPressed:  _showAddClassDialog,
-        child: const Icon(Icons.add),
-      )
-    : FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const FlashCardPage()),
-          );
-        },
-
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        child: Container(
-          height: 56,
-          width: 56,
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Colors.blueAccent, Colors.purpleAccent],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.blueAccent.withOpacity(0.4),
-                blurRadius: 15,
-                spreadRadius: 2,
+      body: _buildPage(),
+      floatingActionButton: _selectedIndex != 2
+          ? FloatingActionButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const FlashCardPage()),
+                );
+              },
+              backgroundColor: Colors.transparent,
+              elevation: 0,
+              child: Container(
+                height: 56,
+                width: 56,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Colors.blueAccent, Colors.purpleAccent],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blueAccent.withOpacity(0.4),
+                      blurRadius: 15,
+                      spreadRadius: 2,
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.mic, color: Colors.white, size: 28),
               ),
-            ],
-          ),
-          child: const Icon(Icons.mic, color: Colors.white, size: 28),
-        ),
-      ),
+            )
+          : null, // NotesPage manages its own FAB for adding subjects
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: Container(
         height: 80,
@@ -82,26 +81,16 @@ class _MainPageState extends State<MainPage> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _buildNavItem(0, Icons.home_outlined, Icons.home, "Home"),
-            _buildNavItem(1, Icons.folder_outlined, Icons.folder, "Projects"),
-            const SizedBox(width: 48), 
-            _buildNavItem(2, Icons.note_outlined, Icons.analytics, "Notes"),
-            _buildNavItem(3, Icons.person_outline, Icons.person, "Profile"),
+            _buildNavItem(0, Icons.home_outlined, Icons.home, 'Home'),
+            _buildNavItem(1, Icons.folder_outlined, Icons.folder, 'Projects'),
+            const SizedBox(width: 48),
+            _buildNavItem(2, Icons.note_outlined, Icons.analytics, 'Notes'),
+            _buildNavItem(3, Icons.person_outline, Icons.person, 'Profile'),
           ],
         ),
       ),
     );
   }
-
-  void _openAudioInput(String className) {
-  Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (_) => InputTypePage(className: className),
-    ),
-  );
-}
-
 
   Widget _buildNavItem(
     int index,
@@ -133,42 +122,4 @@ class _MainPageState extends State<MainPage> {
       ),
     );
   }
-  void _showAddClassDialog() {
-  final controller = TextEditingController();
-
-  showDialog(
-    context: context,
-    builder: (_) => AlertDialog(
-      title: const Text("Add Class"),
-      content: TextField(
-        controller: controller,
-        decoration: const InputDecoration(
-          hintText: "Enter class name",
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text("Cancel"),
-        ),
-        ElevatedButton(
-          onPressed: () {
-            _addClass(controller.text);
-            Navigator.pop(context);
-          },
-          child: const Text("Add"),
-        ),
-      ],
-    ),
-  );
-}
-
-void _addClass(String name){
-   if (name.trim().isEmpty) return;
-
-  setState(() {
-    _classes.add(name.trim());
-  });
-}
-
 }

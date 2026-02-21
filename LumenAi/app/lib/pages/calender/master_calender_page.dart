@@ -112,8 +112,8 @@ class _MasterCalenderPageState extends State<MasterCalenderPage> {
                 availableGestures: AvailableGestures.all,
                 selectedDayPredicate: (day) => isSameDay(day, today),
                 focusedDay: today,
-                firstDay: DateTime.utc(2010, 01, 01),
-                lastDay: DateTime.utc(2030, 01, 01),
+                firstDay: DateTime.utc(DateTime.now().year - 1, 1, 1),
+                lastDay: DateTime.utc(DateTime.now().year + 1, 12, 31),
                 onDaySelected: _OnDaySelected,
                 eventLoader: (day) => getEventsForDay(day),
                 calendarStyle: const CalendarStyle(

@@ -1,28 +1,9 @@
-import 'package:app/components/card.dart';
-
+import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../models/data_models.dart';
+import '../notes/results_page.dart';
 import '../profile/profilePage.dart';
-
-//  class to hold Lecture Data
-class LectureData {
-  final String title;
-  final String subject; // filtering
-  final String time;
-  final IconData icon;
-  final Color iconBgColor;
-  final String? badgeText;
-  final Color? badgeColor;
-
-  LectureData({
-    required this.title,
-    required this.subject,
-    required this.time,
-    required this.icon,
-    required this.iconBgColor,
-    this.badgeText,
-    this.badgeColor,
-  });
-}
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -31,63 +12,208 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-//WIDGETS
 class _HomePageState extends State<HomePage> {
-  //  variable to track the currently selected subject
-  String _selectedSubject = "All";
+  final _supabase = Supabase.instance.client;
 
-  // 4. Define your data list here
-  final List<LectureData> _allLectures = [
-    LectureData(
-      title: "Intro to Molecular Biology",
-      subject: "Biology",
-      time: "45 mins • Today",
-      icon: Icons.science,
-      iconBgColor: Colors.purple[300]!,
-      badgeText: "PROCESSED",
-      badgeColor: Colors.green[700]!,
-    ),
-    LectureData(
-      title: "European History: 1800s",
-      subject: "History",
-      time: "1hr 10m • Yesterday",
-      icon: Icons.history_edu,
-      iconBgColor: Colors.orange[300]!,
-      badgeText: "REVIEW",
-      badgeColor: Colors.blue[700]!,
-    ),
-    LectureData(
-      title: "Linear Algebra 101",
-      subject: "Calculus", // Grouping Math under Calculus for this example
-      time: "55 mins • Oct 24",
-      icon: Icons.functions,
-      iconBgColor: Colors.teal[300]!,
-    ),
-    LectureData(
-      title: "Python Data Structures",
-      subject: "Computer Science",
-      time: "1hr 20m • Oct 22",
-      icon: Icons.code,
-      iconBgColor: Colors.pink[300]!,
-    ),
-  ];
+  // User info
+  String _userName = '';
+  String? _avatarUrl;
 
-  //  Helper function to get the list to display based on selection
-  List<LectureData> get _filteredLectures {
-    if (_selectedSubject == "All") {
-      return _allLectures;
+  // Data
+  List<Map<String, dynamic>> _lectures = [];
+  List<String> _subjects = [];
+  String _selectedSubject = 'All';
+
+  // Stats
+  int _studyStreak = 0;
+  int _tasksDue = 0;
+
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return;
+    final userId = user.id;
+
+    try {
+      // Run all queries in parallel
+      final results = await Future.wait([
+        _supabase
+            .from('profiles')
+            .select('full_name, avatar_url')
+            .eq('id', userId)
+            .maybeSingle(),
+        _supabase
+            .from('lectures')
+            .select('id, title, summary, created_at, raw_analysis')
+            .eq('user_id', userId)
+            .order('created_at', ascending: false)
+            .limit(20),
+        _supabase
+            .from('subjects')
+            .select('name')
+            .eq('user_id', userId)
+            .limit(10),
+        _supabase.from('extracted_tasks').select('id').limit(50),
+      ]);
+
+      final profile = results[0] as Map<String, dynamic>?;
+      final lectures = results[1] as List<dynamic>;
+      final subjects = results[2] as List<dynamic>;
+      final tasks = results[3] as List<dynamic>;
+
+      // Compute study streak from lectures.created_at
+      final streak = _computeStreak(lectures);
+      // Tasks due = total extracted tasks from lectures
+      final pending = tasks.length;
+
+      if (mounted) {
+        setState(() {
+          _userName =
+              profile?['full_name'] ??
+              user.userMetadata?['full_name'] ??
+              user.email?.split('@').first ??
+              'Student';
+          _avatarUrl = profile?['avatar_url'];
+          _lectures = List<Map<String, dynamic>>.from(lectures);
+          _subjects = ['All', ...subjects.map((s) => s['name'].toString())];
+          _studyStreak = streak;
+          _tasksDue = pending;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ HomePage load error: $e');
+      if (mounted) setState(() => _loading = false);
     }
-    return _allLectures
-        .where((lecture) => lecture.subject == _selectedSubject)
-        .toList();
+  }
+
+  int _computeStreak(List<dynamic> lectures) {
+    if (lectures.isEmpty) return 0;
+    // Get unique days with at least one lecture, sorted descending
+    final days =
+        lectures
+            .map((l) => DateTime.parse(l['created_at']).toLocal())
+            .map((d) => DateTime(d.year, d.month, d.day))
+            .toSet()
+            .toList()
+          ..sort((a, b) => b.compareTo(a));
+
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    int streak = 0;
+    DateTime expected = todayDate;
+
+    for (final day in days) {
+      if (day == expected ||
+          day == expected.subtract(const Duration(days: 1))) {
+        streak++;
+        expected = day.subtract(const Duration(days: 1));
+      } else {
+        break;
+      }
+    }
+    return streak;
+  }
+
+  List<Map<String, dynamic>> get _filteredLectures {
+    if (_selectedSubject == 'All') return _lectures;
+    return _lectures.where((l) {
+      final raw = l['raw_analysis'] as Map?;
+      final topics = raw?['topics'] as List? ?? [];
+      return topics.any(
+        (t) =>
+            t.toString().toLowerCase().contains(_selectedSubject.toLowerCase()),
+      );
+    }).toList();
+  }
+
+  // Pick a consistent color per lecture
+  Color _lectureColor(String id) {
+    final colors = [
+      Colors.purple[300]!,
+      Colors.blue[400]!,
+      Colors.teal[400]!,
+      Colors.orange[400]!,
+      Colors.pink[400]!,
+      Colors.indigo[400]!,
+    ];
+    final idx = min(
+      id.codeUnits.fold(0, (a, b) => a + b) % colors.length,
+      colors.length - 1,
+    );
+    return colors[idx];
+  }
+
+  IconData _lectureIcon(Map<String, dynamic> lecture) {
+    final raw = lecture['raw_analysis'] as Map?;
+    final topics = (raw?['topics'] as List?)?.join(' ').toLowerCase() ?? '';
+    if (topics.contains('math') ||
+        topics.contains('calculus') ||
+        topics.contains('algebra')) {
+      return Icons.functions;
+    } else if (topics.contains('biology') || topics.contains('science')) {
+      return Icons.science;
+    } else if (topics.contains('history')) {
+      return Icons.history_edu;
+    } else if (topics.contains('code') ||
+        topics.contains('program') ||
+        topics.contains('python')) {
+      return Icons.code;
+    }
+    return Icons.menu_book;
+  }
+
+  String _timeAgo(String isoDate) {
+    final date = DateTime.parse(isoDate).toLocal();
+    final diff = DateTime.now().difference(date);
+    if (diff.inDays == 0) return 'Today';
+    if (diff.inDays == 1) return 'Yesterday';
+    if (diff.inDays < 7) return '${diff.inDays} days ago';
+    return '${(diff.inDays / 7).floor()} weeks ago';
+  }
+
+  Future<void> _openLecture(Map<String, dynamic> lecture) async {
+    final raw = lecture['raw_analysis'];
+    if (raw == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No analysis data available for this lecture.'),
+        ),
+      );
+      return;
+    }
+    try {
+      final result = AnalysisResult.fromJson(
+        raw is Map<String, dynamic> ? raw : Map<String, dynamic>.from(raw),
+      );
+      if (mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AnalysisResultScreen(result: result),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to load analysis: $e')));
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
-
-      // AppBar
       appBar: AppBar(
         toolbarHeight: 80,
         leadingWidth: 80,
@@ -96,26 +222,32 @@ class _HomePageState extends State<HomePage> {
           child: Center(
             child: Stack(
               children: [
-                // 1. Profile Image
                 GestureDetector(
-                  onTap: () {
-                    // Navigate to your Home Page (DashboardShell)
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const Profilepage(),
-                      ),
-                    );
-                  },
-                  child: const CircleAvatar(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const Profilepage()),
+                  ),
+                  child: CircleAvatar(
                     radius: 25,
-                    backgroundImage: NetworkImage(
-                      'https://i.pravatar.cc/150?u=a042581f4e29026704d',
-                    ), // Profile Pic
+                    backgroundColor: Colors.blueAccent.withOpacity(0.3),
+                    backgroundImage:
+                        _avatarUrl != null && _avatarUrl!.isNotEmpty
+                        ? NetworkImage(_avatarUrl!)
+                        : null,
+                    child: _avatarUrl == null || _avatarUrl!.isEmpty
+                        ? Text(
+                            _userName.isNotEmpty
+                                ? _userName[0].toUpperCase()
+                                : '?',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          )
+                        : null,
                   ),
                 ),
-
-                // 2. Online Status Dot
                 Positioned(
                   bottom: 0,
                   right: 0,
@@ -141,14 +273,16 @@ class _HomePageState extends State<HomePage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              "DASHBOARD",
+              'DASHBOARD',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 letterSpacing: 1.2,
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
             Text(
-              "Welcome back, Gauresh",
+              _loading
+                  ? 'Welcome back!'
+                  : 'Welcome back, ${_userName.split(' ').first}',
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
@@ -166,94 +300,63 @@ class _HomePageState extends State<HomePage> {
                 shape: BoxShape.circle,
               ),
               child: IconButton(
-                icon: const Icon(Icons.notifications_outlined),
-                onPressed: () {},
+                icon: const Icon(Icons.refresh_outlined),
+                onPressed: () {
+                  setState(() => _loading = true);
+                  _loadData();
+                },
               ),
             ),
           ),
         ],
       ),
-
-      //  The Body
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              //search bar
-              _buildSearchBar(),
-              const SizedBox(height: 20),
-
-              //stats bar
-              _buildStatsRow(),
-              const SizedBox(height: 24),
-
-              // Subjects Section
-              _buildSubjectsSection(),
-              const SizedBox(height: 24),
-
-              //recenet lectures
-              _buildRecentLecturesSection(),
-            ],
-          ),
-        ),
-      ),
-
-      //floating action button
-      // floatingActionButton: FloatingActionButton(
-      //   onPressed: () {
-      //     Navigator.push(
-      //       context,
-      //       MaterialPageRoute(builder: (context) => const FlashCardPage()),
-      //     );
-      //   },
-      //   backgroundColor: const Color.fromARGB(255, 77, 158, 220),
-      //   child: const Icon(Icons.mic),
-      // ),
-      //botttom navigation
-      // bottomNavigationBar: NavigationBar(
-      //   selectedIndex: _selectedIndex,
-      //   onDestinationSelected: _onItemTapped,
-      //   destinations: const [
-      //     NavigationDestination(
-      //       icon: Icon(Icons.home_outlined),
-      //       selectedIcon: Icon(Icons.home),
-      //       label: 'Home',
-      //     ),
-      //     NavigationDestination(
-      //       icon: Icon(Icons.folder_outlined),
-      //       selectedIcon: Icon(Icons.folder),
-      //       label: 'Projects',
-      //     ),
-      //     NavigationDestination(
-      //       icon: Icon(Icons.note_outlined),
-      //       selectedIcon: Icon(Icons.analytics),
-      //       label: 'Notes',
-      //     ),
-      //     NavigationDestination(
-      //       icon: Icon(Icons.person_2_outlined),
-      //       selectedIcon: Icon(Icons.analytics),
-      //       label: 'Profile',
-      //     ),
-      //   ],
-      // ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _loadData,
+              child: SafeArea(
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildSearchBar(),
+                      const SizedBox(height: 20),
+                      _buildStatsRow(),
+                      const SizedBox(height: 24),
+                      _buildSubjectsSection(),
+                      const SizedBox(height: 24),
+                      _buildRecentLecturesSection(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
     );
   }
 
   Widget _buildSearchBar() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color.fromARGB(255, 29, 28, 28),
+        color: const Color(0xFF1A2036),
         borderRadius: BorderRadius.circular(30),
       ),
-      child: const TextField(
+      child: TextField(
         decoration: InputDecoration(
-          hintText: "cyber security...",
-          prefixIcon: null,
+          hintText: 'Search lectures...',
+          hintStyle: TextStyle(color: Colors.grey[500]),
+          prefixIcon: Icon(Icons.search, color: Colors.grey[500]),
           border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 15,
+          ),
         ),
+        onChanged: (query) {
+          // Local filter on title
+          setState(() {});
+        },
       ),
     );
   }
@@ -263,19 +366,19 @@ class _HomePageState extends State<HomePage> {
       children: [
         Expanded(
           child: _buildStatsCard(
-            title: "Study Streak",
-            count: "5",
-            unit: "days",
+            title: 'Study Streak',
+            count: '$_studyStreak',
+            unit: 'days',
             icon: Icons.local_fire_department,
-            iconColor: Colors.blue,
+            iconColor: Colors.orange,
           ),
         ),
         const SizedBox(width: 16),
         Expanded(
           child: _buildStatsCard(
-            title: "Tasks Due",
-            count: "3",
-            unit: "pending",
+            title: 'Tasks Due',
+            count: '$_tasksDue',
+            unit: 'pending',
             icon: Icons.assignment_turned_in,
             iconColor: Colors.purple,
           ),
@@ -335,9 +438,6 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildSubjectsSection() {
-    // List of subjects to display as chips
-    final subjects = ["All", "Biology", "History", "Calculus"];
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -345,159 +445,170 @@ class _HomePageState extends State<HomePage> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text(
-              "Subjects",
+              'Subjects',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            TextButton(onPressed: () {}, child: const Text("View all")),
+            TextButton(onPressed: () {}, child: const Text('View all')),
           ],
         ),
         const SizedBox(height: 12),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            // Generate chips dynamically
-            children: subjects.map((subject) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 12.0),
-                child: _buildSubjectChip(
-                  subject,
-                  isActive:
-                      _selectedSubject ==
-                      subject, // Check if this matches selected
+        _subjects.isEmpty
+            ? Text(
+                'No subjects yet.',
+                style: TextStyle(color: Colors.grey[500]),
+              )
+            : SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: _subjects.map((subject) {
+                    final isActive = _selectedSubject == subject;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 12.0),
+                      child: GestureDetector(
+                        onTap: () => setState(() => _selectedSubject = subject),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isActive
+                                ? const Color(0xFF1E88E5)
+                                : const Color(0xFF1A2036),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            subject,
+                            style: TextStyle(
+                              color: isActive ? Colors.white : Colors.grey[400],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 ),
-              );
-            }).toList(),
-          ),
-        ),
+              ),
       ],
-    );
-  }
-
-  Widget _buildSubjectChip(String label, {bool isActive = false}) {
-    return GestureDetector(
-      // Add tap handler to update state
-      onTap: () {
-        setState(() {
-          _selectedSubject = label;
-        });
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        decoration: BoxDecoration(
-          color: isActive ? const Color(0xFF1E88E5) : const Color(0xFF1A2036),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isActive ? Colors.white : Colors.grey[400],
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      ),
     );
   }
 
   Widget _buildRecentLecturesSection() {
-    // Get the filtered list
-    final lecturesToDisplay = _filteredLectures;
-
+    final toDisplay = _filteredLectures;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          "Recent Lectures",
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Recent Lectures',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              '${_lectures.length} total',
+              style: TextStyle(color: Colors.grey[500], fontSize: 13),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
-
-        // If list is empty, show a message
-        if (lecturesToDisplay.isEmpty)
-          const Padding(
-            padding: EdgeInsets.all(20.0),
-            child: Text(
-              "No lectures found for this subject.",
-              style: TextStyle(color: Colors.grey),
+        if (toDisplay.isEmpty)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.school_outlined,
+                    color: Colors.grey[600],
+                    size: 48,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    _lectures.isEmpty
+                        ? 'No lectures yet.\nUpload your first lecture from the Notes tab!'
+                        : 'No lectures match this subject.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.grey[500], height: 1.5),
+                  ),
+                ],
+              ),
             ),
           )
         else
-          // Map the data model to the Widget
-          ...lecturesToDisplay.map(
-            (data) => _buildLectureCard(
-              icon: data.icon,
-              iconBgColor: data.iconBgColor,
-              title: data.title,
-              time: data.time,
-              badgeText: data.badgeText,
-              badgeColor: data.badgeColor,
-            ),
-          ),
+          ...toDisplay.map((lecture) => _buildLectureCard(lecture)),
       ],
     );
   }
 
-  Widget _buildLectureCard({
-    required IconData icon,
-    required Color iconBgColor,
-    required String title,
-    required String time,
-    String? badgeText,
-    Color? badgeColor,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xFF1A2036),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: iconBgColor,
-            child: Icon(icon, color: Colors.white, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+  Widget _buildLectureCard(Map<String, dynamic> lecture) {
+    final id = lecture['id']?.toString() ?? '';
+    final title = lecture['title'] ?? 'Untitled Lecture';
+    final createdAt = lecture['created_at'] ?? DateTime.now().toIso8601String();
+    final color = _lectureColor(id);
+    final icon = _lectureIcon(lecture);
+    final timeAgo = _timeAgo(createdAt);
+    final hasAnalysis = lecture['raw_analysis'] != null;
+
+    return GestureDetector(
+      onTap: () => _openLecture(lecture),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A2036),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: Colors.white.withOpacity(0.04)),
+        ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: color.withOpacity(0.25),
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  time,
-                  style: TextStyle(color: Colors.grey[400], fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          if (badgeText != null && badgeColor != null)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: badgeColor,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                badgeText,
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
+                  const SizedBox(height: 4),
+                  Text(
+                    timeAgo,
+                    style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                  ),
+                ],
               ),
             ),
-          const SizedBox(width: 8),
-          Icon(Icons.chevron_right, color: Colors.grey[400]),
-        ],
+            if (hasAnalysis)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.green[800],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Text(
+                  'PROCESSED',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            const SizedBox(width: 8),
+            Icon(Icons.chevron_right, color: Colors.grey[400]),
+          ],
+        ),
       ),
     );
   }

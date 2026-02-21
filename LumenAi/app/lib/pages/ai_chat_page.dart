@@ -1,6 +1,10 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-// --- Data Model for Messages 
+// --- Data Model for Messages
 class ChatMessage {
   final String text;
   final bool isUser;
@@ -22,46 +26,76 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<ChatMessage> _messages = [];
   bool _isTyping = false;
 
+  final String _baseUrl = Platform.isAndroid
+      ? 'http://10.0.2.2:8001'
+      : 'http://127.0.0.1:8001';
+
   @override
   void initState() {
     super.initState();
-    // Add an initial greeting message
-    _messages.add(ChatMessage(
-      text: "Hello, Gauresh! I'm Lumen AI. How can I help you with your studies today?",
-      isUser: false,
-      time: DateTime.now(),
-    ));
+    final user = Supabase.instance.client.auth.currentUser;
+    final name =
+        user?.userMetadata?['full_name']?.toString().split(' ').first ??
+        user?.email?.split('@').first ??
+        'there';
+    _messages.add(
+      ChatMessage(
+        text:
+            "Hello, $name! I'm Lumen AI. How can I help you with your studies today?",
+        isUser: false,
+        time: DateTime.now(),
+      ),
+    );
   }
 
-  void _handleSubmitted(String text) {
+  Future<void> _handleSubmitted(String text) async {
     _textController.clear();
     if (text.trim().isEmpty) return;
 
-    // 1. Add User Message
     setState(() {
-      _messages.add(ChatMessage(
-        text: text,
-        isUser: true,
-        time: DateTime.now(),
-      ));
-      _isTyping = true; // Show typing indicator
+      _messages.add(
+        ChatMessage(text: text, isUser: true, time: DateTime.now()),
+      );
+      _isTyping = true;
     });
     _scrollToBottom();
 
-    // 2. Simulate AI Response Delay
-    Future.delayed(const Duration(seconds: 2), () {
+    try {
+      final response = await http
+          .post(
+            Uri.parse('$_baseUrl/chat/ask'),
+            body: {'question': text, 'context': ''},
+          )
+          .timeout(const Duration(seconds: 30));
+
+      final data = jsonDecode(response.body);
+      final answer = data['answer'] ?? 'Sorry, I could not get a response.';
+
       if (mounted) {
         setState(() {
           _isTyping = false;
-          _messages.add(ChatMessage(
-            text: "That's an interesting question about \"$text\". Here is a summary of the key concepts...",
-            isUser: false,
-            time: DateTime.now(),
-          ));
+          _messages.add(
+            ChatMessage(text: answer, isUser: false, time: DateTime.now()),
+          );
         });
         _scrollToBottom();
       }
-    });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isTyping = false;
+          _messages.add(
+            ChatMessage(
+              text:
+                  'Sorry, I could not connect to the backend. Make sure the server is running.',
+              isUser: false,
+              time: DateTime.now(),
+            ),
+          );
+        });
+        _scrollToBottom();
+      }
+    }
   }
 
   void _scrollToBottom() {
@@ -97,7 +131,11 @@ class _ChatScreenState extends State<ChatScreen> {
                 color: Colors.purple.withOpacity(0.2),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.smart_toy, color: Colors.purpleAccent, size: 20),
+              child: const Icon(
+                Icons.smart_toy,
+                color: Colors.purpleAccent,
+                size: 20,
+              ),
             ),
             const SizedBox(width: 10),
             const Text(
@@ -159,7 +197,9 @@ class _ChatScreenState extends State<ChatScreen> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        ),
         decoration: BoxDecoration(
           // Gradient for User, Solid Dark Color for AI
           gradient: isMe
@@ -173,8 +213,12 @@ class _ChatScreenState extends State<ChatScreen> {
           borderRadius: BorderRadius.only(
             topLeft: const Radius.circular(20),
             topRight: const Radius.circular(20),
-            bottomLeft: isMe ? const Radius.circular(20) : const Radius.circular(0),
-            bottomRight: isMe ? const Radius.circular(0) : const Radius.circular(20),
+            bottomLeft: isMe
+                ? const Radius.circular(20)
+                : const Radius.circular(0),
+            bottomRight: isMe
+                ? const Radius.circular(0)
+                : const Radius.circular(20),
           ),
         ),
         child: Column(
@@ -192,7 +236,9 @@ class _ChatScreenState extends State<ChatScreen> {
             Text(
               "${message.time.hour}:${message.time.minute.toString().padLeft(2, '0')}",
               style: TextStyle(
-                color: isMe ? Colors.white.withOpacity(0.7) : Colors.grey.shade500,
+                color: isMe
+                    ? Colors.white.withOpacity(0.7)
+                    : Colors.grey.shade500,
                 fontSize: 10,
               ),
             ),
@@ -223,7 +269,11 @@ class _ChatScreenState extends State<ChatScreen> {
               child: Row(
                 children: [
                   const SizedBox(width: 15),
-                  const Icon(Icons.auto_awesome, color: Colors.purpleAccent, size: 20),
+                  const Icon(
+                    Icons.auto_awesome,
+                    color: Colors.purpleAccent,
+                    size: 20,
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
@@ -247,7 +297,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
           const SizedBox(width: 12),
-          
+
           // Send Button
           GestureDetector(
             onTap: () => _handleSubmitted(_textController.text),
@@ -261,7 +311,11 @@ class _ChatScreenState extends State<ChatScreen> {
                   end: Alignment.bottomRight,
                 ),
               ),
-              child: const Icon(Icons.send_rounded, color: Colors.white, size: 22),
+              child: const Icon(
+                Icons.send_rounded,
+                color: Colors.white,
+                size: 22,
+              ),
             ),
           ),
         ],
@@ -283,7 +337,10 @@ class _ChatScreenState extends State<ChatScreen> {
             child: Container(
               width: 6,
               height: 6,
-              decoration: const BoxDecoration(color: Colors.grey, shape: BoxShape.circle),
+              decoration: const BoxDecoration(
+                color: Colors.grey,
+                shape: BoxShape.circle,
+              ),
             ),
           );
         },
