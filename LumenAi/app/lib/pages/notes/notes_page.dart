@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../models/data_models.dart';
 import 'input_type_page.dart';
 
 class NotesPage extends StatefulWidget {
@@ -12,7 +13,7 @@ class NotesPage extends StatefulWidget {
 class _NotesPageState extends State<NotesPage> {
   final _supabase = Supabase.instance.client;
 
-  List<Map<String, dynamic>> _subjects = [];
+  List<Subject> _subjects = [];
   bool _loading = true;
 
   @override
@@ -35,7 +36,7 @@ class _NotesPageState extends State<NotesPage> {
           .order('created_at', ascending: false);
       if (mounted) {
         setState(() {
-          _subjects = List<Map<String, dynamic>>.from(res);
+          _subjects = (res as List).map((e) => Subject.fromJson(e)).toList();
           _loading = false;
         });
       }
@@ -55,7 +56,7 @@ class _NotesPageState extends State<NotesPage> {
           .select()
           .single();
       if (mounted) {
-        setState(() => _subjects.insert(0, res));
+        setState(() => _subjects.insert(0, Subject.fromJson(res)));
       }
     } catch (e) {
       if (mounted) {
@@ -70,7 +71,7 @@ class _NotesPageState extends State<NotesPage> {
     try {
       await _supabase.from('subjects').delete().eq('id', id);
       if (mounted) {
-        setState(() => _subjects.removeWhere((s) => s['id'] == id));
+        setState(() => _subjects.removeWhere((s) => s.id == id));
       }
     } catch (e) {
       if (mounted) {
@@ -208,11 +209,11 @@ class _NotesPageState extends State<NotesPage> {
                       itemCount: _subjects.length,
                       itemBuilder: (_, index) {
                         final subject = _subjects[index];
-                        final name = subject['name'] ?? 'Untitled';
+                        final name = subject.name;
                         final color = _colors[index % _colors.length];
                         final icon = _icons[index % _icons.length];
                         return Dismissible(
-                          key: Key(subject['id']),
+                          key: Key(subject.id),
                           direction: DismissDirection.endToStart,
                           background: Container(
                             alignment: Alignment.centerRight,
@@ -226,7 +227,7 @@ class _NotesPageState extends State<NotesPage> {
                               color: Colors.white,
                             ),
                           ),
-                          onDismissed: (_) => _deleteSubject(subject['id']),
+                          onDismissed: (_) => _deleteSubject(subject.id),
                           child: GestureDetector(
                             onTap: () => Navigator.push(
                               context,
