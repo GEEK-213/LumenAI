@@ -56,7 +56,12 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
-        print("✅ Analysis Complete: ${json['lecture_id']}");
+        final lectureId = json['lecture_id'];
+        if (lectureId == null) {
+          throw Exception('Lecture processed but no ID returned from API.');
+        }
+
+        print("✅ Analysis Complete: $lectureId");
 
         // Fetch the full lecture data from Supabase to get the JSON artifacts
         // Or closely parse the response if the backend returns everything.
@@ -65,9 +70,11 @@ class ApiService {
         // Checking backend... backend returns {status, lecture_id, summary_preview}.
 
         // So we must fetch the full lecture to get the artifacts
-        return await _fetchLectureResult(json['lecture_id']);
+        return await _fetchLectureResult(lectureId.toString());
       } else {
-        throw Exception('Failed to process lecture: ${response.body}');
+        throw Exception(
+          'Failed to process lecture: ${response.statusCode} ${response.body}',
+        );
       }
     } catch (e) {
       print("❌ API Error: $e");

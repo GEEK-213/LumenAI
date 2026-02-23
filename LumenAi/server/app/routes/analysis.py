@@ -64,13 +64,19 @@ async def process_lecture(
             try:
                 result_json_str = await analyzer.analyze_multimodal([tmp_path], syllabus_context)
             except RateLimitError as rle:
-                print(f"  ⚠️ Gemini unavailable: {rle}")
-                print("  🔄 Falling back to Local LLM (Ollama)...")
-                engine_used = "local_ollama"
-                result_json_str = await local_analyzer.analyze([tmp_path], syllabus_context)
+                print(f"  ⚠️ Gemini quota limit hit: {rle}")
+                if use_local:
+                    print("  🔄 Falling back to Local LLM (Ollama)...")
+                    engine_used = "local_ollama"
+                    result_json_str = await local_analyzer.analyze([tmp_path], syllabus_context)
+                else:
+                    raise HTTPException(
+                        status_code=429, 
+                        detail="Gemini API Quota Exceeded. Please wait about 60 seconds and try again."
+                    )
 
         if not result_json_str:
-            raise HTTPException(status_code=500, detail="Both Gemini and Local LLM returned no response.")
+            raise HTTPException(status_code=500, detail="The AI model returned no response. Please try again.")
 
 
         # Clean and extract JSON from model response
