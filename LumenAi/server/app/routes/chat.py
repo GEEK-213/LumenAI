@@ -4,6 +4,7 @@ Real AI Chat endpoint — sends user question to Gemini/Ollama and returns answe
 import os
 from fastapi import APIRouter, Form
 from fastapi.responses import JSONResponse
+from app.database import supabase
 
 router = APIRouter()
 
@@ -13,16 +14,40 @@ USE_LOCAL_LLM = os.getenv("USE_LOCAL_LLM", "false").lower() == "true"
 async def ask_ai(
     question: str = Form(...),
     context: str = Form(""),
+    user_id: str = Form(None),
 ):
-    """Simple study assistant chat — no RAG needed for MVP."""
     system_prompt = (
         "You are Lumen AI, a friendly and knowledgeable study assistant. "
         "Help students understand academic concepts clearly and concisely. "
-        "When given lecture context, use it to give more specific answers."
+        "When given lecture context or syllabus, use it to give more specific, grounded answers."
     )
+    
+    db_context = ""
+    if user_id:
+        try:
+            # Fetch recent syllabus sources
+            syllabus_res = supabase.table("syllabus_sources").select("title, extracted_text").eq("user_id", user_id).order("created_at", desc=True).limit(3).execute()
+            if syllabus_res.data:
+                db_context += "--- RECENT SYLLABUS DOCS ---\n"
+                for item in syllabus_res.data:
+                    # Truncate content to avoid blowing up context window
+                    content = str(item.get('extracted_text', ''))[:1500]
+                    db_context += f"Syllabus: {item.get('title')}\nContent: {content}\n\n"
+            
+            # Fetch recent lectures
+            lectures_res = supabase.table("lectures").select("title, summary").eq("user_id", user_id).order("created_at", desc=True).limit(3).execute()
+            if lectures_res.data:
+                db_context += "--- RECENT LECTURE SUMMARIES ---\n"
+                for item in lectures_res.data:
+                    db_context += f"Lecture: {item.get('title')}\nSummary: {item.get('summary')}\n\n"
+                    
+        except Exception as e:
+            print(f"⚠️ Failed to fetch DB context for chat: {e}")
+
+    combined_context = (context + "\n" + db_context).strip()
     user_message = question
-    if context:
-        user_message = f"[Lecture Context]: {context[:2000]}\n\nQuestion: {question}"
+    if combined_context:
+        user_message = f"[Study Context]:\n{combined_context}\n\nQuestion: {question}"
 
     try:
         if USE_LOCAL_LLM:

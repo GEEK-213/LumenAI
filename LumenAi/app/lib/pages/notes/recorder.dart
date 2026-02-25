@@ -10,14 +10,14 @@ import '../../services/api_service.dart'; // Import API Service
 import '../../components/audio_player_ui.dart';
 import 'results_page.dart'; // Import Results Page
 
-class FlashCardPage extends StatefulWidget {
-  const FlashCardPage({super.key});
+class RecorderPage extends StatefulWidget {
+  const RecorderPage({super.key});
 
   @override
-  State<FlashCardPage> createState() => _FlashCardPageState();
+  State<RecorderPage> createState() => _RecorderPageState();
 }
 
-class _FlashCardPageState extends State<FlashCardPage> {
+class _RecorderPageState extends State<RecorderPage> {
   // Service Instances
   final AudioService _audioService = AudioService();
   final ApiService _apiService = ApiService();
@@ -166,8 +166,22 @@ class _FlashCardPageState extends State<FlashCardPage> {
       }
       final userId = user.id;
 
+      if (_selectedSubject == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Please select a Subject for this recording."),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        setState(() => isProcessing = false);
+        return;
+      }
+
       final result = await _apiService.processLecture(
         audioFile: File(_recordedFilePath!),
+        subjectId: _selectedSubject!.id,
         unitId: _selectedUnit?.id,
         userId: userId,
         title: _selectedUnit != null

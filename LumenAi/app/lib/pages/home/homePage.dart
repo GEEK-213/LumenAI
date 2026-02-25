@@ -469,7 +469,6 @@ class _HomePageState extends State<HomePage> {
               'Subjects',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
-            TextButton(onPressed: () {}, child: const Text('View all')),
           ],
         ),
         const SizedBox(height: 12),

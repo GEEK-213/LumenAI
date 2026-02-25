@@ -44,7 +44,7 @@ class _MainPageState extends State<MainPage> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const FlashCardPage()),
+                  MaterialPageRoute(builder: (_) => const RecorderPage()),
                 );
               },
               backgroundColor: Colors.transparent,

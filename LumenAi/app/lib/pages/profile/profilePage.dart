@@ -279,6 +279,199 @@ class _ProfilepageState extends State<Profilepage> {
     }
   }
 
+  void _showUpdateEmailDialog() {
+    final emailController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2746),
+        title: const Text(
+          "Update Email",
+          style: TextStyle(color: Colors.white),
+        ),
+        content: TextField(
+          controller: emailController,
+          decoration: const InputDecoration(
+            labelText: "New Email Address",
+            labelStyle: TextStyle(color: Colors.grey),
+          ),
+          style: const TextStyle(color: Colors.white),
+          keyboardType: TextInputType.emailAddress,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                await _supabase.auth.updateUser(
+                  UserAttributes(email: emailController.text.trim()),
+                );
+                if (mounted) {
+                  Navigator.pop(dialogContext);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Confirmation email sent!"),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text("Error: $e"),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text("Update"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showResetPasswordDialog() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2746),
+        title: const Text(
+          "Reset Password",
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          "We will send a password reset link to your registered email.",
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              try {
+                final email = _supabase.auth.currentUser?.email;
+                if (email != null) {
+                  await _supabase.auth.resetPasswordForEmail(email);
+                  if (mounted) {
+                    Navigator.pop(dialogContext);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Password reset email sent!"),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text("Error: $e"),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text("Send Link"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAIPreferencesDialog() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2746),
+        title: const Text(
+          "AI Preferences",
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const Text(
+          "LumenAI utilizes a hybrid processing engine.\n\n"
+          "• Local Extraction: We use Ollama (Llama 3.2) on your device to ensure privacy while extracting deadlines from your syllabi.\n"
+          "• Cloud Analysis: We leverage Gemini for lightning-fast quiz and flashcard generation.\n\n"
+          "Currently, routing is optimized for V1.",
+          style: TextStyle(color: Colors.white70, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text("Understood"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showTermsDialog() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2746),
+        title: const Text(
+          "Terms & Conditions",
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const SingleChildScrollView(
+          child: Text(
+            "LumenAI Terms of Service\n\n"
+            "1. Privacy: We process your lectures locally where possible to ensure your data stays yours.\n"
+            "2. Usage: Do not use this tool to cheat on exams. It is an educational aid.\n"
+            "3. Analytics: We track basic app usage to improve our AI models.\n"
+            "4. Liability: LumenAI is not responsible for incorrect AI-generated content or missed deadlines.",
+            style: TextStyle(color: Colors.white70, height: 1.5),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text("Close"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showHowToUseDialog() {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2746),
+        title: const Text(
+          "How to Use LumenAI",
+          style: TextStyle(color: Colors.white),
+        ),
+        content: const SingleChildScrollView(
+          child: Text(
+            "Getting Started:\n\n"
+            "1. 📁 Add a Subject: Go to 'Notes' and tap the '+' button.\n"
+            "2. 📄 Ground the AI: Upload your Syllabus PDF. Our Local AI will automatically extract your assignments and deadlines into your Master Calendar.\n"
+            "3. 🎙️ Record Lectures: Tap the center Mic button to record a live lecture. Select the Subject context so our AI can accurately generate your summaries, flashcards, and quizzes!\n"
+            "4. 📅 Master Calendar: Check your upcoming deadlines extracted from your syllabi.",
+            style: TextStyle(color: Colors.white70, height: 1.5),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text("Got it!"),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -311,7 +504,11 @@ class _ProfilepageState extends State<Profilepage> {
             ),
             child: IconButton(
               icon: const Icon(Icons.more_horiz, color: Colors.white, size: 20),
-              onPressed: () {},
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Settings coming soon!")),
+                );
+              },
             ),
           ),
         ],
@@ -339,7 +536,6 @@ class _ProfilepageState extends State<Profilepage> {
                           iconColor: Colors.orange,
                           value: _profile?.stats['streak']?.toString() ?? "0",
                           label: "Day Streak",
-                          badge: "+2", // Placeholder logic
                         ),
                       ),
                       const SizedBox(width: 15),
@@ -351,8 +547,6 @@ class _ProfilepageState extends State<Profilepage> {
                               _profile?.stats['notes_scribed']?.toString() ??
                               "0",
                           label: "Notes Scribed",
-                          badge: "+15%",
-                          isPercentage: true,
                         ),
                       ),
                     ],
@@ -370,17 +564,43 @@ class _ProfilepageState extends State<Profilepage> {
                   const SizedBox(height: 25),
 
                   // Settings Section
-                  _buildSectionHeader("Settings"),
+                  _buildSectionHeader("Account"),
                   const SizedBox(height: 10),
-                  _buildSettingsTile(Icons.person, "Account Details"),
                   _buildSettingsTile(
-                    Icons.notifications,
-                    "Notifications",
-                    badgeCount: 2,
+                    Icons.person,
+                    "Account Details",
+                    onTap: _showEditProfileDialog,
                   ),
-                  _buildSettingsTile(Icons.tune, "AI Preferences"),
-                  _buildSettingsTile(Icons.lock, "Privacy & Security"),
-                  _buildSettingsTile(Icons.help_outline, "Help & Support"),
+                  _buildSettingsTile(
+                    Icons.email,
+                    "Update Email Address",
+                    onTap: _showUpdateEmailDialog,
+                  ),
+                  _buildSettingsTile(
+                    Icons.lock_reset,
+                    "Reset Password",
+                    onTap: _showResetPasswordDialog,
+                  ),
+
+                  const SizedBox(height: 25),
+
+                  _buildSectionHeader("About LumenAI"),
+                  const SizedBox(height: 10),
+                  _buildSettingsTile(
+                    Icons.memory,
+                    "AI Config & Preferences",
+                    onTap: _showAIPreferencesDialog,
+                  ),
+                  _buildSettingsTile(
+                    Icons.description,
+                    "Terms & Conditions",
+                    onTap: _showTermsDialog,
+                  ),
+                  _buildSettingsTile(
+                    Icons.help_outline,
+                    "How to Use LumenAI",
+                    onTap: _showHowToUseDialog,
+                  ),
 
                   const SizedBox(height: 25),
 
@@ -499,6 +719,11 @@ class _ProfilepageState extends State<Profilepage> {
             ),
           ),
           const SizedBox(height: 5),
+          Text(
+            _supabase.auth.currentUser?.email ?? "",
+            style: TextStyle(fontSize: 14, color: Colors.grey.shade400),
+          ),
+          const SizedBox(height: 5),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -533,7 +758,11 @@ class _ProfilepageState extends State<Profilepage> {
               const SizedBox(width: 15),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () {},
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Sharing coming soon!")),
+                    );
+                  },
                   icon: const Icon(Icons.share, size: 16),
                   label: const Text("Share"),
                   style: ElevatedButton.styleFrom(
@@ -591,8 +820,6 @@ class _ProfilepageState extends State<Profilepage> {
     required Color iconColor,
     required String value,
     required String label,
-    required String badge,
-    bool isPercentage = false,
   }) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -614,21 +841,6 @@ class _ProfilepageState extends State<Profilepage> {
                   shape: BoxShape.circle,
                 ),
                 child: Icon(icon, color: iconColor, size: 20),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1F291F),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  badge,
-                  style: const TextStyle(
-                    color: Colors.greenAccent,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
               ),
             ],
           ),
@@ -678,7 +890,7 @@ class _ProfilepageState extends State<Profilepage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _profile?.stats['ai_generations']?.toString() ?? "3,240",
+                  _profile?.stats['ai_generations']?.toString() ?? "0",
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -696,22 +908,10 @@ class _ProfilepageState extends State<Profilepage> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                _profile?.stats['level'] ?? "Level 8",
+                _profile?.stats['level']?.toString() ?? "Level 1",
                 style: const TextStyle(color: Colors.white, fontSize: 12),
               ),
               const SizedBox(height: 5),
-              SizedBox(
-                width: 80,
-                child: LinearProgressIndicator(
-                  value: 0.7,
-                  backgroundColor: Colors.grey.shade800,
-                  valueColor: const AlwaysStoppedAnimation<Color>(
-                    Colors.purpleAccent,
-                  ),
-                  minHeight: 4,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
             ],
           ),
         ],
@@ -767,48 +967,33 @@ class _ProfilepageState extends State<Profilepage> {
     );
   }
 
-  Widget _buildSettingsTile(IconData icon, String title, {int badgeCount = 0}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF101628),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: ListTile(
-        leading: Container(
-          padding: const EdgeInsets.all(8),
-          decoration: const BoxDecoration(
-            color: Color(0xFF1A2235),
-            shape: BoxShape.circle,
+  Widget _buildSettingsTile(
+    IconData icon,
+    String title, {
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: const Color(0xFF101628),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: ListTile(
+          leading: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: const BoxDecoration(
+              color: Color(0xFF1A2235),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: Colors.blueAccent, size: 18),
           ),
-          child: Icon(icon, color: Colors.blueAccent, size: 18),
-        ),
-        title: Text(
-          title,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (badgeCount > 0)
-              Container(
-                margin: const EdgeInsets.only(right: 8),
-                padding: const EdgeInsets.all(6),
-                decoration: const BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
-                ),
-                child: Text(
-                  badgeCount.toString(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            Icon(Icons.chevron_right, color: Colors.grey.shade600, size: 20),
-          ],
+          title: Text(
+            title,
+            style: const TextStyle(color: Colors.white, fontSize: 14),
+          ),
+          trailing: const Icon(Icons.chevron_right, color: Colors.grey),
         ),
       ),
     );

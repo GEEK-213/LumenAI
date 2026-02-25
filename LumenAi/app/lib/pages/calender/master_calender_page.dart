@@ -1,6 +1,8 @@
 import 'package:app/models/calendar_event.dart';
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../services/api_service.dart';
 
 class MasterCalenderPage extends StatefulWidget {
   const MasterCalenderPage({super.key});
@@ -17,37 +19,54 @@ class _MasterCalenderPageState extends State<MasterCalenderPage> {
     });
   }
 
-  late final List<CalenderEvent> allEvents;
+  List<CalenderEvent> allEvents = [];
+  bool isLoading = true;
+
   @override
   void initState() {
     super.initState();
+    _loadEvents();
+  }
 
-    allEvents = [
-      CalenderEvent(
-        id: "1",
-        title: "cs class",
-        date: DateTime.now(),
-        type: "class",
-      ),
-      CalenderEvent(
-        id: "2",
-        title: "submit assignment",
-        date: DateTime.now().add(const Duration(days: 2)),
-        type: "deadline",
-      ),
-      CalenderEvent(
-        id: "3",
-        title: "mobile app notes uploaded",
-        date: DateTime.now().subtract(const Duration(days: 1)),
-        type: "note",
-      ),
-      CalenderEvent(
-        id: "4",
-        title: "ecommerce class",
-        date: DateTime.now(),
-        type: "class",
-      ),
-    ];
+  Future<void> _loadEvents() async {
+    setState(() => isLoading = true);
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return;
+
+      final api = ApiService();
+      final tasks = await api.getExtractedTasks(userId);
+
+      final loadedEvents = <CalenderEvent>[];
+      for (var t in tasks) {
+        // Only map tasks that have an actual valid due_date
+        if (t['due_date'] != null) {
+          try {
+            final date = DateTime.parse(t['due_date'].toString());
+            loadedEvents.add(
+              CalenderEvent(
+                id: t['id'].toString(),
+                title: t['title'] ?? 'Assignment',
+                date: date,
+                type: 'deadline',
+              ),
+            );
+          } catch (_) {}
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          allEvents = loadedEvents;
+        });
+      }
+    } catch (e) {
+      print("Error loading events: $e");
+    } finally {
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
   }
 
   List<CalenderEvent> getEventsForDay(DateTime day) {
@@ -71,7 +90,9 @@ class _MasterCalenderPageState extends State<MasterCalenderPage> {
         ),
         centerTitle: true,
       ),
-      body: content(),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : content(),
     );
   }
 
@@ -171,12 +192,34 @@ class _MasterCalenderPageState extends State<MasterCalenderPage> {
 
     return GestureDetector(
       onTap: () {
-        // TEMP NAVIGATION HOOK
-        print("Open ${event.type} with id: ${event.id}");
-
-        // Later:
-        // if(event.type == "note") navigate to notes page
-        // if(event.type == "recording") navigate to recorder page
+        showDialog(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            backgroundColor: const Color(0xFF1E2746),
+            title: Row(
+              children: [
+                Icon(icon, color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    event.type.toUpperCase(),
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                ),
+              ],
+            ),
+            content: Text(
+              event.title,
+              style: const TextStyle(color: Colors.white70, fontSize: 16),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text("Close"),
+              ),
+            ],
+          ),
+        );
       },
       child: Container(
         padding: const EdgeInsets.all(16),

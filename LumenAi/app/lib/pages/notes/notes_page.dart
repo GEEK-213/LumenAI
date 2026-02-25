@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/data_models.dart';
-import 'input_type_page.dart';
+import 'subject_detail_page.dart';
 
 class NotesPage extends StatefulWidget {
   const NotesPage({super.key});
@@ -232,7 +232,10 @@ class _NotesPageState extends State<NotesPage> {
                             onTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (_) => InputTypePage(className: name),
+                                builder: (_) => SubjectDetailPage(
+                                  subject: subject,
+                                  baseColor: color,
+                                ),
                               ),
                             ).then((_) => _loadSubjects()),
                             child: Container(

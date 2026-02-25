@@ -24,8 +24,20 @@ class InputTypePage extends StatelessWidget {
             onTap: () {
               Navigator.push(
                 context,
+                MaterialPageRoute(builder: (_) => const RecorderPage()),
+              );
+            },
+          ),
+          const SizedBox(height: 20),
+          _InputTypeButton(
+            icon: Icons.book,
+            label: "Upload Syllabus",
+            onTap: () {
+              Navigator.push(
+                context,
                 MaterialPageRoute(
-                  builder: (_) => FlashCardPage(),
+                  builder: (_) =>
+                      FileInputPage(className: className, isSyllabus: true),
                 ),
               );
             },
@@ -33,12 +45,13 @@ class InputTypePage extends StatelessWidget {
           const SizedBox(height: 20),
           _InputTypeButton(
             icon: Icons.upload_file,
-            label: "Upload File",
+            label: "Upload Lecture",
             onTap: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => FileInputPage(className: className),
+                  builder: (_) =>
+                      FileInputPage(className: className, isSyllabus: false),
                 ),
               );
             },

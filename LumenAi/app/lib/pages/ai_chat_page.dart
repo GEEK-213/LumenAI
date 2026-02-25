@@ -61,11 +61,15 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollToBottom();
 
     try {
+      final bodyData = <String, String>{'question': text, 'context': ''};
+
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user != null) {
+        bodyData['user_id'] = user.id;
+      }
+
       final response = await http
-          .post(
-            Uri.parse('$_baseUrl/chat/ask'),
-            body: {'question': text, 'context': ''},
-          )
+          .post(Uri.parse('$_baseUrl/chat/ask'), body: bodyData)
           .timeout(const Duration(seconds: 30));
 
       final data = jsonDecode(response.body);
@@ -120,7 +124,7 @@ class _ChatScreenState extends State<ChatScreen> {
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-          onPressed: () {},
+          onPressed: () => Navigator.pop(context),
         ),
         title: Row(
           mainAxisSize: MainAxisSize.min,
@@ -144,9 +148,6 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ],
         ),
-        actions: [
-          IconButton(onPressed: () {}, icon: const Icon(Icons.more_horiz)),
-        ],
       ),
 
       // --- Body ---
@@ -287,10 +288,6 @@ class _ChatScreenState extends State<ChatScreen> {
                       ),
                       onSubmitted: _handleSubmitted,
                     ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.mic, color: Colors.grey),
-                    onPressed: () {},
                   ),
                 ],
               ),

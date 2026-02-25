@@ -2,7 +2,8 @@ import os
 import json
 import shutil
 import tempfile
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+import re
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
 from app.database import supabase
 from app.engine.analyzer import LectureAnalyzer, RateLimitError
 from app.engine.local_analyzer import LocalAnalyzer
@@ -11,19 +12,194 @@ router = APIRouter()
 analyzer = LectureAnalyzer()
 local_analyzer = LocalAnalyzer()
 
+
+def extract_json(text: str) -> str:
+    """Extract JSON object using brace matching — handles markdown fences, preamble, etc."""
+    fence_start = re.search(r"```(?:json)?\s*\n?", text)
+    if fence_start:
+        text = text[fence_start.end():]
+        fence_end = text.rfind("```")
+        if fence_end > 0:
+            text = text[:fence_end]
+    start = text.find('{')
+    if start == -1:
+        return text
+    depth = 0
+    in_string = False
+    escape_next = False
+    for i, ch in enumerate(text[start:], start=start):
+        if escape_next:
+            escape_next = False
+            continue
+        if ch == '\\' and in_string:
+            escape_next = True
+            continue
+        if ch == '"' and not escape_next:
+            in_string = not in_string
+        if not in_string:
+            if ch == '{':
+                depth += 1
+            elif ch == '}':
+                depth -= 1
+                if depth == 0:
+                    return text[start:i+1]
+    return text[start:]
+
+
+def extract_json_array(text: str) -> str:
+    """Extract JSON array using brace matching."""
+    fence_start = re.search(r"```(?:json)?\s*\n?", text)
+    if fence_start:
+        text = text[fence_start.end():]
+        fence_end = text.rfind("```")
+        if fence_end > 0:
+            text = text[:fence_end]
+    start = text.find('[')
+    if start == -1:
+        return text
+    depth = 0
+    in_string = False
+    escape_next = False
+    for i, ch in enumerate(text[start:], start=start):
+        if escape_next:
+            escape_next = False
+            continue
+        if ch == '\\' and in_string:
+            escape_next = True
+            continue
+        if ch == '"' and not escape_next:
+            in_string = not in_string
+        if not in_string:
+            if ch == '[':
+                depth += 1
+            elif ch == ']':
+                depth -= 1
+                if depth == 0:
+                    return text[start:i+1]
+    return text[start:]
+
+
+# --- Background Tasks ---
+
+async def save_quiz_background(engine, contents, user_id, lecture_id):
+    """
+    Background Task: 
+    1. Awaits MCQ generation from Local or Gemini Engine.
+    2. Parses strict JSON.
+    3. Persists to Supabase in the background without blocking the user.
+    """
+    print(f"  ⏳ Background Task (Quiz): Generating for {lecture_id}...")
+    try:
+        # Retry logic: Try twice in case the LLM messes up the JSON.
+        result_str = None
+        for attempt in range(2):
+            try:
+                result_str = await engine.generate_quiz(contents)
+                clean_json = extract_json_array(result_str)
+                quizzes = json.loads(clean_json)
+                
+                # Handle case where LLM returns a dictionary instead of a strict array
+                if isinstance(quizzes, dict):
+                    if "quiz_questions" in quizzes:
+                        quizzes = quizzes["quiz_questions"]
+                    elif "quizzes" in quizzes:
+                        quizzes = quizzes["quizzes"]
+                    else:
+                        for v in quizzes.values():
+                            if isinstance(v, list):
+                                quizzes = v
+                                break
+                        else:
+                            quizzes = []
+                
+                break # Success!
+            except Exception as e:
+                print(f"  ⚠️ Background Task (Quiz) Attempt {attempt+1} failed: {e}")
+                if attempt == 1:
+                    raise e
+        
+        db_quizzes = []
+        for q in quizzes:
+            db_quizzes.append({
+                "user_id": user_id,
+                "lecture_id": lecture_id,
+                "question": q.get("question"),
+                "options": q.get("options", []),
+                "correct_answer": q.get("correct_answer"),
+                "explanation": q.get("explanation")
+            })
+        if db_quizzes:
+            supabase.table("quiz_questions").insert(db_quizzes).execute()
+        print(f"  ✅ Background Task (Quiz): Saved {len(db_quizzes)} MCQs!")
+        
+    except Exception as e:
+        print(f"  ❌ Background Task (Quiz) Fatal Error: {e}")
+
+
+async def save_flashcards_background(engine, contents, user_id, lecture_id):
+    """
+    Background Task: 
+    1. Awaits Flashcard generation from Local or Gemini engine.
+    2. Parses strict JSON.
+    3. Persists to Supabase in the background.
+    """
+    print(f"  ⏳ Background Task (Flashcards): Generating for {lecture_id}...")
+    try:
+        result_str = None
+        for attempt in range(2):
+            try:
+                result_str = await engine.generate_flashcards(contents)
+                clean_json = extract_json_array(result_str)
+                flashcards = json.loads(clean_json)
+                
+                # Handle case where LLM returns a dictionary instead of a strict array
+                if isinstance(flashcards, dict):
+                    if "flashcards" in flashcards:
+                        flashcards = flashcards["flashcards"]
+                    else:
+                        for v in flashcards.values():
+                            if isinstance(v, list):
+                                flashcards = v
+                                break
+                        else:
+                            flashcards = []
+                
+                break # Success!
+            except Exception as e:
+                print(f"  ⚠️ Background Task (Flashcards) Attempt {attempt+1} failed: {e}")
+                if attempt == 1:
+                    raise e
+        
+        db_fc = []
+        for f in flashcards:
+            db_fc.append({
+                "user_id": user_id,
+                "lecture_id": lecture_id,
+                "front": f.get("front"),
+                "back": f.get("back")
+            })
+        if db_fc:
+            supabase.table("flashcards").insert(db_fc).execute()
+        print(f"  ✅ Background Task (Flashcards): Saved {len(db_fc)} items!")
+        
+    except Exception as e:
+        print(f"  ❌ Background Task (Flashcards) Fatal Error: {e}")
+
+
 @router.post("/process")
 async def process_lecture(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
+    subject_id: str = Form(...),
     unit_id: str = Form(None),
     user_id: str = Form(...),
     title: str = Form(None)
 ):
     """
-    Main Lecture Analysis Endpoint.
-    1. Uploads Audio
-    2. Fetches Syllabus Context (Grounding)
-    3. Analyzes via Gemini
-    4. Saves 5+ artifacts to DB
+    Main Lecture Analysis Endpoint (SMART CHAINING)
+    1. Fast Sync Step: Extracts text, writes the Initial View (Summary).
+    2. Async Step: Dispatches Quiz and Flashcards to Background.
+    3. Fast Return: UI renders immediately.
     """
     print(f"🚀 Processing Lecture: {file.filename} (Unit: {unit_id})")
 
@@ -41,34 +217,39 @@ async def process_lecture(
                 .select("extracted_text")\
                 .eq("unit_id", unit_id)\
                 .execute()
-            
-            # Concatenate all syllabus chunks (Naive Context Stuffing)
-            # Todo: Replace with RAG Vector Search for large syllabi
             for row in response.data:
                 if row.get("extracted_text"):
                     syllabus_context += row["extracted_text"] + "\n\n"
-            
             print(f"  📚 Found Syllabus Context: {len(syllabus_context)} chars")
 
-        # 3. Analyze — check if local-only mode is enabled
+        # 3. Analyze — INITIAL VIEW (Synchronous)
         engine_used = "gemini"
         result_json_str = None
+        contents = None
 
+        # Determine which engine to use
         use_local = os.getenv("USE_LOCAL_LLM", "false").lower() == "true"
 
+        engine = None
         if use_local:
             print("  🔧 USE_LOCAL_LLM=true — Skipping Gemini, using Ollama directly.")
             engine_used = "local_ollama"
-            result_json_str = await local_analyzer.analyze([tmp_path], syllabus_context)
+            engine = local_analyzer
+            contents = await engine.prepare_content([tmp_path], syllabus_context)
+            result_json_str = await engine.generate_initial_view(contents)
         else:
             try:
-                result_json_str = await analyzer.analyze_multimodal([tmp_path], syllabus_context)
+                engine = analyzer
+                contents = await engine.prepare_content([tmp_path], syllabus_context)
+                result_json_str = await engine.generate_initial_view(contents)
             except RateLimitError as rle:
                 print(f"  ⚠️ Gemini quota limit hit: {rle}")
                 if use_local:
                     print("  🔄 Falling back to Local LLM (Ollama)...")
                     engine_used = "local_ollama"
-                    result_json_str = await local_analyzer.analyze([tmp_path], syllabus_context)
+                    engine = local_analyzer
+                    contents = await engine.prepare_content([tmp_path], syllabus_context)
+                    result_json_str = await engine.generate_initial_view(contents)
                 else:
                     raise HTTPException(
                         status_code=429, 
@@ -78,97 +259,36 @@ async def process_lecture(
         if not result_json_str:
             raise HTTPException(status_code=500, detail="The AI model returned no response. Please try again.")
 
-
-        # Clean and extract JSON from model response
-        import re
-
-        def extract_json(text: str) -> str:
-            """Extract JSON object using brace matching — handles markdown fences, preamble, etc."""
-            # First try: strip markdown code fences (use brace matcher on content inside fence)
-            fence_start = re.search(r"```(?:json)?\s*\n?", text)
-            if fence_start:
-                text = text[fence_start.end():]  # Strip the opening fence
-                fence_end = text.rfind("```")
-                if fence_end > 0:
-                    text = text[:fence_end]  # Strip the closing fence
-            # Find first { and match to its closing } using depth counting
-            start = text.find('{')
-            if start == -1:
-                return text
-            depth = 0
-            in_string = False
-            escape_next = False
-            for i, ch in enumerate(text[start:], start=start):
-                if escape_next:
-                    escape_next = False
-                    continue
-                if ch == '\\' and in_string:
-                    escape_next = True
-                    continue
-                if ch == '"' and not escape_next:
-                    in_string = not in_string
-                if not in_string:
-                    if ch == '{':
-                        depth += 1
-                    elif ch == '}':
-                        depth -= 1
-                        if depth == 0:
-                            return text[start:i+1]
-            return text[start:]  # Return from first { to end if no balanced close found
-
         try:
             clean_json = extract_json(result_json_str)
             data = json.loads(clean_json)
+            
+            # Robustness: if LLM returned a quoted string instead of an object
+            if isinstance(data, str):
+                print("  ⚠️ LLM returned a JSON string instead of an object. Wrapping it.")
+                data = {"summary": data}
+            elif not isinstance(data, dict):
+                data = {}
+                
         except json.JSONDecodeError as e:
-            print(f"❌ JSON Decode Error: {e}")
-            print(f"📉 Raw Model Output (first 2000 chars):\n{result_json_str[:2000]}\n")
+            print(f"❌ JSON Decode Error on Initial View: {e}")
             raise e
 
-
-        # 4. Save to Database (The Graph Logic)
-        
-        # A. Create Lecture Record
+        # 4. Save Base Data immediately to DB
         lecture_data = {
             "user_id": user_id,
+            "subject_id": subject_id,
             "unit_id": unit_id,
             "title": title or file.filename,
             "summary": data.get("summary", ""),
             "transcript": data.get("transcript", ""),
-            "raw_analysis": data # Backup
+            "raw_analysis": data # Fast backup of mindmap, etc
         }
         res = supabase.table("lectures").insert(lecture_data).execute()
         lecture_id = res.data[0]['id']
-        print(f"  ✅ Lecture Created: {lecture_id}")
+        print(f"  ✅ Initial Lecture Created: {lecture_id}")
 
-        # B. Bulk Insert Artifacts
-        
-        # Flashcards
-        if data.get("flashcards"):
-            flashcards = []
-            for f in data["flashcards"]:
-                flashcards.append({
-                    "user_id": user_id,
-                    "lecture_id": lecture_id,
-                    "front": f.get("front"),
-                    "back": f.get("back")
-                })
-            supabase.table("flashcards").insert(flashcards).execute()
-
-        # Quiz Questions
-        if data.get("quiz_questions"):
-            quizzes = []
-            for q in data["quiz_questions"]:
-                quizzes.append({
-                    "user_id": user_id,
-                    "lecture_id": lecture_id,
-                    "question": q.get("question"),
-                    "options": q.get("options", []),
-                    "correct_answer": q.get("correct_answer"),
-                    "explanation": q.get("explanation")
-                })
-            supabase.table("quiz_questions").insert(quizzes).execute()
-
-        # Mind Map
+        # Synchronously insert ultra-light artifacts
         if data.get("mind_map"):
             mm = data["mind_map"]
             supabase.table("mind_maps").insert({
@@ -178,7 +298,6 @@ async def process_lecture(
                 "edges": mm.get("edges", [])
             }).execute()
 
-        # Code Snippets
         if data.get("code_snippets"):
             snippets = []
             for c in data["code_snippets"]:
@@ -191,7 +310,6 @@ async def process_lecture(
                 })
             supabase.table("code_snippets").insert(snippets).execute()
 
-        # Tasks
         if data.get("extracted_tasks"):
             tasks = []
             for t in data["extracted_tasks"]:
@@ -203,6 +321,14 @@ async def process_lecture(
                 })
             supabase.table("extracted_tasks").insert(tasks).execute()
 
+
+        # 5. DISPATCH BACKGROUND TASKS
+        # Now pass the same "engine" and parsed "contents" context to save time in the background
+        background_tasks.add_task(save_quiz_background, engine, contents, user_id, lecture_id)
+        background_tasks.add_task(save_flashcards_background, engine, contents, user_id, lecture_id)
+
+
+        # RETURN INSTANTLY
         return {
             "status": "success", 
             "lecture_id": lecture_id,
@@ -212,13 +338,10 @@ async def process_lecture(
 
     except json.JSONDecodeError as jde:
         short = result_json_str[:300] if result_json_str else 'EMPTY'
-        print(f"❌ JSON Decode Error: {jde}")
-        print(f"📉 Raw output snippet: {short}")
         raise HTTPException(status_code=500, detail=f"AI Model returned invalid JSON: {jde}. Output start: {short[:100]}")
 
     except Exception as e:
         error_msg = str(e)
-        print(f"❌ Processing Error: {error_msg}")
         if "429" in error_msg:
             raise HTTPException(status_code=429, detail="Gemini API Quota Exceeded. Please try again in a minute.")
         raise HTTPException(status_code=500, detail=error_msg)
@@ -228,3 +351,28 @@ async def process_lecture(
                 os.remove(tmp_path)
             except:
                 pass
+
+
+@router.delete("/lecture/{lecture_id}")
+async def delete_lecture(lecture_id: str):
+    """Delete a lecture and its cascades."""
+    try:
+        supabase.table("lectures").delete().eq("id", lecture_id).execute()
+        return {"status": "success", "message": "Lecture deleted successfully."}
+    except Exception as e:
+        print(f"❌ Error deleting lecture: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.put("/lecture/{lecture_id}")
+async def rename_lecture(lecture_id: str, new_title: str = Form(...)):
+    """Rename a lecture."""
+    try:
+        response = supabase.table("lectures").update({"title": new_title}).eq("id", lecture_id).execute()
+        if not response.data:
+             raise Exception("Lecture not found")
+             
+        return {"status": "success", "message": "Lecture renamed successfully."}
+    except Exception as e:
+        print(f"❌ Error renaming lecture: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+

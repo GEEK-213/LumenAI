@@ -18,6 +18,7 @@ create table if not exists public.lectures (
   id uuid default gen_random_uuid() primary key,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   user_id uuid references auth.users not null, -- Requires valid Auth User
+  subject_id uuid references public.subjects(id) on delete cascade,
   unit_id uuid references public.units(id),
   title text,
   summary text,
@@ -84,6 +85,7 @@ create table if not exists public.syllabus_sources (
   id uuid default gen_random_uuid() primary key,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   user_id uuid references auth.users not null,
+  subject_id uuid references public.subjects(id) on delete cascade,
   unit_id uuid references public.units(id),
   title text,
   file_path text,

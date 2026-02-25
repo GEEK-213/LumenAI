@@ -8,8 +8,13 @@ import 'results_page.dart';
 
 class FileInputPage extends StatefulWidget {
   final String className;
+  final bool isSyllabus;
 
-  const FileInputPage({super.key, required this.className});
+  const FileInputPage({
+    super.key,
+    required this.className,
+    this.isSyllabus = false,
+  });
 
   @override
   State<FileInputPage> createState() => _FileInputPageState();
@@ -104,21 +109,72 @@ class _FileInputPageState extends State<FileInputPage> {
       }
       final userId = user.id;
 
-      final result = await _apiService.processLecture(
-        audioFile: selectedFile!,
-        unitId: _selectedUnit?.id,
-        userId: userId,
-        title: _selectedUnit != null
-            ? "Uploaded Lecture: ${_selectedUnit!.name}"
-            : "Uploaded Lecture",
-      );
+      if (widget.isSyllabus) {
+        if (_selectedSubject == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Please select a Subject for the syllabus."),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          setState(() => isProcessing = false);
+          return;
+        }
 
-      if (!mounted) return;
+        final fileName = selectedFile!.path.split('/').last;
 
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => AnalysisResultScreen(result: result)),
-      );
+        await _apiService.uploadSyllabus(
+          documentFile: selectedFile!,
+          subjectId: _selectedSubject!.id,
+          unitId: _selectedUnit?.id,
+          userId: userId,
+          title: fileName,
+        );
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Syllabus uploaded successfully!"),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context);
+        }
+      } else {
+        final fileName = selectedFile!.path.split('/').last;
+
+        if (_selectedSubject == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text("Please select a Subject for this lecture."),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          setState(() => isProcessing = false);
+          return;
+        }
+
+        final result = await _apiService.processLecture(
+          audioFile: selectedFile!,
+          subjectId: _selectedSubject!.id,
+          unitId: _selectedUnit?.id,
+          userId: userId,
+          title: fileName,
+        );
+
+        if (!mounted) return;
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AnalysisResultScreen(result: result),
+          ),
+        );
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -135,7 +191,11 @@ class _FileInputPageState extends State<FileInputPage> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F2027),
       appBar: AppBar(
-        title: Text("Upload • ${widget.className}"),
+        title: Text(
+          widget.isSyllabus
+              ? "Upload Syllabus • ${widget.className}"
+              : "Upload Lecture • ${widget.className}",
+        ),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -265,9 +325,9 @@ class _FileInputPageState extends State<FileInputPage> {
                     ),
                   ),
                   onPressed: _analyzeFile,
-                  child: const Text(
-                    "Analyze Lecture",
-                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  child: Text(
+                    widget.isSyllabus ? "Upload Syllabus" : "Analyze Lecture",
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
                   ),
                 ),
               ),
