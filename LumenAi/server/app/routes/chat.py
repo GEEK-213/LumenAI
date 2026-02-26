@@ -8,7 +8,6 @@ from app.database import supabase
 
 router = APIRouter()
 
-USE_LOCAL_LLM = os.getenv("USE_LOCAL_LLM", "false").lower() == "true"
 
 @router.post("/ask")
 async def ask_ai(
@@ -50,7 +49,20 @@ async def ask_ai(
         user_message = f"[Study Context]:\n{combined_context}\n\nQuestion: {question}"
 
     try:
-        if USE_LOCAL_LLM:
+        # 1. Try Gemini API first
+        try:
+            from google import genai
+            api_key = os.getenv("GEMINI_API_KEY")
+            client = genai.Client(api_key=api_key)
+            full_prompt = f"{system_prompt}\n\n{user_message}"
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=[full_prompt],
+            )
+            answer = response.text
+        except Exception as e:
+            # 2. Fallback to Ollama if Gemini API fails
+            print(f"  ⚠️ Chat Gemini failed ({e}). Falling back to Local LLM (Ollama)...")
             import ollama
             response = ollama.chat(
                 model=os.getenv("OLLAMA_MODEL", "llama3.2"),
@@ -61,16 +73,6 @@ async def ask_ai(
                 options={"temperature": 0.7, "num_predict": 1024},
             )
             answer = response["message"]["content"]
-        else:
-            from google import genai
-            api_key = os.getenv("GEMINI_API_KEY")
-            client = genai.Client(api_key=api_key)
-            full_prompt = f"{system_prompt}\n\n{user_message}"
-            response = client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=[full_prompt],
-            )
-            answer = response.text
 
         return JSONResponse({"answer": answer})
 

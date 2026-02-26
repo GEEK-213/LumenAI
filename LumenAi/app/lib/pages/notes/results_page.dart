@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../models/data_models.dart';
 
 import '../../services/api_service.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 class AnalysisResultScreen extends StatefulWidget {
   final AnalysisResult result;
@@ -128,9 +129,16 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
               color: const Color(0xFF1E2746),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(
-              _currentResult.summary,
-              style: const TextStyle(color: Colors.white, height: 1.5),
+            child: MarkdownBody(
+              data: _currentResult.summary,
+              styleSheet: MarkdownStyleSheet(
+                p: const TextStyle(color: Colors.white, height: 1.5),
+                strong: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+                listBullet: const TextStyle(color: Colors.white),
+              ),
             ),
           ),
           const SizedBox(height: 20),

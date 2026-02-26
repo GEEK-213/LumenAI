@@ -227,34 +227,18 @@ async def process_lecture(
         result_json_str = None
         contents = None
 
-        # Determine which engine to use
-        use_local = os.getenv("USE_LOCAL_LLM", "false").lower() == "true"
-
-        engine = None
-        if use_local:
-            print("  🔧 USE_LOCAL_LLM=true — Skipping Gemini, using Ollama directly.")
+        try:
+            print("  🌐 Trying Gemini API first...")
+            engine_used = "gemini"
+            engine = analyzer
+            contents = await engine.prepare_content([tmp_path], syllabus_context)
+            result_json_str = await engine.generate_initial_view(contents)
+        except Exception as e:
+            print(f"  ⚠️ Gemini failed ({e}). Falling back to Local LLM (Ollama)...")
             engine_used = "local_ollama"
             engine = local_analyzer
             contents = await engine.prepare_content([tmp_path], syllabus_context)
             result_json_str = await engine.generate_initial_view(contents)
-        else:
-            try:
-                engine = analyzer
-                contents = await engine.prepare_content([tmp_path], syllabus_context)
-                result_json_str = await engine.generate_initial_view(contents)
-            except RateLimitError as rle:
-                print(f"  ⚠️ Gemini quota limit hit: {rle}")
-                if use_local:
-                    print("  🔄 Falling back to Local LLM (Ollama)...")
-                    engine_used = "local_ollama"
-                    engine = local_analyzer
-                    contents = await engine.prepare_content([tmp_path], syllabus_context)
-                    result_json_str = await engine.generate_initial_view(contents)
-                else:
-                    raise HTTPException(
-                        status_code=429, 
-                        detail="Gemini API Quota Exceeded. Please wait about 60 seconds and try again."
-                    )
 
         if not result_json_str:
             raise HTTPException(status_code=500, detail="The AI model returned no response. Please try again.")

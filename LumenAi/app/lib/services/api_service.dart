@@ -7,10 +7,8 @@ import '../models/data_models.dart';
 class ApiService {
   final SupabaseClient _supabase = Supabase.instance.client;
   // Android Emulator: 10.0.2.2, iOS/Web: localhost or 127.0.0.1
-  // For physical device, use your machine's local IP (e.g., 192.168.1.X)
-  final String _baseUrl = Platform.isAndroid
-      ? 'http://10.0.2.2:8001'
-      : 'http://127.0.0.1:8001';
+  // Ngrok Demo URL
+  final String baseUrl = 'https://graeme-weathered-jackie.ngrok-free.dev';
 
   Future<List<Subject>> getSubjects() async {
     final response = await _supabase
@@ -36,7 +34,7 @@ class ApiService {
     String? unitId,
     String? title,
   }) async {
-    final uri = Uri.parse('$_baseUrl/analysis/process');
+    final uri = Uri.parse('$baseUrl/analysis/process');
     final request = http.MultipartRequest('POST', uri);
 
     request.fields['subject_id'] = subjectId;
@@ -91,7 +89,7 @@ class ApiService {
     String? unitId,
     String? title,
   }) async {
-    final uri = Uri.parse('$_baseUrl/ingestion/upload');
+    final uri = Uri.parse('$baseUrl/ingestion/upload');
     final request = http.MultipartRequest('POST', uri);
 
     request.fields['user_id'] = userId;
@@ -195,7 +193,7 @@ class ApiService {
   }
 
   Future<void> deleteLecture(String lectureId) async {
-    final uri = Uri.parse('$_baseUrl/analysis/lecture/$lectureId');
+    final uri = Uri.parse('$baseUrl/analysis/lecture/$lectureId');
     final response = await http.delete(uri);
     if (response.statusCode != 200) {
       throw Exception('Failed to delete lecture: ${response.statusCode}');
@@ -203,7 +201,7 @@ class ApiService {
   }
 
   Future<void> renameLecture(String lectureId, String newTitle) async {
-    final uri = Uri.parse('$_baseUrl/analysis/lecture/$lectureId');
+    final uri = Uri.parse('$baseUrl/analysis/lecture/$lectureId');
     final request = http.MultipartRequest('PUT', uri);
     request.fields['new_title'] = newTitle;
     final streamedResponse = await request.send();
@@ -215,7 +213,7 @@ class ApiService {
   }
 
   Future<void> deleteSyllabus(String syllabusId) async {
-    final uri = Uri.parse('$_baseUrl/ingestion/syllabus/$syllabusId');
+    final uri = Uri.parse('$baseUrl/ingestion/syllabus/$syllabusId');
     final response = await http.delete(uri);
     if (response.statusCode != 200) {
       throw Exception('Failed to delete syllabus: ${response.statusCode}');
@@ -223,7 +221,7 @@ class ApiService {
   }
 
   Future<void> renameSyllabus(String syllabusId, String newTitle) async {
-    final uri = Uri.parse('$_baseUrl/ingestion/syllabus/$syllabusId');
+    final uri = Uri.parse('$baseUrl/ingestion/syllabus/$syllabusId');
     final request = http.MultipartRequest('PUT', uri);
     request.fields['new_title'] = newTitle;
     final streamedResponse = await request.send();
