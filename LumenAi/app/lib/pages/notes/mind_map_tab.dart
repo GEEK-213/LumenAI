@@ -86,12 +86,12 @@ class _MindMapViewState extends State<MindMapView>
       children[from]!.add(to);
     }
 
-    // Radial layout from root
-    const double centerX = 400;
-    const double centerY = 350;
+    // Radial layout from root — wider spread for mobile
+    const double centerX = 500;
+    const double centerY = 400;
     _positions[rootId] = const Offset(centerX, centerY);
 
-    _layoutChildren(rootId, children, centerX, centerY, 0, 2 * math.pi, 140, 1);
+    _layoutChildren(rootId, children, centerX, centerY, 0, 2 * math.pi, 180, 1);
   }
 
   void _layoutChildren(
@@ -123,7 +123,7 @@ class _MindMapViewState extends State<MindMapView>
         y,
         angle - angleStep / 2,
         angleStep,
-        radius * 0.7,
+        radius * 0.65,
         depth + 1,
       );
     }
@@ -148,17 +148,17 @@ class _MindMapViewState extends State<MindMapView>
       animation: _fadeAnim,
       builder: (context, child) {
         return InteractiveViewer(
-          boundaryMargin: const EdgeInsets.all(200),
-          minScale: 0.3,
-          maxScale: 3.0,
+          boundaryMargin: const EdgeInsets.all(300),
+          minScale: 0.2,
+          maxScale: 4.0,
           child: SizedBox(
-            width: 800,
-            height: 700,
+            width: 1000,
+            height: 800,
             child: Stack(
               children: [
                 // Paint edges
                 CustomPaint(
-                  size: const Size(800, 700),
+                  size: const Size(1000, 800),
                   painter: _EdgePainter(
                     nodes: widget.nodes,
                     edges: widget.edges,
@@ -178,7 +178,13 @@ class _MindMapViewState extends State<MindMapView>
                   final isSelected = _selectedNodeId == id;
                   final color = _getNodeColor(i);
                   final isRoot = i == 0;
-                  final nodeRadius = isRoot ? 40.0 : 30.0;
+                  // Bigger nodes for readability
+                  final nodeRadius = isRoot ? 52.0 : 42.0;
+                  // Show more characters before truncating
+                  final maxChars = isRoot ? 20 : 16;
+                  final displayLabel = label.length > maxChars
+                      ? '${label.substring(0, maxChars - 2)}..'
+                      : label;
 
                   return Positioned(
                     left: pos.dx - nodeRadius,
@@ -197,17 +203,17 @@ class _MindMapViewState extends State<MindMapView>
                             AnimatedContainer(
                               duration: const Duration(milliseconds: 250),
                               width: isSelected
-                                  ? nodeRadius * 2.4
+                                  ? nodeRadius * 2.3
                                   : nodeRadius * 2,
                               height: isSelected
-                                  ? nodeRadius * 2.4
+                                  ? nodeRadius * 2.3
                                   : nodeRadius * 2,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
                                 gradient: RadialGradient(
                                   colors: [
-                                    color.withValues(alpha: 0.9),
-                                    color.withValues(alpha: 0.5),
+                                    color.withValues(alpha: 0.95),
+                                    color.withValues(alpha: 0.55),
                                   ],
                                 ),
                                 boxShadow: [
@@ -215,54 +221,65 @@ class _MindMapViewState extends State<MindMapView>
                                     color: color.withValues(
                                       alpha: isSelected ? 0.7 : 0.3,
                                     ),
-                                    blurRadius: isSelected ? 20 : 10,
-                                    spreadRadius: isSelected ? 4 : 1,
+                                    blurRadius: isSelected ? 24 : 12,
+                                    spreadRadius: isSelected ? 5 : 2,
                                   ),
                                 ],
                                 border: isSelected
-                                    ? Border.all(color: Colors.white, width: 2)
+                                    ? Border.all(
+                                        color: Colors.white,
+                                        width: 2.5,
+                                      )
                                     : null,
                               ),
                               child: Center(
                                 child: Padding(
-                                  padding: const EdgeInsets.all(6),
+                                  padding: const EdgeInsets.all(8),
                                   child: Text(
-                                    label.length > 12
-                                        ? '${label.substring(0, 10)}..'
-                                        : label,
+                                    displayLabel,
                                     textAlign: TextAlign.center,
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       color: Colors.white,
-                                      fontSize: isRoot ? 11 : 9,
+                                      fontSize: isRoot ? 12 : 10,
                                       fontWeight: FontWeight.bold,
+                                      height: 1.2,
                                     ),
                                   ),
                                 ),
                               ),
                             ),
+                            // Expanded label tooltip on tap
                             if (isSelected)
                               Container(
                                 margin: const EdgeInsets.only(top: 6),
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 6,
+                                  horizontal: 14,
+                                  vertical: 8,
                                 ),
                                 constraints: const BoxConstraints(
-                                  maxWidth: 180,
+                                  maxWidth: 220,
                                 ),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFF1A2036),
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
-                                    color: color.withValues(alpha: 0.5),
+                                    color: color.withValues(alpha: 0.6),
                                   ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: color.withValues(alpha: 0.2),
+                                      blurRadius: 12,
+                                    ),
+                                  ],
                                 ),
                                 child: Text(
                                   label,
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(
                                     color: Colors.white,
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
@@ -305,13 +322,13 @@ class _EdgePainter extends CustomPainter {
       if (from == null || to == null) continue;
 
       final paint = Paint()
-        ..color = Colors.blueAccent.withValues(alpha: 0.4 * opacity)
-        ..strokeWidth = 2.0
+        ..color = Colors.blueAccent.withValues(alpha: 0.45 * opacity)
+        ..strokeWidth = 2.5
         ..style = PaintingStyle.stroke;
 
       // Curved edge using quadratic bezier
       final mid = Offset((from.dx + to.dx) / 2, (from.dy + to.dy) / 2);
-      final ctrl = Offset(mid.dx + 20, mid.dy - 20);
+      final ctrl = Offset(mid.dx + 25, mid.dy - 25);
 
       final path = Path()
         ..moveTo(from.dx, from.dy)
@@ -331,7 +348,7 @@ class _EdgePainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final angle = math.atan2(to.dy - from.dy, to.dx - from.dx);
-    const arrowLen = 8.0;
+    const arrowLen = 10.0;
     const arrowAngle = 0.5;
 
     final p1 = Offset(

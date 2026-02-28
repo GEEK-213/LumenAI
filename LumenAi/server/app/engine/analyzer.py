@@ -41,8 +41,10 @@ class LectureAnalyzer:
                 try:
                     file = self.client.files.upload(file=path)
                     # Wait for Google's infrastructure to process the video/audio
+                    # Use async sleep to avoid blocking the FastAPI event loop
+                    import asyncio
                     while file.state.name == "PROCESSING":
-                        time.sleep(2)
+                        await asyncio.sleep(2)
                         file = self.client.files.get(name=file.name)
                     contents.append(file)
                 except Exception as e:

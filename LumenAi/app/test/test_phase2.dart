@@ -174,8 +174,8 @@ void main() {
       );
 
       await tester.pumpAndSettle();
-      // Label should be truncated to 10 chars + '..'
-      expect(find.text('This Is A ..'), findsOneWidget);
+      // Root label truncated to 18 chars + '..' (root maxChars=20)
+      expect(find.text('This Is A Very Lon..'), findsOneWidget);
     });
 
     testWidgets('tapping a node expands it', (tester) async {
@@ -194,8 +194,8 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Label is > 12 chars so it gets truncated to 10 + '..'
-      await tester.tap(find.text('Machine Le..'));
+      // Root label is > 20 chars so truncated to 18 + '..' (root maxChars=20)
+      await tester.tap(find.text('Machine Learning B..'));
       await tester.pumpAndSettle();
 
       // Expanded label should show full text

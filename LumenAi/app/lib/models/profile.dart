@@ -26,7 +26,9 @@ class Profile {
               ?.map((e) => e as String)
               .toList() ??
           [],
-      stats: json['stats'] as Map<String, dynamic>? ?? {},
+      stats: json['stats'] != null
+          ? Map<String, dynamic>.from(json['stats'] as Map)
+          : {},
     );
   }
 
