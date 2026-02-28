@@ -3,6 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../models/profile.dart';
 import '../../services/profile_service.dart';
+import '../../services/api_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'login.dart';
 
@@ -15,6 +17,7 @@ class Profilepage extends StatefulWidget {
 
 class _ProfilepageState extends State<Profilepage> {
   final ProfileService _profileService = ProfileService();
+  final ApiService _apiService = ApiService();
   final SupabaseClient _supabase = Supabase.instance.client;
 
   Profile? _profile;
@@ -106,6 +109,32 @@ class _ProfilepageState extends State<Profilepage> {
           _isPickingImage = false;
           _isLoading = false;
         });
+      }
+    }
+  }
+
+  Future<void> _connectGoogleClassroom() async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return;
+
+    final url = Uri.parse(
+      '${_apiService.baseUrl}/classroom/oauth/login?user_id=$userId',
+    );
+    try {
+      if (await canLaunchUrl(url)) {
+        await launchUrl(url, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Could not open browser")),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error: $e")));
       }
     }
   }
@@ -561,6 +590,16 @@ class _ProfilepageState extends State<Profilepage> {
                   const SizedBox(height: 15),
                   _buildInterestsSection(),
 
+                  const SizedBox(height: 25),
+
+                  // Integrations Section
+                  _buildSectionHeader("Integrations"),
+                  const SizedBox(height: 10),
+                  _buildSettingsTile(
+                    Icons.school,
+                    "Connect Google Classroom",
+                    onTap: _connectGoogleClassroom,
+                  ),
                   const SizedBox(height: 25),
 
                   // Settings Section

@@ -6,6 +6,10 @@ import '../models/data_models.dart';
 
 class ApiService {
   final SupabaseClient _supabase = Supabase.instance.client;
+
+  // Expose the Supabase client for authentication checks
+  SupabaseClient get supabase => _supabase;
+
   // Android Emulator: 10.0.2.2, iOS/Web: localhost or 127.0.0.1
   // Ngrok Demo URL
   final String baseUrl = 'https://graeme-weathered-jackie.ngrok-free.dev';
@@ -240,5 +244,33 @@ class ApiService {
         .eq('user_id', userId)
         .order('created_at', ascending: false);
     return List<Map<String, dynamic>>.from(response as List);
+  }
+
+  /// Manually sync Google Classroom materials for a specific subject
+  Future<void> syncClassroomSubject(String subjectId, String userId) async {
+    final uri = Uri.parse('$baseUrl/classroom/sync_subject');
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'user_id': userId, 'subject_id': subjectId}),
+    );
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Failed to sync classroom: ${response.statusCode} - ${response.body}',
+      );
+    }
+  }
+
+  /// On-demand AI analysis for a previously pulled (un-analyzed) lecture.
+  /// Triggered by the 'Make it Smart' button.
+  Future<Map<String, dynamic>> analyzeLecture(String lectureId) async {
+    final uri = Uri.parse('$baseUrl/analysis/analyze_lecture/$lectureId');
+    final response = await http.post(uri);
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Failed to analyze lecture: ${response.statusCode} - ${response.body}',
+      );
+    }
+    return jsonDecode(response.body);
   }
 }

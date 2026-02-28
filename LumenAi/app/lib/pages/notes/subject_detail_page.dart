@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../models/data_models.dart';
 import '../../services/api_service.dart';
+import 'file_preview_page.dart';
 import 'input_type_page.dart';
 import 'results_page.dart';
 
@@ -55,6 +56,58 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
     } catch (e) {
       debugPrint('❌ SubjectDetailPage load error: $e');
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _syncClassroom() async {
+    setState(() => _loading = true);
+    try {
+      final user = _apiService.supabase.auth.currentUser;
+      if (user != null) {
+        await _apiService.syncClassroomSubject(widget.subject.id, user.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Classroom sync complete!')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to sync: $e')));
+      }
+    } finally {
+      await _loadData();
+    }
+  }
+
+  void _openFilePreview(Map<String, dynamic> lecture) async {
+    final driveFileId = lecture['drive_file_id'];
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FilePreviewPage(
+          lectureId: lecture['id'].toString(),
+          title: lecture['title']?.toString() ?? 'Untitled',
+          driveFileId: driveFileId?.toString(),
+          isAnalyzed: lecture['is_analyzed'] == true,
+        ),
+      ),
+    );
+    // If the file was analyzed inside the preview page, reload and open results
+    if (result == true && mounted) {
+      await _loadData();
+      final updatedLectures = await _apiService.getSubjectLectures(
+        widget.subject.id,
+      );
+      final updated = updatedLectures.firstWhere(
+        (l) => l['id'].toString() == lecture['id'].toString(),
+        orElse: () => lecture,
+      );
+      _openLecture(updated);
+    } else {
+      await _loadData();
     }
   }
 
@@ -236,7 +289,20 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
             ),
             onDismissed: (_) => _deleteItem(id, isLecture),
             child: GestureDetector(
-              onTap: isLecture ? () => _openLecture(item) : null,
+              onTap: isLecture
+                  ? () {
+                      // Only go to FilePreviewPage if it's from Classroom (has drive_file_id)
+                      // AND hasn't been analyzed yet
+                      final hasdriveId = item['drive_file_id'] != null;
+                      final isAnalyzed = item['is_analyzed'] == true;
+
+                      if (isAnalyzed || !hasdriveId) {
+                        _openLecture(item);
+                      } else {
+                        _openFilePreview(item);
+                      }
+                    }
+                  : null,
               onLongPress: () => _showRenameDialog(id, title, isLecture),
               child: Container(
                 margin: const EdgeInsets.only(bottom: 12),
@@ -251,8 +317,16 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
                     CircleAvatar(
                       backgroundColor: widget.baseColor.withOpacity(0.2),
                       child: Icon(
-                        isLecture ? Icons.audiotrack : Icons.article,
-                        color: widget.baseColor,
+                        isLecture
+                            ? (item['is_analyzed'] == true
+                                  ? Icons.auto_awesome
+                                  : Icons.description)
+                            : Icons.article,
+                        color: isLecture
+                            ? (item['is_analyzed'] == true
+                                  ? widget.baseColor
+                                  : Colors.grey[400])
+                            : widget.baseColor,
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -285,8 +359,18 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
                       icon: Icon(Icons.edit, color: Colors.grey[400], size: 20),
                       onPressed: () => _showRenameDialog(id, title, isLecture),
                     ),
-                    if (isLecture)
+                    if (isLecture &&
+                        (item['is_analyzed'] == true ||
+                            item['drive_file_id'] == null))
                       const Icon(Icons.chevron_right, color: Colors.white30),
+                    if (isLecture &&
+                        item['is_analyzed'] != true &&
+                        item['drive_file_id'] != null)
+                      Icon(
+                        Icons.visibility,
+                        color: Colors.amber[600],
+                        size: 22,
+                      ),
                   ],
                 ),
               ),
@@ -314,18 +398,38 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => InputTypePage(className: widget.subject.name),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FloatingActionButton.extended(
+            heroTag: "sync_btn",
+            onPressed: _syncClassroom,
+            backgroundColor: Colors.amber[800],
+            icon: const Icon(Icons.cloud_sync, color: Colors.white),
+            label: const Text(
+              'Pull from Classroom',
+              style: TextStyle(color: Colors.white),
             ),
-          ).then((_) => _loadData()); // Reload when coming back
-        },
-        backgroundColor: widget.baseColor,
-        icon: const Icon(Icons.add),
-        label: const Text('Add Material'),
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton.extended(
+            heroTag: "add_btn",
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => InputTypePage(className: widget.subject.name),
+                ),
+              ).then((_) => _loadData()); // Reload when coming back
+            },
+            backgroundColor: widget.baseColor,
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: const Text(
+              'Add Material',
+              style: TextStyle(color: Colors.white),
+            ),
+          ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())

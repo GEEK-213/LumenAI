@@ -337,6 +337,133 @@ async def process_lecture(
                 pass
 
 
+@router.post("/analyze_lecture/{lecture_id}")
+async def analyze_lecture_on_demand(lecture_id: str, background_tasks: BackgroundTasks):
+    """
+    On-demand AI analysis for a previously pulled (un-analyzed) lecture.
+    Triggered by the 'Make it Smart' button in the Flutter UI.
+    """
+    import io
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaIoBaseDownload
+    from app.tasks.classroom_sync import get_valid_credentials
+    
+    # 1. Get the lecture row
+    lecture_res = supabase.table("lectures").select("*").eq("id", lecture_id).execute()
+    if not lecture_res.data:
+        raise HTTPException(status_code=404, detail="Lecture not found.")
+    
+    lecture = lecture_res.data[0]
+    drive_file_id = lecture.get("drive_file_id")
+    user_id = lecture["user_id"]
+    file_title = lecture["title"]
+    
+    if lecture.get("is_analyzed"):
+        return {"status": "already_analyzed", "message": "This lecture has already been analyzed."}
+    
+    if not drive_file_id:
+        raise HTTPException(status_code=400, detail="No Google Drive file ID stored. This lecture cannot be analyzed from Classroom.")
+    
+    # 2. Get user's Google tokens and build credentials with auto-refresh
+    token_res = supabase.table("user_integrations").select("google_tokens").eq("user_id", user_id).execute()
+    if not token_res.data or not token_res.data[0].get("google_tokens"):
+        raise HTTPException(status_code=400, detail="Google Classroom not connected. Please reconnect.")
+    
+    tokens = token_res.data[0]["google_tokens"]
+    creds = get_valid_credentials(tokens)
+    drive_service = build('drive', 'v3', credentials=creds)
+    
+    # 3. Re-download the file from Google Drive
+    print(f"🧠 Make it Smart: Re-downloading '{file_title}' from Drive...")
+    try:
+        request = drive_service.files().get_media(fileId=drive_file_id)
+        fh = io.BytesIO()
+        downloader = MediaIoBaseDownload(fh, request)
+        done = False
+        while not done:
+            status, done = downloader.next_chunk()
+    except Exception:
+        try:
+            request = drive_service.files().export_media(fileId=drive_file_id, mimeType='application/pdf')
+            fh = io.BytesIO()
+            downloader = MediaIoBaseDownload(fh, request)
+            done = False
+            while not done:
+                status, done = downloader.next_chunk()
+        except Exception as ex:
+            raise HTTPException(status_code=500, detail=f"Failed to download file from Drive: {ex}")
+    
+    fh.seek(0)
+    suffix = os.path.splitext(file_title)[1]
+    if not suffix:
+        suffix = '.pdf'
+    
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(fh.read())
+            tmp_path = tmp.name
+        
+        # 4. Run AI pipeline
+        print(f"🧠 Running AI analysis on '{file_title}'...")
+        engine = analyzer
+        try:
+            contents = await engine.prepare_content([tmp_path], "")
+            result_json_str = await engine.generate_initial_view(contents)
+        except Exception as e:
+            print(f"⚠️ Gemini failed ({e}). Falling back to Ollama...")
+            engine = local_analyzer
+            contents = await engine.prepare_content([tmp_path], "")
+            result_json_str = await engine.generate_initial_view(contents)
+        
+        if not result_json_str:
+            raise Exception("No AI content generated.")
+        
+        clean_json = extract_json(result_json_str)
+        data = json.loads(clean_json)
+        
+        if isinstance(data, str):
+            data = {"summary": data}
+        elif not isinstance(data, dict):
+            data = {}
+        
+        # 5. Update the lecture row with analysis results
+        supabase.table("lectures").update({
+            "summary": data.get("summary", ""),
+            "transcript": data.get("transcript", ""),
+            "raw_analysis": data,
+            "is_analyzed": True,
+        }).eq("id", lecture_id).execute()
+        
+        print(f"✅ Lecture '{file_title}' is now SMART!")
+        
+        # 6. Save mind map if present
+        if data.get("mind_map"):
+            supabase.table("mind_maps").insert({
+                "user_id": user_id, "lecture_id": lecture_id,
+                "nodes": data["mind_map"].get("nodes", []),
+                "edges": data["mind_map"].get("edges", [])
+            }).execute()
+        
+        # 7. Fire quiz + flashcard generation in background
+        background_tasks.add_task(save_quiz_background, engine, contents, user_id, lecture_id)
+        background_tasks.add_task(save_flashcards_background, engine, contents, user_id, lecture_id)
+        
+        return {"status": "success", "message": f"'{file_title}' has been analyzed!", "data": data}
+    
+    except Exception as e:
+        print(f"❌ Error analyzing lecture: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except:
+                pass
+
+
 @router.delete("/lecture/{lecture_id}")
 async def delete_lecture(lecture_id: str):
     """Delete a lecture and its cascades."""
