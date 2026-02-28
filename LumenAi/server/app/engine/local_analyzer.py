@@ -131,8 +131,9 @@ class LocalAnalyzer:
             raise ValueError("No content could be extracted.")
         return combined_content
 
-    def _execute_prompt(self, content_text: str, system_prompt: str, json_schema: str) -> str:
+    async def _execute_prompt(self, content_text: str, system_prompt: str, json_schema: str) -> str:
         """Helper to run ollama chat strictly returning JSON."""
+        import asyncio
         # Trim content so we don't blow up context window on edge cases
         content_preview = content_text[:300].replace('"', '\\"').replace('\n', ' ')
         lecture_body = content_text[:40000] # Increased context limit for robust PDFs
@@ -167,7 +168,7 @@ Output ONLY valid JSON matching this schema:
             except Exception as e:
                 print(f"  ⚠️ Ollama Error (Attempt {attempt + 1}): {e}")
                 last_error = e
-                time.sleep(3)
+                await asyncio.sleep(3)
 
         raise RuntimeError(f"Local LLM failed after {max_retries} attempts: {last_error}")
 
@@ -186,7 +187,7 @@ Output ONLY valid JSON matching this schema:
             "transcript": "string"
         }
         """
-        return self._execute_prompt(combined_content, system_prompt, json_schema)
+        return await self._execute_prompt(combined_content, system_prompt, json_schema)
 
 
     async def generate_quiz(self, combined_content: str) -> str:
@@ -201,7 +202,7 @@ Output ONLY valid JSON matching this schema:
             }
         ]
         """
-        return self._execute_prompt(combined_content, system_prompt, json_schema)
+        return await self._execute_prompt(combined_content, system_prompt, json_schema)
 
     async def generate_flashcards(self, combined_content: str) -> str:
         system_prompt = "Generate EXACTLY 5 Front/Back flashcards based on the text. Focus on definitions."
@@ -213,4 +214,4 @@ Output ONLY valid JSON matching this schema:
             }
         ]
         """
-        return self._execute_prompt(combined_content, system_prompt, json_schema)
+        return await self._execute_prompt(combined_content, system_prompt, json_schema)

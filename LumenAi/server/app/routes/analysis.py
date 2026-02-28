@@ -3,14 +3,32 @@ import json
 import shutil
 import tempfile
 import re
+import asyncio
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
 from app.database import supabase
 from app.engine.analyzer import LectureAnalyzer, RateLimitError
 from app.engine.local_analyzer import LocalAnalyzer
 
 router = APIRouter()
-analyzer = LectureAnalyzer()
-local_analyzer = LocalAnalyzer()
+
+# Lazy-initialized analyzers — prevents startup crash if Gemini key or Ollama missing
+_analyzer = None
+_local_analyzer = None
+
+def get_analyzer():
+    global _analyzer
+    if _analyzer is None:
+        _analyzer = LectureAnalyzer()
+    return _analyzer
+
+def get_local_analyzer():
+    global _local_analyzer
+    if _local_analyzer is None:
+        _local_analyzer = LocalAnalyzer()
+    return _local_analyzer
+
+# Semaphore to cap concurrent AI analyses (prevents Gemini quota exhaustion)
+analysis_semaphore = asyncio.Semaphore(2)
 
 
 def extract_json(text: str) -> str:
@@ -230,15 +248,17 @@ async def process_lecture(
         try:
             print("  🌐 Trying Gemini API first...")
             engine_used = "gemini"
-            engine = analyzer
-            contents = await engine.prepare_content([tmp_path], syllabus_context)
-            result_json_str = await engine.generate_initial_view(contents)
+            engine = get_analyzer()
+            async with analysis_semaphore:
+                contents = await engine.prepare_content([tmp_path], syllabus_context)
+                result_json_str = await engine.generate_initial_view(contents)
         except Exception as e:
             print(f"  ⚠️ Gemini failed ({e}). Falling back to Local LLM (Ollama)...")
             engine_used = "local_ollama"
-            engine = local_analyzer
-            contents = await engine.prepare_content([tmp_path], syllabus_context)
-            result_json_str = await engine.generate_initial_view(contents)
+            engine = get_local_analyzer()
+            async with analysis_semaphore:
+                contents = await engine.prepare_content([tmp_path], syllabus_context)
+                result_json_str = await engine.generate_initial_view(contents)
 
         if not result_json_str:
             raise HTTPException(status_code=500, detail="The AI model returned no response. Please try again.")
@@ -370,7 +390,7 @@ async def analyze_lecture_on_demand(lecture_id: str, background_tasks: Backgroun
         raise HTTPException(status_code=400, detail="Google Classroom not connected. Please reconnect.")
     
     tokens = token_res.data[0]["google_tokens"]
-    creds = get_valid_credentials(tokens)
+    creds = get_valid_credentials(tokens, user_id=user_id)
     drive_service = build('drive', 'v3', credentials=creds)
     
     # 3. Re-download the file from Google Drive
@@ -404,17 +424,19 @@ async def analyze_lecture_on_demand(lecture_id: str, background_tasks: Backgroun
             tmp.write(fh.read())
             tmp_path = tmp.name
         
-        # 4. Run AI pipeline
+        # 4. Run AI pipeline (with semaphore to limit concurrency)
         print(f"🧠 Running AI analysis on '{file_title}'...")
-        engine = analyzer
+        engine = get_analyzer()
         try:
-            contents = await engine.prepare_content([tmp_path], "")
-            result_json_str = await engine.generate_initial_view(contents)
+            async with analysis_semaphore:
+                contents = await engine.prepare_content([tmp_path], "")
+                result_json_str = await engine.generate_initial_view(contents)
         except Exception as e:
             print(f"⚠️ Gemini failed ({e}). Falling back to Ollama...")
-            engine = local_analyzer
-            contents = await engine.prepare_content([tmp_path], "")
-            result_json_str = await engine.generate_initial_view(contents)
+            engine = get_local_analyzer()
+            async with analysis_semaphore:
+                contents = await engine.prepare_content([tmp_path], "")
+                result_json_str = await engine.generate_initial_view(contents)
         
         if not result_json_str:
             raise Exception("No AI content generated.")

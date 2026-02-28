@@ -13,11 +13,11 @@ from app.database import supabase
 logger = logging.getLogger(__name__)
 
 
-def get_valid_credentials(tokens: dict) -> Credentials:
+def get_valid_credentials(tokens: dict, user_id: str = None) -> Credentials:
     """
     Build Google credentials from stored tokens.
     Automatically refreshes if the access token has expired.
-    Updates stored tokens in Supabase after refresh.
+    Persists refreshed tokens back to Supabase to avoid repeated refreshes.
     """
     creds = Credentials(
         token=tokens["token"],
@@ -33,6 +33,20 @@ def get_valid_credentials(tokens: dict) -> Credentials:
         try:
             creds.refresh(Request())
             print("🔄 Google OAuth token refreshed successfully.")
+            
+            # Persist the new token back to Supabase
+            if user_id:
+                updated_tokens = {
+                    **tokens,
+                    "token": creds.token,
+                }
+                try:
+                    supabase.table("user_integrations").update({
+                        "google_tokens": updated_tokens
+                    }).eq("user_id", user_id).execute()
+                    print("💾 Refreshed token saved to Supabase.")
+                except Exception as save_err:
+                    print(f"⚠️ Could not persist refreshed token: {save_err}")
         except Exception as e:
             print(f"⚠️ Token refresh failed: {e}")
     
@@ -129,7 +143,7 @@ async def process_classroom_attachment(user_id: str, subject_id: str, file_id: s
 
 async def sync_user_classroom(user_id: str, tokens: dict):
     try:
-        creds = get_valid_credentials(tokens)
+        creds = get_valid_credentials(tokens, user_id=user_id)
         
         service = build('classroom', 'v1', credentials=creds)
         calendar_service = build('calendar', 'v3', credentials=creds)
@@ -215,7 +229,7 @@ async def manual_sync_subject_classroom(user_id: str, subject_id: str):
     print(f"✅ Google tokens found for user")
     
     tokens = res.data[0]["google_tokens"]
-    creds = get_valid_credentials(tokens)
+    creds = get_valid_credentials(tokens, user_id=user_id)
     
     service = build('classroom', 'v1', credentials=creds)
     

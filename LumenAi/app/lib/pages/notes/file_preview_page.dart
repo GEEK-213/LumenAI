@@ -2,9 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/api_service.dart';
 
-/// A file detail + preview page for un-analyzed lectures pulled from Classroom.
-/// Shows file info with a "View File" button (opens in browser) and a
-/// "Make it Smart" button to trigger AI analysis on demand.
+
 class FilePreviewPage extends StatefulWidget {
   final String lectureId;
   final String title;

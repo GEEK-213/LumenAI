@@ -58,11 +58,13 @@ class LectureAnalyzer:
                     
         return contents
 
-    def _execute_prompt(self, contents: list, instructions: str) -> str:
+    async def _execute_prompt(self, contents: list, instructions: str) -> str:
         """
         Internal helper to execute the prompt against Gemini LLM.
         Handles API Rate Limits and Quota Exhaustion gracefully.
+        Uses async sleep to avoid blocking the FastAPI event loop.
         """
+        import asyncio
         # We prepend the instruction to the list of contents (which might contain Video clips)
         prompted_contents = [instructions] + contents
         max_retries = 3
@@ -85,7 +87,7 @@ class LectureAnalyzer:
                 # If we get rate limited, exponential backoff and retry
                 if "429" in error_str or "503" in error_str or "quota" in error_str.lower():
                     last_error = e
-                    time.sleep((2 ** i) + 5)
+                    await asyncio.sleep((2 ** i) + 5)
                 else:
                     raise e
                     
@@ -125,7 +127,7 @@ class LectureAnalyzer:
             "transcript": "Full transcript (if audio/video provided)"
         }}
         """
-        return self._execute_prompt(contents, instructions)
+        return await self._execute_prompt(contents, instructions)
 
 
     async def generate_quiz(self, contents: list) -> str:
@@ -151,7 +153,7 @@ class LectureAnalyzer:
             }}
         ]
         """
-        return self._execute_prompt(contents, instructions)
+        return await self._execute_prompt(contents, instructions)
 
 
     async def generate_flashcards(self, contents: list) -> str:
@@ -175,4 +177,4 @@ class LectureAnalyzer:
             }}
         ]
         """
-        return self._execute_prompt(contents, instructions)
+        return await self._execute_prompt(contents, instructions)
