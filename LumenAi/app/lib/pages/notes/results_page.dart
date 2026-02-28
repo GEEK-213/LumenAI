@@ -1,9 +1,10 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../models/data_models.dart';
-
 import '../../services/api_service.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'mind_map_tab.dart';
+import 'code_sandbox_tab.dart';
 
 class AnalysisResultScreen extends StatefulWidget {
   final AnalysisResult result;
@@ -26,7 +27,10 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
   void initState() {
     super.initState();
     _currentResult = widget.result;
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(
+      length: _currentResult.codeSnippets.isNotEmpty ? 5 : 4,
+      vsync: this,
+    );
   }
 
   @override
@@ -50,11 +54,13 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.blueAccent,
-          tabs: const [
-            Tab(text: "Summary"),
-            Tab(text: "Quiz"),
-            Tab(text: "Cards"),
-            Tab(text: "Mind Map"),
+          isScrollable: _currentResult.codeSnippets.isNotEmpty,
+          tabs: [
+            const Tab(text: "Summary"),
+            const Tab(text: "Quiz"),
+            const Tab(text: "Cards"),
+            const Tab(text: "Mind Map"),
+            if (_currentResult.codeSnippets.isNotEmpty) const Tab(text: "Code"),
           ],
         ),
       ),
@@ -67,6 +73,8 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
             _buildQuizTab(),
             _buildFlashcardsTab(),
             _buildMindMapTab(),
+            if (_currentResult.codeSnippets.isNotEmpty)
+              CodeSandboxTab(codeSnippets: _currentResult.codeSnippets),
           ],
         ),
       ),
@@ -253,62 +261,23 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
 
   // --- 4. Mind Map Tab ---
   Widget _buildMindMapTab() {
-    // Implementing a full graph view is complex.
-    // For now, we'll list the nodes close to the edges to show the relationships textually.
     if (_currentResult.mindMap == null ||
         _currentResult.mindMap!.nodes.isEmpty) {
       return const Center(
-        child: Text("No mind map data.", style: TextStyle(color: Colors.white)),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.account_tree, size: 48, color: Colors.white24),
+            SizedBox(height: 12),
+            Text('No mind map data.', style: TextStyle(color: Colors.white38)),
+          ],
+        ),
       );
     }
 
-    final nodes = _currentResult.mindMap!.nodes;
-    final edges = _currentResult.mindMap!.edges;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Mind Map Connections",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 20),
-          ...edges.map((e) {
-            final fromNode = nodes.firstWhere(
-              (n) => n['id'] == e['from'],
-              orElse: () => {'label': '?'},
-            )['label'];
-            final toNode = nodes.firstWhere(
-              (n) => n['id'] == e['to'],
-              orElse: () => {'label': '?'},
-            )['label'];
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E2746),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Text(fromNode, style: const TextStyle(color: Colors.white)),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8.0),
-                    child: Icon(Icons.arrow_forward, color: Colors.blueAccent),
-                  ),
-                  Text(toNode, style: const TextStyle(color: Colors.white)),
-                ],
-              ),
-            );
-          }),
-        ],
-      ),
+    return MindMapView(
+      nodes: _currentResult.mindMap!.nodes,
+      edges: _currentResult.mindMap!.edges,
     );
   }
 

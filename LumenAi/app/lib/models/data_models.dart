@@ -31,6 +31,7 @@ class AnalysisResult {
   final List<FlashcardData> flashcards;
   final List<QuizQuestion> quizQuestions;
   final MindMapData? mindMap;
+  final List<Map<String, dynamic>> codeSnippets;
   final List<String> tasks;
   final List<String> teacherQuestions;
   final String transcript;
@@ -41,6 +42,7 @@ class AnalysisResult {
     required this.flashcards,
     required this.quizQuestions,
     this.mindMap,
+    required this.codeSnippets,
     required this.tasks,
     required this.teacherQuestions,
     required this.transcript,
@@ -50,17 +52,24 @@ class AnalysisResult {
     return AnalysisResult(
       summary: json['summary'] ?? '',
       topics: List<String>.from(json['topics'] ?? []),
-      flashcards: (json['flashcards'] as List?)
+      flashcards:
+          (json['flashcards'] as List?)
               ?.map((e) => FlashcardData.fromJson(e))
               .toList() ??
           [],
-      quizQuestions: (json['quiz_questions'] as List?)
+      quizQuestions:
+          (json['quiz_questions'] as List?)
               ?.map((e) => QuizQuestion.fromJson(e))
               .toList() ??
           [],
-      mindMap:
-          json['mind_map'] != null ? MindMapData.fromJson(json['mind_map']) : null,
-      tasks: (json['extracted_tasks'] as List?)
+      mindMap: json['mind_map'] != null
+          ? MindMapData.fromJson(json['mind_map'])
+          : null,
+      codeSnippets: List<Map<String, dynamic>>.from(
+        json['code_snippets'] ?? [],
+      ),
+      tasks:
+          (json['extracted_tasks'] as List?)
               ?.map((e) => e['title'].toString())
               .toList() ??
           [],

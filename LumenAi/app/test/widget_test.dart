@@ -29,6 +29,7 @@ void main() {
         {"from": "1", "to": "2"},
       ],
     ),
+    codeSnippets: [],
     tasks: ["Task 1", "Task 2"],
     teacherQuestions: ["Teacher Q1"],
     transcript: "Full transcript.",
