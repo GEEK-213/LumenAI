@@ -1,18 +1,29 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:app_links/app_links.dart';
 import 'package:app/pages/profile/splash_page.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'config.dart';
 import 'pages/profile/login.dart';
 import 'pages/main_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Global error handlers — catch crashes gracefully
+  FlutterError.onError = (details) {
+    FlutterError.presentError(details);
+    debugPrint('🔴 Flutter Error: ${details.exceptionAsString()}');
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('🔴 Unhandled Error: $error\n$stack');
+    return true;
+  };
+
   await Supabase.initialize(
-    url: 'https://knonzasojytvmxhkchvg.supabase.co',
-    anonKey:
-        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imtub256YXNvanl0dm14aGtjaHZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY2NTU4NTIsImV4cCI6MjA4MjIzMTg1Mn0.WnxSictcwfY-1xBH8pHGVczR2BO_ArddpQpR4yCgc-I',
+    url: AppConfig.supabaseUrl,
+    anonKey: AppConfig.supabaseAnonKey,
   );
   runApp(const MyApp());
 }

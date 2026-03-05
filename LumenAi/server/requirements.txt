@@ -14,3 +14,6 @@ google-auth-httplib2
 google-auth-oauthlib
 
 aiofiles
+PyJWT
+pytest
+pytest-asyncio

@@ -1,7 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../config.dart';
 import '../models/data_models.dart';
 
 class ApiService {
@@ -10,9 +12,27 @@ class ApiService {
   // Expose the Supabase client for authentication checks
   SupabaseClient get supabase => _supabase;
 
-  // Android Emulator: 10.0.2.2, iOS/Web: localhost or 127.0.0.1
-  // Ngrok Demo URL
-  final String baseUrl = 'https://graeme-weathered-jackie.ngrok-free.dev';
+  final String baseUrl = AppConfig.apiBaseUrl;
+
+  // --- Auth Helper ---
+
+  /// Returns the current Supabase session's access token.
+  /// Throws if user is not authenticated.
+  Future<Map<String, String>> _authHeaders() async {
+    final session = _supabase.auth.currentSession;
+    if (session == null) {
+      throw Exception('Not authenticated. Please sign in.');
+    }
+    return {'Authorization': 'Bearer ${session.accessToken}'};
+  }
+
+  /// Convenience: auth headers merged with JSON content-type.
+  Future<Map<String, String>> _authJsonHeaders() async {
+    final auth = await _authHeaders();
+    return {...auth, 'Content-Type': 'application/json'};
+  }
+
+  // --- Supabase Direct Queries (auth handled by Supabase SDK) ---
 
   Future<List<Subject>> getSubjects() async {
     final response = await _supabase
@@ -31,6 +51,8 @@ class ApiService {
     return (response as List).map((e) => Unit.fromJson(e)).toList();
   }
 
+  // --- API Calls (auth via JWT header) ---
+
   Future<AnalysisResult> processLecture({
     required File audioFile,
     required String userId,
@@ -41,18 +63,21 @@ class ApiService {
     final uri = Uri.parse('$baseUrl/analysis/process');
     final request = http.MultipartRequest('POST', uri);
 
+    // Auth header
+    final headers = await _authHeaders();
+    request.headers.addAll(headers);
+
     request.fields['subject_id'] = subjectId;
     if (unitId != null && unitId.isNotEmpty) {
       request.fields['unit_id'] = unitId;
     }
-    request.fields['user_id'] = userId;
     if (title != null) request.fields['title'] = title;
 
     request.files.add(
       await http.MultipartFile.fromPath('file', audioFile.path),
     );
 
-    print("🚀 Sending request to $uri with Unit ID: $unitId");
+    debugPrint("🚀 Sending request to $uri with Unit ID: $unitId");
 
     try {
       final streamedResponse = await request.send();
@@ -65,15 +90,7 @@ class ApiService {
           throw Exception('Lecture processed but no ID returned from API.');
         }
 
-        print("✅ Analysis Complete: $lectureId");
-
-        // Fetch the full lecture data from Supabase to get the JSON artifacts
-        // Or closely parse the response if the backend returns everything.
-        // For now, let's fetch the lecture from DB to be safe/consistent
-        // OR just parse what we can if backend was updated to return full result.
-        // Checking backend... backend returns {status, lecture_id, summary_preview}.
-
-        // So we must fetch the full lecture to get the artifacts
+        debugPrint("✅ Analysis Complete: $lectureId");
         return await _fetchLectureResult(lectureId.toString());
       } else {
         throw Exception(
@@ -81,7 +98,7 @@ class ApiService {
         );
       }
     } catch (e) {
-      print("❌ API Error: $e");
+      debugPrint("❌ API Error: $e");
       rethrow;
     }
   }
@@ -96,7 +113,10 @@ class ApiService {
     final uri = Uri.parse('$baseUrl/ingestion/upload');
     final request = http.MultipartRequest('POST', uri);
 
-    request.fields['user_id'] = userId;
+    // Auth header
+    final headers = await _authHeaders();
+    request.headers.addAll(headers);
+
     request.fields['subject_id'] = subjectId;
     if (unitId != null && unitId.isNotEmpty) {
       request.fields['unit_id'] = unitId;
@@ -107,21 +127,21 @@ class ApiService {
       await http.MultipartFile.fromPath('file', documentFile.path),
     );
 
-    print("🚀 Sending syllabus upload to $uri with Unit ID: $unitId");
+    debugPrint("🚀 Sending syllabus upload to $uri with Unit ID: $unitId");
 
     try {
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 200) {
-        print("✅ Syllabus Upload Complete");
+        debugPrint("✅ Syllabus Upload Complete");
       } else {
         throw Exception(
           'Failed to upload syllabus: ${response.statusCode} ${response.body}',
         );
       }
     } catch (e) {
-      print("❌ API Error: $e");
+      debugPrint("❌ API Error: $e");
       rethrow;
     }
   }
@@ -133,7 +153,6 @@ class ApiService {
         .eq('id', lectureId)
         .single();
 
-    // Also fetch the background tasks data from related tables so we can inject them back into the object!
     final quizRes = await _supabase
         .from('quiz_questions')
         .select()
@@ -149,7 +168,6 @@ class ApiService {
           ? raw
           : Map<String, dynamic>.from(raw);
 
-      // Inject background tasks back into the JSON to reconstruct the full AnalysisResult
       if (quizRes.isNotEmpty) {
         rawMap['quiz_questions'] = quizRes;
       }
@@ -167,7 +185,7 @@ class ApiService {
     try {
       return await _fetchLectureResult(lectureId);
     } catch (e) {
-      print("Failed to get analysis result: $e");
+      debugPrint("Failed to get analysis result: $e");
       return null;
     }
   }
@@ -198,7 +216,8 @@ class ApiService {
 
   Future<void> deleteLecture(String lectureId) async {
     final uri = Uri.parse('$baseUrl/analysis/lecture/$lectureId');
-    final response = await http.delete(uri);
+    final headers = await _authHeaders();
+    final response = await http.delete(uri, headers: headers);
     if (response.statusCode != 200) {
       throw Exception('Failed to delete lecture: ${response.statusCode}');
     }
@@ -207,6 +226,8 @@ class ApiService {
   Future<void> renameLecture(String lectureId, String newTitle) async {
     final uri = Uri.parse('$baseUrl/analysis/lecture/$lectureId');
     final request = http.MultipartRequest('PUT', uri);
+    final headers = await _authHeaders();
+    request.headers.addAll(headers);
     request.fields['new_title'] = newTitle;
     final streamedResponse = await request.send();
     if (streamedResponse.statusCode != 200) {
@@ -218,7 +239,8 @@ class ApiService {
 
   Future<void> deleteSyllabus(String syllabusId) async {
     final uri = Uri.parse('$baseUrl/ingestion/syllabus/$syllabusId');
-    final response = await http.delete(uri);
+    final headers = await _authHeaders();
+    final response = await http.delete(uri, headers: headers);
     if (response.statusCode != 200) {
       throw Exception('Failed to delete syllabus: ${response.statusCode}');
     }
@@ -227,6 +249,8 @@ class ApiService {
   Future<void> renameSyllabus(String syllabusId, String newTitle) async {
     final uri = Uri.parse('$baseUrl/ingestion/syllabus/$syllabusId');
     final request = http.MultipartRequest('PUT', uri);
+    final headers = await _authHeaders();
+    request.headers.addAll(headers);
     request.fields['new_title'] = newTitle;
     final streamedResponse = await request.send();
     if (streamedResponse.statusCode != 200) {
@@ -249,9 +273,10 @@ class ApiService {
   /// Manually sync Google Classroom materials for a specific subject
   Future<void> syncClassroomSubject(String subjectId, String userId) async {
     final uri = Uri.parse('$baseUrl/classroom/sync_subject');
+    final headers = await _authJsonHeaders();
     final response = await http.post(
       uri,
-      headers: {'Content-Type': 'application/json'},
+      headers: headers,
       body: jsonEncode({'user_id': userId, 'subject_id': subjectId}),
     );
     if (response.statusCode != 200) {
@@ -265,7 +290,8 @@ class ApiService {
   /// Triggered by the 'Make it Smart' button.
   Future<Map<String, dynamic>> analyzeLecture(String lectureId) async {
     final uri = Uri.parse('$baseUrl/analysis/analyze_lecture/$lectureId');
-    final response = await http.post(uri);
+    final headers = await _authHeaders();
+    final response = await http.post(uri, headers: headers);
     if (response.statusCode != 200) {
       throw Exception(
         'Failed to analyze lecture: ${response.statusCode} - ${response.body}',

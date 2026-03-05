@@ -4,10 +4,14 @@ import shutil
 import tempfile
 import re
 import asyncio
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
+import logging
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks, Depends
 from app.database import supabase
 from app.engine.analyzer import LectureAnalyzer, RateLimitError
 from app.engine.local_analyzer import LocalAnalyzer
+from app.middleware.auth import get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -210,8 +214,8 @@ async def process_lecture(
     file: UploadFile = File(...),
     subject_id: str = Form(...),
     unit_id: str = Form(None),
-    user_id: str = Form(...),
-    title: str = Form(None)
+    title: str = Form(None),
+    user_id: str = Depends(get_current_user),
 ):
     """
     Main Lecture Analysis Endpoint (SMART CHAINING)
@@ -358,7 +362,7 @@ async def process_lecture(
 
 
 @router.post("/analyze_lecture/{lecture_id}")
-async def analyze_lecture_on_demand(lecture_id: str, background_tasks: BackgroundTasks):
+async def analyze_lecture_on_demand(lecture_id: str, background_tasks: BackgroundTasks, user_id: str = Depends(get_current_user)):
     """
     On-demand AI analysis for a previously pulled (un-analyzed) lecture.
     Triggered by the 'Make it Smart' button in the Flutter UI.
@@ -487,7 +491,7 @@ async def analyze_lecture_on_demand(lecture_id: str, background_tasks: Backgroun
 
 
 @router.delete("/lecture/{lecture_id}")
-async def delete_lecture(lecture_id: str):
+async def delete_lecture(lecture_id: str, user_id: str = Depends(get_current_user)):
     """Delete a lecture and its cascades."""
     try:
         supabase.table("lectures").delete().eq("id", lecture_id).execute()
@@ -497,7 +501,7 @@ async def delete_lecture(lecture_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/lecture/{lecture_id}")
-async def rename_lecture(lecture_id: str, new_title: str = Form(...)):
+async def rename_lecture(lecture_id: str, new_title: str = Form(...), user_id: str = Depends(get_current_user)):
     """Rename a lecture."""
     try:
         response = supabase.table("lectures").update({"title": new_title}).eq("id", lecture_id).execute()

@@ -3,6 +3,7 @@ os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 os.environ['OAUTHLIB_RELAX_TOKEN_SCOPE'] = '1'
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import RedirectResponse
+from app.middleware.auth import get_current_user
 from pydantic import BaseModel
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
@@ -132,7 +133,7 @@ async def oauth_callback(state: str, code: str):
         raise HTTPException(status_code=500, detail=f"OAuth Failed: {e}")
 
 @router.get("/courses")
-async def list_courses(user_id: str):
+async def list_courses(user_id: str = Depends(get_current_user)):
     """
     Step 3: Test fetching courses using the saved tokens.
     """
@@ -161,16 +162,15 @@ async def list_courses(user_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to fetch courses: {e}")
 
 class ManualSyncRequest(BaseModel):
-    user_id: str
     subject_id: str
 
 @router.post("/sync_subject")
-async def sync_subject_manual(req: ManualSyncRequest):
+async def sync_subject_manual(req: ManualSyncRequest, user_id: str = Depends(get_current_user)):
     """
     Manually pulls assignments/materials for a given subject if the user has connected Google Classroom.
     """
     try:
-        result = await manual_sync_subject_classroom(req.user_id, req.subject_id)
+        result = await manual_sync_subject_classroom(user_id, req.subject_id)
         return result
     except Exception as e:
         import traceback

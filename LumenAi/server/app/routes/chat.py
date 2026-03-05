@@ -2,9 +2,13 @@
 Real AI Chat endpoint — sends user question to Gemini/Ollama and returns answer.
 """
 import os
-from fastapi import APIRouter, Form
+import logging
+from fastapi import APIRouter, Form, Depends
 from fastapi.responses import JSONResponse
 from app.database import supabase
+from app.middleware.auth import get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -13,7 +17,7 @@ router = APIRouter()
 async def ask_ai(
     question: str = Form(...),
     context: str = Form(""),
-    user_id: str = Form(None),
+    user_id: str = Depends(get_current_user),
 ):
     system_prompt = (
         "You are Lumen AI, a friendly and knowledgeable study assistant. "

@@ -1,9 +1,17 @@
 import os
 import shutil
 import tempfile
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+import logging
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Depends
 from markitdown import MarkItDown
 from app.database import supabase
+from app.middleware.auth import get_current_user
+
+logger = logging.getLogger(__name__)
+
+# Allowed file extensions and max size
+ALLOWED_DOC_EXTENSIONS = {'.pdf', '.docx', '.pptx', '.doc', '.txt', '.md'}
+MAX_DOC_SIZE_MB = 20
 import pytesseract
 import fitz  # PyMuPDF
 from PIL import Image
@@ -21,19 +29,30 @@ md = MarkItDown()
 @router.post("/upload")
 async def upload_syllabus(
     file: UploadFile = File(...),
-    user_id: str = Form(...), # TODO: Extract from JWT in production
     subject_id: str = Form(...),
     unit_id: str = Form(None),
-    title: str = Form(None)
+    title: str = Form(None),
+    user_id: str = Depends(get_current_user),
 ):
     """
     Uploads a syllabus/document (PDF, DOCX, PPTX), extracts text, and stores it.
     """
     
-    print(f"📥 Receiving upload: {file.filename} for Unit: {unit_id or 'General'}")
-    
+    logger.info(f"📥 Receiving upload: {file.filename} for Unit: {unit_id or 'General'}")
+
+    # 0. Validate file extension and size
+    suffix = os.path.splitext(file.filename or '')[1].lower()
+    if suffix not in ALLOWED_DOC_EXTENSIONS:
+        raise HTTPException(status_code=400, detail=f"File type '{suffix}' not allowed. Allowed: {', '.join(ALLOWED_DOC_EXTENSIONS)}")
+
+    # Check file size (read content to get actual size)
+    contents = await file.read()
+    if len(contents) > MAX_DOC_SIZE_MB * 1024 * 1024:
+        raise HTTPException(status_code=400, detail=f"File too large. Maximum size: {MAX_DOC_SIZE_MB}MB")
+    await file.seek(0)  # Reset for downstream reading
+
     # 1. Save uploaded file temporarily for MarkItDown to process
-    suffix = os.path.splitext(file.filename)[1]
+    # (suffix already computed above in validation block)
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         shutil.copyfileobj(file.file, tmp)
         tmp_path = tmp.name
@@ -114,7 +133,7 @@ async def upload_syllabus(
                 pass
 
 @router.delete("/syllabus/{syllabus_id}")
-async def delete_syllabus(syllabus_id: str):
+async def delete_syllabus(syllabus_id: str, user_id: str = Depends(get_current_user)):
     """Delete a syllabus from the database and storage."""
     try:
         # 1. Fetch file_path from DB
@@ -134,7 +153,7 @@ async def delete_syllabus(syllabus_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/syllabus/{syllabus_id}")
-async def rename_syllabus(syllabus_id: str, new_title: str = Form(...)):
+async def rename_syllabus(syllabus_id: str, new_title: str = Form(...), user_id: str = Depends(get_current_user)):
     """Rename a syllabus."""
     try:
         response = supabase.table("syllabus_sources").update({"title": new_title}).eq("id", syllabus_id).execute()
