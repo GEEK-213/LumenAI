@@ -25,7 +25,7 @@ class LectureAnalyzer:
         Returns the fundamental `contents` list to be reused across different prompt generators.
         This allows us to upload/process the file ONCE, and query it MULTIPLE times.
         """
-        NATIVE_SUPPORT = {".mp3", ".mp4", ".wav", ".pdf", ".mov"}
+        NATIVE_SUPPORT = {".mp3", ".mp4", ".wav", ".mov"}
         contents = []
 
         # 1. Ground Truth - Syllabus Context goes first
@@ -108,7 +108,7 @@ class LectureAnalyzer:
         You are 'Lumen AI', an advanced academic assistant.
         Today's date is {today_date}.
         
-        GOAL: Summarize this text into 3 distinct paragraphs and extract 5-8 key topics.
+        GOAL: Summarize this text into 3 distinct paragraphs, extract 5-8 key topics, and generate a hierarchical mind map structure connecting these topics. Return AT LEAST 5 nodes in the mind map.
         
         OUTPUT FORMAT (Strict JSON):
         {{

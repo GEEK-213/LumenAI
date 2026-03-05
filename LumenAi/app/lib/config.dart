@@ -22,6 +22,6 @@ class AppConfig {
   /// Backend API base URL
   static const String apiBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://localhost:8001',
+    defaultValue: 'https://graeme-weathered-jackie.ngrok-free.dev',
   );
 }

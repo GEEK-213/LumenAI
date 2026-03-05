@@ -25,7 +25,7 @@ app = FastAPI(title="Lumen AI Brain")
 # --- CORS Middleware (Restricted) ---
 ALLOWED_ORIGINS = os.getenv(
     "CORS_ORIGINS",
-    "http://localhost:3000,http://localhost:8080,http://127.0.0.1:8080"
+    "*"
 ).split(",")
 
 app.add_middleware(

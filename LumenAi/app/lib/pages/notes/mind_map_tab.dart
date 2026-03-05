@@ -50,7 +50,16 @@ class _MindMapViewState extends State<MindMapView>
       duration: const Duration(milliseconds: 800),
     );
     _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
+
     _computeLayout();
+
+    // Automatically center view on the 2000x2000 generation origin
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _centerOnNode(const Offset(2000, 2000), defaultScale: 0.8);
+      }
+    });
+
     _animController.forward();
   }
 
@@ -157,70 +166,81 @@ class _MindMapViewState extends State<MindMapView>
   void _showLegend() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: const Color(0xFF1A2036),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              "Topic Legend",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            ...widget.nodes.asMap().entries.map((entry) {
-              final color = _getNodeColor(entry.key);
-              final label = entry.value['label']?.toString() ?? '?';
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: color,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        label,
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
-                        ),
-                      ),
-                    ),
-                  ],
+      builder: (ctx) => ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.7,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Topic Legend",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                 ),
-              );
-            }),
-            const SizedBox(height: 12),
-          ],
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: widget.nodes.asMap().entries.map((entry) {
+                      final color = _getNodeColor(entry.key);
+                      final label = entry.value['label']?.toString() ?? '?';
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 12,
+                              height: 12,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: color,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                label,
+                                style: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+          ),
         ),
       ),
     );
   }
 
   /// Double-tap to center view on a node
-  void _centerOnNode(Offset pos) {
+  void _centerOnNode(Offset pos, {double defaultScale = 1.0}) {
     final screenSize = MediaQuery.of(context).size;
-    const scale = 1.5;
-    final dx = screenSize.width / 2 - pos.dx * scale;
-    final dy = screenSize.height / 2 - pos.dy * scale;
+    final dx = screenSize.width / 2 - pos.dx * defaultScale;
+    final dy = screenSize.height / 2 - pos.dy * defaultScale;
     _transformController.value = Matrix4.identity()
       ..translate(dx, dy)
-      ..scale(scale);
+      ..scale(defaultScale);
   }
 
   void _computeLayout() {
@@ -229,15 +249,17 @@ class _MindMapViewState extends State<MindMapView>
     if (nodes.isEmpty) return;
 
     final toSet = edges.map((e) => _toId(e['to'])).toSet();
-    final fromSet = edges.map((e) => _toId(e['from'])).toSet();
 
-    String rootId = _toId(nodes.first['id']);
+    // Find all independent roots
+    final List<String> roots = [];
     for (var n in nodes) {
       final nId = _toId(n['id']);
-      if (fromSet.contains(nId) && !toSet.contains(nId)) {
-        rootId = nId;
-        break;
+      if (!toSet.contains(nId)) {
+        roots.add(nId);
       }
+    }
+    if (roots.isEmpty) {
+      roots.add(_toId(nodes.first['id']));
     }
 
     final Map<String, List<String>> children = {};
@@ -248,11 +270,29 @@ class _MindMapViewState extends State<MindMapView>
       children[from]!.add(to);
     }
 
-    const double centerX = 500;
-    const double centerY = 400;
-    _positions[rootId] = const Offset(centerX, centerY);
+    const double baseY = 2000; // Use a more sensible center instead of deep 400
+    // Spread roots horizontally if there are multiple unconnected trees
+    final double rootSpreadX =
+        500.0; // Scaled down to prevent flying off screen
+    final double startX = 2000.0 - ((roots.length - 1) * rootSpreadX) / 2;
 
-    _layoutChildren(rootId, children, centerX, centerY, 0, 2 * math.pi, 180, 1);
+    for (int i = 0; i < roots.length; i++) {
+      final rId = roots[i];
+      final cx = startX + (i * rootSpreadX);
+      _positions[rId] = Offset(cx, baseY);
+      // Sweeping 360 degrees, but starting with much safer radius
+      _layoutChildren(rId, children, cx, baseY, 0, 2 * math.pi, 160, 1);
+    }
+
+    // Fallback for floating nodes that weren't caught
+    int floatingIndex = 0;
+    for (var n in nodes) {
+      final nId = _toId(n['id']);
+      if (!_positions.containsKey(nId)) {
+        _positions[nId] = Offset(startX + (floatingIndex * 120), baseY + 200);
+        floatingIndex++;
+      }
+    }
   }
 
   void _layoutChildren(
@@ -268,22 +308,25 @@ class _MindMapViewState extends State<MindMapView>
     final kids = children[nodeId] ?? [];
     if (kids.isEmpty) return;
 
+    // Distribute children evenly across the sweep angle
     final angleStep = sweep / kids.length;
 
     for (int i = 0; i < kids.length; i++) {
-      final angle = startAngle + angleStep * (i + 0.5);
+      // Calculate angle offset to prevent harsh stacking
+      final angle = startAngle + angleStep * i + (angleStep / 2);
       final x = cx + radius * math.cos(angle);
       final y = cy + radius * math.sin(angle);
       _positions[kids[i]] = Offset(x, y);
 
+      // Pass down 80% radius reduction and limit sweep to prevent overlapping on deep layers
       _layoutChildren(
         kids[i],
         children,
         x,
         y,
-        angle - angleStep / 2,
-        angleStep,
-        radius * 0.65,
+        angle - (sweep / 2.5), // Tighter fan out for sub-children
+        sweep / 1.5,
+        radius * 0.85,
         depth + 1,
       );
     }
@@ -311,16 +354,18 @@ class _MindMapViewState extends State<MindMapView>
           builder: (context, child) {
             return InteractiveViewer(
               transformationController: _transformController,
-              boundaryMargin: const EdgeInsets.all(300),
-              minScale: 0.2,
+              constrained:
+                  false, // CRITICAL: Allows child to be larger than screen
+              boundaryMargin: const EdgeInsets.all(1000),
+              minScale: 0.1,
               maxScale: 4.0,
               child: SizedBox(
-                width: 1000,
-                height: 800,
+                width: 4000,
+                height: 4000,
                 child: Stack(
                   children: [
                     CustomPaint(
-                      size: const Size(1000, 800),
+                      size: const Size(4000, 4000),
                       painter: _EdgePainter(
                         nodes: widget.nodes,
                         edges: widget.edges,
@@ -458,7 +503,7 @@ class _MindMapViewState extends State<MindMapView>
         ),
         Positioned(
           right: 16,
-          bottom: 16,
+          bottom: 96,
           child: FloatingActionButton.small(
             heroTag: 'mindmap_legend',
             onPressed: _showLegend,

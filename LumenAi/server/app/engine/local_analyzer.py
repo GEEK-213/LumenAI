@@ -174,12 +174,15 @@ Output ONLY valid JSON matching this schema:
 
 
     async def generate_initial_view(self, combined_content: str) -> str:
-        system_prompt = "Summarize the text into 3 distinct paragraphs and extract 5-8 key topics."
+        system_prompt = "Summarize the text into 3 distinct paragraphs, extract 5-8 key topics, and generate a hierarchical mind map structure connecting these topics. Return AT LEAST 5 nodes in the mind map."
         json_schema = """
         {
             "summary": "markdown string",
             "topics": ["topic1", "topic2"],
-            "mind_map": {"nodes": [], "edges": []},
+            "mind_map": {
+                "nodes": [{"id": 1, "label": "Central Topic"}],
+                "edges": [{"from": 1, "to": 2}]
+            },
             "code_snippets": [],
             "extracted_tasks": [],
             "teacher_questions": [],

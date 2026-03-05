@@ -118,7 +118,7 @@ async def save_quiz_background(engine, contents, user_id, lecture_id):
             try:
                 result_str = await engine.generate_quiz(contents)
                 clean_json = extract_json_array(result_str)
-                quizzes = json.loads(clean_json)
+                quizzes = json.loads(clean_json, strict=False)
                 
                 # Handle case where LLM returns a dictionary instead of a strict array
                 if isinstance(quizzes, dict):
@@ -172,7 +172,7 @@ async def save_flashcards_background(engine, contents, user_id, lecture_id):
             try:
                 result_str = await engine.generate_flashcards(contents)
                 clean_json = extract_json_array(result_str)
-                flashcards = json.loads(clean_json)
+                flashcards = json.loads(clean_json, strict=False)
                 
                 # Handle case where LLM returns a dictionary instead of a strict array
                 if isinstance(flashcards, dict):
@@ -269,7 +269,7 @@ async def process_lecture(
 
         try:
             clean_json = extract_json(result_json_str)
-            data = json.loads(clean_json)
+            data = json.loads(clean_json, strict=False)
             
             # Robustness: if LLM returned a quoted string instead of an object
             if isinstance(data, str):
@@ -446,7 +446,7 @@ async def analyze_lecture_on_demand(lecture_id: str, background_tasks: Backgroun
             raise Exception("No AI content generated.")
         
         clean_json = extract_json(result_json_str)
-        data = json.loads(clean_json)
+        data = json.loads(clean_json, strict=False)
         
         if isinstance(data, str):
             data = {"summary": data}

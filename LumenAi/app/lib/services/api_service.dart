@@ -164,6 +164,10 @@ class ApiService {
         .from('flashcards')
         .select()
         .eq('lecture_id', lectureId);
+    final mmRes = await _supabase
+        .from('mind_maps')
+        .select()
+        .eq('lecture_id', lectureId);
 
     if (response['raw_analysis'] != null) {
       final raw = response['raw_analysis'];
@@ -176,6 +180,16 @@ class ApiService {
       }
       if (fcRes.isNotEmpty) {
         rawMap['flashcards'] = fcRes;
+      }
+      // Merge mind map from DB if not in raw_analysis
+      if ((rawMap['mind_map'] == null ||
+              (rawMap['mind_map'] is Map &&
+                  (rawMap['mind_map']['nodes'] as List?)?.isEmpty == true)) &&
+          mmRes.isNotEmpty) {
+        rawMap['mind_map'] = {
+          'nodes': mmRes.first['nodes'] ?? [],
+          'edges': mmRes.first['edges'] ?? [],
+        };
       }
 
       return AnalysisResult.fromJson(rawMap);
