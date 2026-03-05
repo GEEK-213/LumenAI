@@ -21,6 +21,8 @@ class _MindMapViewState extends State<MindMapView>
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
   String? _selectedNodeId;
+  final TransformationController _transformController =
+      TransformationController();
 
   // Positions keyed by String IDs (normalized from int/String)
   final Map<String, Offset> _positions = {};
@@ -55,7 +57,170 @@ class _MindMapViewState extends State<MindMapView>
   @override
   void dispose() {
     _animController.dispose();
+    _transformController.dispose();
     super.dispose();
+  }
+
+  /// Get connected node labels for a given node ID
+  List<String> _getConnectedLabels(String nodeId) {
+    final connected = <String>[];
+    for (var edge in widget.edges) {
+      final from = _toId(edge['from']);
+      final to = _toId(edge['to']);
+      if (from == nodeId || to == nodeId) {
+        final otherId = from == nodeId ? to : from;
+        final otherNode = widget.nodes.firstWhere(
+          (n) => _toId(n['id']) == otherId,
+          orElse: () => {'label': '?'},
+        );
+        connected.add(otherNode['label']?.toString() ?? '?');
+      }
+    }
+    return connected;
+  }
+
+  /// Show detail bottom sheet for a node
+  void _showNodeDetail(String label, Color color, int index) {
+    final nodeId = _toId(widget.nodes[index]['id']);
+    final connected = _getConnectedLabels(nodeId);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A2036),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 16,
+                  height: 16,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (connected.isNotEmpty) ...[
+              const Text(
+                "Connected Topics:",
+                style: TextStyle(color: Colors.white54, fontSize: 13),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: connected
+                    .map(
+                      (c) => Chip(
+                        label: Text(
+                          c,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
+                        backgroundColor: color.withOpacity(0.2),
+                        side: BorderSide(color: color.withOpacity(0.4)),
+                      ),
+                    )
+                    .toList(),
+              ),
+            ],
+            const SizedBox(height: 16),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Show color legend
+  void _showLegend() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A2036),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "Topic Legend",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ...widget.nodes.asMap().entries.map((entry) {
+              final color = _getNodeColor(entry.key);
+              final label = entry.value['label']?.toString() ?? '?';
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: color,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        label,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Double-tap to center view on a node
+  void _centerOnNode(Offset pos) {
+    final screenSize = MediaQuery.of(context).size;
+    const scale = 1.5;
+    final dx = screenSize.width / 2 - pos.dx * scale;
+    final dy = screenSize.height / 2 - pos.dy * scale;
+    _transformController.value = Matrix4.identity()
+      ..translate(dx, dy)
+      ..scale(scale);
   }
 
   void _computeLayout() {
@@ -63,11 +228,9 @@ class _MindMapViewState extends State<MindMapView>
     final edges = widget.edges;
     if (nodes.isEmpty) return;
 
-    // Build adjacency sets using normalized string IDs
     final toSet = edges.map((e) => _toId(e['to'])).toSet();
     final fromSet = edges.map((e) => _toId(e['from'])).toSet();
 
-    // Root = first node that is in 'from' but not in 'to', or just the first node
     String rootId = _toId(nodes.first['id']);
     for (var n in nodes) {
       final nId = _toId(n['id']);
@@ -77,7 +240,6 @@ class _MindMapViewState extends State<MindMapView>
       }
     }
 
-    // Build children map with string keys
     final Map<String, List<String>> children = {};
     for (var e in edges) {
       final from = _toId(e['from']);
@@ -86,7 +248,6 @@ class _MindMapViewState extends State<MindMapView>
       children[from]!.add(to);
     }
 
-    // Radial layout from root — wider spread for mobile
     const double centerX = 500;
     const double centerY = 400;
     _positions[rootId] = const Offset(centerX, centerY);
@@ -115,7 +276,6 @@ class _MindMapViewState extends State<MindMapView>
       final y = cy + radius * math.sin(angle);
       _positions[kids[i]] = Offset(x, y);
 
-      // Recurse with narrower sweep and more radius
       _layoutChildren(
         kids[i],
         children,
@@ -144,157 +304,173 @@ class _MindMapViewState extends State<MindMapView>
       );
     }
 
-    return AnimatedBuilder(
-      animation: _fadeAnim,
-      builder: (context, child) {
-        return InteractiveViewer(
-          boundaryMargin: const EdgeInsets.all(300),
-          minScale: 0.2,
-          maxScale: 4.0,
-          child: SizedBox(
-            width: 1000,
-            height: 800,
-            child: Stack(
-              children: [
-                // Paint edges
-                CustomPaint(
-                  size: const Size(1000, 800),
-                  painter: _EdgePainter(
-                    nodes: widget.nodes,
-                    edges: widget.edges,
-                    positions: _positions,
-                    opacity: _fadeAnim.value,
-                  ),
-                ),
-                // Render nodes
-                ...widget.nodes.asMap().entries.map((entry) {
-                  final i = entry.key;
-                  final node = entry.value;
-                  final id = _toId(node['id']);
-                  final label = node['label']?.toString() ?? '?';
-                  final pos = _positions[id];
-                  if (pos == null) return const SizedBox.shrink();
-
-                  final isSelected = _selectedNodeId == id;
-                  final color = _getNodeColor(i);
-                  final isRoot = i == 0;
-                  // Bigger nodes for readability
-                  final nodeRadius = isRoot ? 52.0 : 42.0;
-                  // Show more characters before truncating
-                  final maxChars = isRoot ? 20 : 16;
-                  final displayLabel = label.length > maxChars
-                      ? '${label.substring(0, maxChars - 2)}..'
-                      : label;
-
-                  return Positioned(
-                    left: pos.dx - nodeRadius,
-                    top: pos.dy - nodeRadius,
-                    child: Opacity(
-                      opacity: _fadeAnim.value,
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _selectedNodeId = isSelected ? null : id;
-                          });
-                        },
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AnimatedContainer(
-                              duration: const Duration(milliseconds: 250),
-                              width: isSelected
-                                  ? nodeRadius * 2.3
-                                  : nodeRadius * 2,
-                              height: isSelected
-                                  ? nodeRadius * 2.3
-                                  : nodeRadius * 2,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: RadialGradient(
-                                  colors: [
-                                    color.withValues(alpha: 0.95),
-                                    color.withValues(alpha: 0.55),
-                                  ],
-                                ),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: color.withValues(
-                                      alpha: isSelected ? 0.7 : 0.3,
-                                    ),
-                                    blurRadius: isSelected ? 24 : 12,
-                                    spreadRadius: isSelected ? 5 : 2,
-                                  ),
-                                ],
-                                border: isSelected
-                                    ? Border.all(
-                                        color: Colors.white,
-                                        width: 2.5,
-                                      )
-                                    : null,
-                              ),
-                              child: Center(
-                                child: Padding(
-                                  padding: const EdgeInsets.all(8),
-                                  child: Text(
-                                    displayLabel,
-                                    textAlign: TextAlign.center,
-                                    maxLines: 3,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: isRoot ? 12 : 10,
-                                      fontWeight: FontWeight.bold,
-                                      height: 1.2,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            // Expanded label tooltip on tap
-                            if (isSelected)
-                              Container(
-                                margin: const EdgeInsets.only(top: 6),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 8,
-                                ),
-                                constraints: const BoxConstraints(
-                                  maxWidth: 220,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF1A2036),
-                                  borderRadius: BorderRadius.circular(10),
-                                  border: Border.all(
-                                    color: color.withValues(alpha: 0.6),
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: color.withValues(alpha: 0.2),
-                                      blurRadius: 12,
-                                    ),
-                                  ],
-                                ),
-                                child: Text(
-                                  label,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
+    return Stack(
+      children: [
+        AnimatedBuilder(
+          animation: _fadeAnim,
+          builder: (context, child) {
+            return InteractiveViewer(
+              transformationController: _transformController,
+              boundaryMargin: const EdgeInsets.all(300),
+              minScale: 0.2,
+              maxScale: 4.0,
+              child: SizedBox(
+                width: 1000,
+                height: 800,
+                child: Stack(
+                  children: [
+                    CustomPaint(
+                      size: const Size(1000, 800),
+                      painter: _EdgePainter(
+                        nodes: widget.nodes,
+                        edges: widget.edges,
+                        positions: _positions,
+                        opacity: _fadeAnim.value,
                       ),
                     ),
-                  );
-                }),
-              ],
+                    ...widget.nodes.asMap().entries.map((entry) {
+                      final i = entry.key;
+                      final node = entry.value;
+                      final id = _toId(node['id']);
+                      final label = node['label']?.toString() ?? '?';
+                      final pos = _positions[id];
+                      if (pos == null) return const SizedBox.shrink();
+
+                      final isSelected = _selectedNodeId == id;
+                      final color = _getNodeColor(i);
+                      final isRoot = i == 0;
+                      final nodeRadius = isRoot ? 52.0 : 42.0;
+                      final maxChars = isRoot ? 20 : 16;
+                      final displayLabel = label.length > maxChars
+                          ? '${label.substring(0, maxChars - 2)}..'
+                          : label;
+
+                      return Positioned(
+                        left: pos.dx - nodeRadius,
+                        top: pos.dy - nodeRadius,
+                        child: Opacity(
+                          opacity: _fadeAnim.value,
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _selectedNodeId = isSelected ? null : id;
+                              });
+                              _showNodeDetail(label, color, i);
+                            },
+                            onDoubleTap: () => _centerOnNode(pos),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                AnimatedContainer(
+                                  duration: const Duration(milliseconds: 250),
+                                  width: isSelected
+                                      ? nodeRadius * 2.3
+                                      : nodeRadius * 2,
+                                  height: isSelected
+                                      ? nodeRadius * 2.3
+                                      : nodeRadius * 2,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    gradient: RadialGradient(
+                                      colors: [
+                                        color.withValues(alpha: 0.95),
+                                        color.withValues(alpha: 0.55),
+                                      ],
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: color.withValues(
+                                          alpha: isSelected ? 0.7 : 0.3,
+                                        ),
+                                        blurRadius: isSelected ? 24 : 12,
+                                        spreadRadius: isSelected ? 5 : 2,
+                                      ),
+                                    ],
+                                    border: isSelected
+                                        ? Border.all(
+                                            color: Colors.white,
+                                            width: 2.5,
+                                          )
+                                        : null,
+                                  ),
+                                  child: Center(
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(8),
+                                      child: Text(
+                                        displayLabel,
+                                        textAlign: TextAlign.center,
+                                        maxLines: 3,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: isRoot ? 12 : 10,
+                                          fontWeight: FontWeight.bold,
+                                          height: 1.2,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                if (isSelected)
+                                  Container(
+                                    margin: const EdgeInsets.only(top: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 8,
+                                    ),
+                                    constraints: const BoxConstraints(
+                                      maxWidth: 220,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF1A2036),
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(
+                                        color: color.withValues(alpha: 0.6),
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: color.withValues(alpha: 0.2),
+                                          blurRadius: 12,
+                                        ),
+                                      ],
+                                    ),
+                                    child: Text(
+                                      label,
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton.small(
+            heroTag: 'mindmap_legend',
+            onPressed: _showLegend,
+            backgroundColor: const Color(0xFF2A3A5C),
+            child: const Icon(
+              Icons.info_outline,
+              color: Colors.white70,
+              size: 20,
             ),
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 }
@@ -326,7 +502,6 @@ class _EdgePainter extends CustomPainter {
         ..strokeWidth = 2.5
         ..style = PaintingStyle.stroke;
 
-      // Curved edge using quadratic bezier
       final mid = Offset((from.dx + to.dx) / 2, (from.dy + to.dy) / 2);
       final ctrl = Offset(mid.dx + 25, mid.dy - 25);
 
@@ -335,8 +510,6 @@ class _EdgePainter extends CustomPainter {
         ..quadraticBezierTo(ctrl.dx, ctrl.dy, to.dx, to.dy);
 
       canvas.drawPath(path, paint);
-
-      // Small arrow at target
       _drawArrow(canvas, ctrl, to, paint);
     }
   }

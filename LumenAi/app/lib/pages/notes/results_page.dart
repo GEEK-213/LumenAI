@@ -1,14 +1,14 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../models/data_models.dart';
 import '../../services/api_service.dart';
+import '../../services/quiz_service.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'mind_map_tab.dart';
 import 'code_sandbox_tab.dart';
 
 class AnalysisResultScreen extends StatefulWidget {
   final AnalysisResult result;
-  final String? lectureId; // Pass lecture ID so we can refetch easily
+  final String? lectureId;
 
   const AnalysisResultScreen({super.key, required this.result, this.lectureId});
 
@@ -70,8 +70,11 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
           controller: _tabController,
           children: [
             _buildSummaryTab(),
-            _buildQuizTab(),
-            _buildFlashcardsTab(),
+            EnhancedQuizTab(
+              questions: _currentResult.quizQuestions,
+              lectureId: widget.lectureId,
+            ),
+            EnhancedFlashcardsTab(flashcards: _currentResult.flashcards),
             _buildMindMapTab(),
             if (_currentResult.codeSnippets.isNotEmpty)
               CodeSandboxTab(codeSnippets: _currentResult.codeSnippets),
@@ -96,8 +99,6 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
     setState(() => _isRefreshing = true);
 
     try {
-      // In a real implementation, you would call `_apiService.getLecture(widget.lectureId)`
-      // For this refactor, we simulate the structure.
       final updatedResult = await _apiService.getAnalysisResult(
         widget.lectureId!,
       );
@@ -186,79 +187,6 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
     );
   }
 
-  // --- 2. Quiz Tab ---
-  Widget _buildQuizTab() {
-    if (_currentResult.quizQuestions.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(),
-            const SizedBox(height: 20),
-            const Text(
-              "Generating quiz questions in the background...",
-              style: TextStyle(color: Colors.white, fontSize: 16),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              "Tap the Refresh (↻) button in a few seconds.",
-              style: TextStyle(color: Colors.grey[400]),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _currentResult.quizQuestions.length,
-      itemBuilder: (ctx, i) {
-        final q = _currentResult.quizQuestions[i];
-        return InteractiveQuizCard(questionIndex: i + 1, question: q);
-      },
-    );
-  }
-
-  // --- 3. Flashcards Tab ---
-  Widget _buildFlashcardsTab() {
-    if (_currentResult.flashcards.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(),
-            const SizedBox(height: 20),
-            const Text(
-              "Generating flashcards in the background...",
-              style: TextStyle(color: Colors.white, fontSize: 16),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              "Tap the Refresh (↻) button in a few seconds.",
-              style: TextStyle(color: Colors.grey[400]),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      );
-    }
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 1,
-        childAspectRatio: 1.5,
-        mainAxisSpacing: 16,
-      ),
-      itemCount: _currentResult.flashcards.length,
-      itemBuilder: (ctx, i) {
-        final f = _currentResult.flashcards[i];
-        return InteractiveFlashcard(front: f.front, back: f.back);
-      },
-    );
-  }
-
   // --- 4. Mind Map Tab ---
   Widget _buildMindMapTab() {
     if (_currentResult.mindMap == null ||
@@ -293,28 +221,271 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
   }
 }
 
-// --- Interactive Widgets ---
+// ═══════════════════════════════════════════════════════════
+// ENHANCED QUIZ TAB — Score tracker + Completion modal + Retake
+// ═══════════════════════════════════════════════════════════
 
-class InteractiveQuizCard extends StatefulWidget {
-  final int questionIndex;
-  final QuizQuestion question;
+class EnhancedQuizTab extends StatefulWidget {
+  final List<QuizQuestion> questions;
+  final String? lectureId;
 
-  const InteractiveQuizCard({
-    super.key,
-    required this.questionIndex,
-    required this.question,
-  });
+  const EnhancedQuizTab({super.key, required this.questions, this.lectureId});
 
   @override
-  State<InteractiveQuizCard> createState() => _InteractiveQuizCardState();
+  State<EnhancedQuizTab> createState() => _EnhancedQuizTabState();
 }
 
-class _InteractiveQuizCardState extends State<InteractiveQuizCard> {
-  String? selectedOption;
+class _EnhancedQuizTabState extends State<EnhancedQuizTab> {
+  final Map<int, String> _selectedAnswers = {};
+  final QuizService _quizService = QuizService();
+  bool _quizCompleted = false;
+
+  int get _correctCount {
+    int count = 0;
+    for (final entry in _selectedAnswers.entries) {
+      if (entry.value == widget.questions[entry.key].correctAnswer) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  int get _answeredCount => _selectedAnswers.length;
+  int get _totalCount => widget.questions.length;
+  double get _percentage =>
+      _totalCount > 0 ? (_correctCount / _totalCount) * 100 : 0;
+
+  Color get _scoreColor {
+    if (_percentage >= 80) return Colors.greenAccent;
+    if (_percentage >= 50) return Colors.orangeAccent;
+    return Colors.redAccent;
+  }
+
+  String get _scoreEmoji {
+    if (_percentage >= 90) return "🏆";
+    if (_percentage >= 80) return "🌟";
+    if (_percentage >= 60) return "👍";
+    if (_percentage >= 40) return "📚";
+    return "💪";
+  }
+
+  void _selectAnswer(int questionIndex, String option) {
+    if (_selectedAnswers.containsKey(questionIndex)) return;
+    setState(() {
+      _selectedAnswers[questionIndex] = option;
+    });
+
+    // Check if quiz is complete
+    if (_answeredCount == _totalCount && !_quizCompleted) {
+      _quizCompleted = true;
+      _saveAndShowResults();
+    }
+  }
+
+  Future<void> _saveAndShowResults() async {
+    // Save to DB
+    if (widget.lectureId != null) {
+      try {
+        await _quizService.saveAttempt(
+          lectureId: widget.lectureId!,
+          score: _correctCount,
+          total: _totalCount,
+        );
+      } catch (_) {}
+    }
+
+    // Show completion modal
+    if (mounted) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) _showCompletionDialog();
+      });
+    }
+  }
+
+  void _showCompletionDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2746),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          "$_scoreEmoji Quiz Complete!",
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.white, fontSize: 22),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "$_correctCount / $_totalCount correct",
+              style: TextStyle(
+                color: _scoreColor,
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "${_percentage.toStringAsFixed(0)}%",
+              style: TextStyle(color: _scoreColor, fontSize: 20),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _percentage >= 80
+                  ? "Excellent! You've mastered this material!"
+                  : _percentage >= 50
+                  ? "Good effort! Review the explanations below."
+                  : "Keep studying! Focus on the topics you missed.",
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _retakeQuiz();
+            },
+            child: const Text(
+              "Retake",
+              style: TextStyle(color: Colors.orangeAccent),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+            child: const Text("Review Answers"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _retakeQuiz() {
+    setState(() {
+      _selectedAnswers.clear();
+      _quizCompleted = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    final q = widget.question;
+    if (widget.questions.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 20),
+            const Text(
+              "Generating quiz questions in the background...",
+              style: TextStyle(color: Colors.white, fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              "Tap the Refresh (↻) button in a few seconds.",
+              style: TextStyle(color: Colors.grey[400]),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        // Score tracker bar
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1A1A2E),
+            border: Border(bottom: BorderSide(color: Colors.white12)),
+          ),
+          child: Row(
+            children: [
+              // Progress
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "$_answeredCount / $_totalCount answered",
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 13,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: _totalCount > 0
+                            ? _answeredCount / _totalCount
+                            : 0,
+                        backgroundColor: Colors.white12,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          _answeredCount == _totalCount
+                              ? _scoreColor
+                              : Colors.blueAccent,
+                        ),
+                        minHeight: 6,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Score
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: _scoreColor.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: _scoreColor.withOpacity(0.4)),
+                ),
+                child: Text(
+                  "✓ $_correctCount",
+                  style: TextStyle(
+                    color: _scoreColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              // Retake button (only after completion)
+              if (_quizCompleted) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  icon: const Icon(Icons.replay, color: Colors.orangeAccent),
+                  tooltip: 'Retake Quiz',
+                  onPressed: _retakeQuiz,
+                ),
+              ],
+            ],
+          ),
+        ),
+        // Quiz cards
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: widget.questions.length,
+            itemBuilder: (ctx, i) {
+              final q = widget.questions[i];
+              return _buildQuizCard(i, q);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildQuizCard(int index, QuizQuestion q) {
+    final selectedOption = _selectedAnswers[index];
     final isAnswered = selectedOption != null;
 
     return Card(
@@ -327,7 +498,7 @@ class _InteractiveQuizCardState extends State<InteractiveQuizCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "Q${widget.questionIndex}: ${q.question}",
+              "Q${index + 1}: ${q.question}",
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -351,17 +522,12 @@ class _InteractiveQuizCardState extends State<InteractiveQuizCard> {
                 borderColor = Colors.red;
                 highlightColor = Colors.red.withOpacity(0.2);
               } else if (isSelected) {
-                // Before revealing (fallback if needed)
                 borderColor = Colors.blueAccent;
                 highlightColor = Colors.blueAccent.withOpacity(0.2);
               }
 
               return GestureDetector(
-                onTap: () {
-                  if (!isAnswered) {
-                    setState(() => selectedOption = opt);
-                  }
-                },
+                onTap: () => _selectAnswer(index, opt),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   margin: const EdgeInsets.only(bottom: 8),
@@ -435,93 +601,499 @@ class _InteractiveQuizCardState extends State<InteractiveQuizCard> {
   }
 }
 
-class InteractiveFlashcard extends StatefulWidget {
-  final String front;
-  final String back;
+// ═══════════════════════════════════════════════════════════
+// ENHANCED FLASHCARDS TAB — Swipeable PageView + Progress
+// ═══════════════════════════════════════════════════════════
 
-  const InteractiveFlashcard({
-    super.key,
-    required this.front,
-    required this.back,
-  });
+class EnhancedFlashcardsTab extends StatefulWidget {
+  final List<FlashcardData> flashcards;
+
+  const EnhancedFlashcardsTab({super.key, required this.flashcards});
 
   @override
-  State<InteractiveFlashcard> createState() => _InteractiveFlashcardState();
+  State<EnhancedFlashcardsTab> createState() => _EnhancedFlashcardsTabState();
 }
 
-class _InteractiveFlashcardState extends State<InteractiveFlashcard> {
-  bool isFlipped = false;
+class _EnhancedFlashcardsTabState extends State<EnhancedFlashcardsTab> {
+  late PageController _pageController;
+  int _currentIndex = 0;
+  final Map<int, bool> _confidence = {}; // true = know, false = review
+  bool _showSummary = false;
+
+  int get _knownCount => _confidence.values.where((v) => v).length;
+  int get _reviewCount => _confidence.values.where((v) => !v).length;
+
+  @override
+  void initState() {
+    super.initState();
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _markCard(bool knows) {
+    setState(() {
+      _confidence[_currentIndex] = knows;
+    });
+
+    // Auto-advance to next card
+    if (_currentIndex < widget.flashcards.length - 1) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      // Last card — show summary
+      setState(() => _showSummary = true);
+    }
+  }
+
+  void _restart() {
+    setState(() {
+      _confidence.clear();
+      _currentIndex = 0;
+      _showSummary = false;
+    });
+    _pageController.animateToPage(
+      0,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        setState(() => isFlipped = !isFlipped);
-      },
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 400),
-        transitionBuilder: (Widget child, Animation<double> animation) {
-          final rotateAnim = Tween(begin: 3.14, end: 0.0).animate(animation);
-          return AnimatedBuilder(
-            animation: rotateAnim,
-            child: child,
-            builder: (context, widgetChild) {
-              final isUnder = (ValueKey(isFlipped) != widgetChild?.key);
-              var tilt = ((animation.value - 0.5).abs() - 0.5) * 0.003;
-              tilt *= isUnder ? -1.0 : 1.0;
-              final value = isUnder
-                  ? min(rotateAnim.value, 1.57)
-                  : rotateAnim.value;
-              return Transform(
-                transform: Matrix4.rotationX(value)..setEntry(3, 1, tilt),
-                alignment: Alignment.center,
-                child: widgetChild,
+    if (widget.flashcards.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 20),
+            const Text(
+              "Generating flashcards in the background...",
+              style: TextStyle(color: Colors.white, fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              "Tap the Refresh (↻) button in a few seconds.",
+              style: TextStyle(color: Colors.grey[400]),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_showSummary) return _buildMasterySummary();
+
+    return Column(
+      children: [
+        // Progress bar
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          decoration: const BoxDecoration(
+            color: Color(0xFF1A1A2E),
+            border: Border(bottom: BorderSide(color: Colors.white12)),
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "Card ${_currentIndex + 1} of ${widget.flashcards.length}",
+                    style: const TextStyle(color: Colors.white70, fontSize: 14),
+                  ),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.check_circle,
+                        color: Colors.greenAccent,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        "$_knownCount",
+                        style: const TextStyle(
+                          color: Colors.greenAccent,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Icon(Icons.replay, color: Colors.orangeAccent, size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        "$_reviewCount",
+                        style: const TextStyle(
+                          color: Colors.orangeAccent,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: widget.flashcards.isNotEmpty
+                      ? (_currentIndex + 1) / widget.flashcards.length
+                      : 0,
+                  backgroundColor: Colors.white12,
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    Colors.blueAccent,
+                  ),
+                  minHeight: 5,
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Flashcard PageView
+        Expanded(
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: widget.flashcards.length,
+            onPageChanged: (i) => setState(() => _currentIndex = i),
+            itemBuilder: (ctx, i) {
+              final card = widget.flashcards[i];
+              return _SwipeableFlashcard(
+                front: card.front,
+                back: card.back,
+                onKnow: () => _markCard(true),
+                onReview: () => _markCard(false),
+                confidence: _confidence[i],
               );
             },
-          );
-        },
-        child: isFlipped
-            ? _buildCardSide(widget.back, true, key: const ValueKey(true))
-            : _buildCardSide(widget.front, false, key: const ValueKey(false)),
+          ),
+        ),
+        // Swipe hint
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.arrow_back,
+                color: Colors.redAccent.withOpacity(0.5),
+                size: 18,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                "Swipe or use buttons below",
+                style: TextStyle(color: Colors.white38, fontSize: 12),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.arrow_forward,
+                color: Colors.greenAccent.withOpacity(0.5),
+                size: 18,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMasterySummary() {
+    final total = widget.flashcards.length;
+    final mastery = total > 0 ? (_knownCount / total * 100) : 0.0;
+    final color = mastery >= 80
+        ? Colors.greenAccent
+        : mastery >= 50
+        ? Colors.orangeAccent
+        : Colors.redAccent;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              mastery >= 80
+                  ? "🏆"
+                  : mastery >= 50
+                  ? "👍"
+                  : "📚",
+              style: const TextStyle(fontSize: 48),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "Flashcard Review Complete!",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              "${mastery.toStringAsFixed(0)}% Mastery",
+              style: TextStyle(
+                color: color,
+                fontSize: 36,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "$_knownCount known · $_reviewCount need review",
+              style: const TextStyle(color: Colors.white54, fontSize: 16),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (_reviewCount > 0)
+                  OutlinedButton.icon(
+                    onPressed: _restart,
+                    icon: const Icon(Icons.replay, color: Colors.orangeAccent),
+                    label: const Text(
+                      "Review Again",
+                      style: TextStyle(color: Colors.orangeAccent),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.orangeAccent),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  onPressed: _restart,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text("Start Over"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Individual flashcard with flip + swipe confidence buttons
+class _SwipeableFlashcard extends StatefulWidget {
+  final String front;
+  final String back;
+  final VoidCallback onKnow;
+  final VoidCallback onReview;
+  final bool? confidence;
+
+  const _SwipeableFlashcard({
+    required this.front,
+    required this.back,
+    required this.onKnow,
+    required this.onReview,
+    this.confidence,
+  });
+
+  @override
+  State<_SwipeableFlashcard> createState() => _SwipeableFlashcardState();
+}
+
+class _SwipeableFlashcardState extends State<_SwipeableFlashcard> {
+  bool _isFlipped = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Column(
+        children: [
+          // Card
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _isFlipped = !_isFlipped),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 400),
+                child: _buildCardFace(
+                  text: _isFlipped ? widget.back : widget.front,
+                  isBack: _isFlipped,
+                  key: ValueKey(_isFlipped),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Confidence buttons
+          if (widget.confidence == null)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _ConfidenceButton(
+                  label: "Review Again",
+                  icon: Icons.replay,
+                  color: Colors.redAccent,
+                  onTap: widget.onReview,
+                ),
+                _ConfidenceButton(
+                  label: "Know It!",
+                  icon: Icons.check_circle,
+                  color: Colors.greenAccent,
+                  onTap: widget.onKnow,
+                ),
+              ],
+            )
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color:
+                    (widget.confidence!
+                            ? Colors.greenAccent
+                            : Colors.orangeAccent)
+                        .withOpacity(0.15),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                widget.confidence!
+                    ? "✓ Marked as known"
+                    : "↻ Marked for review",
+                style: TextStyle(
+                  color: widget.confidence!
+                      ? Colors.greenAccent
+                      : Colors.orangeAccent,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
 
-  Widget _buildCardSide(String text, bool isBack, {required Key key}) {
+  Widget _buildCardFace({
+    required String text,
+    required bool isBack,
+    required Key key,
+  }) {
     return Container(
       key: key,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: isBack ? const Color(0xFF2C3E50) : const Color(0xFF1E2746),
-        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isBack
+              ? [const Color(0xFF2C3E50), const Color(0xFF1A2530)]
+              : [const Color(0xFF1E2746), const Color(0xFF162040)],
+        ),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isBack ? Colors.blueAccent : Colors.white12,
+          color: isBack ? Colors.blueAccent.withOpacity(0.5) : Colors.white12,
           width: 2,
         ),
-        boxShadow: const [
-          BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 4)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
         ],
       ),
-      padding: const EdgeInsets.all(24),
-      child: Stack(
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Center(
-            child: Text(
-              text,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: isBack ? Colors.white : Colors.blueAccent,
-                fontSize: 18,
-                fontWeight: isBack ? FontWeight.w500 : FontWeight.bold,
+          Text(
+            isBack ? "ANSWER" : "QUESTION",
+            style: TextStyle(
+              color: (isBack ? Colors.blueAccent : Colors.white38),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 2,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: Center(
+              child: Text(
+                text,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: isBack ? Colors.white : Colors.blueAccent,
+                  fontSize: 20,
+                  fontWeight: isBack ? FontWeight.w500 : FontWeight.bold,
+                  height: 1.4,
+                ),
               ),
             ),
           ),
-          Positioned(
-            bottom: 0,
-            right: 0,
-            child: Icon(Icons.touch_app, color: Colors.white24, size: 24),
+          Icon(Icons.touch_app, color: Colors.white24, size: 20),
+          const SizedBox(height: 4),
+          Text(
+            "Tap to flip",
+            style: TextStyle(color: Colors.white24, fontSize: 11),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ConfidenceButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ConfidenceButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withOpacity(0.4)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

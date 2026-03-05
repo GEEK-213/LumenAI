@@ -26,6 +26,9 @@ class ApiService {
     return {'Authorization': 'Bearer ${session.accessToken}'};
   }
 
+  /// Public accessor for auth headers (used by chat page for direct HTTP calls).
+  Future<Map<String, String>> get authHeaders => _authHeaders();
+
   /// Convenience: auth headers merged with JSON content-type.
   Future<Map<String, String>> _authJsonHeaders() async {
     final auth = await _authHeaders();

@@ -92,6 +92,17 @@ create table if not exists public.extracted_tasks (
   due_date text
 );
 
+-- 6b. Quiz Attempts (scoring history)
+create table if not exists public.quiz_attempts (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  user_id uuid references auth.users not null,
+  lecture_id uuid references public.lectures(id) on delete cascade not null,
+  score int not null,
+  total int not null,
+  percentage numeric(5,2) generated always as (case when total > 0 then (score::numeric / total * 100) else 0 end) stored
+);
+
 -- 7. Syllabus Sources (for context)
 create table if not exists public.syllabus_sources (
   id uuid default gen_random_uuid() primary key,
@@ -134,6 +145,8 @@ create index if not exists idx_mind_maps_lecture_id on public.mind_maps(lecture_
 create index if not exists idx_code_snippets_lecture_id on public.code_snippets(lecture_id);
 create index if not exists idx_extracted_tasks_user_id on public.extracted_tasks(user_id);
 create index if not exists idx_extracted_tasks_lecture_id on public.extracted_tasks(lecture_id);
+create index if not exists idx_quiz_attempts_user_id on public.quiz_attempts(user_id);
+create index if not exists idx_quiz_attempts_lecture_id on public.quiz_attempts(lecture_id);
 create index if not exists idx_syllabus_sources_user_id on public.syllabus_sources(user_id);
 create index if not exists idx_syllabus_sources_subject_id on public.syllabus_sources(subject_id);
 create index if not exists idx_user_integrations_user_id on public.user_integrations(user_id);
@@ -154,6 +167,7 @@ alter table public.code_snippets enable row level security;
 alter table public.extracted_tasks enable row level security;
 alter table public.syllabus_sources enable row level security;
 alter table public.user_integrations enable row level security;
+alter table public.quiz_attempts enable row level security;
 
 -- Subjects: granular policies
 create policy "subjects_select" on public.subjects for select using (auth.uid() = user_id);
@@ -214,3 +228,9 @@ create policy "user_integrations_select" on public.user_integrations for select 
 create policy "user_integrations_insert" on public.user_integrations for insert with check (auth.uid() = user_id);
 create policy "user_integrations_update" on public.user_integrations for update using (auth.uid() = user_id);
 create policy "user_integrations_delete" on public.user_integrations for delete using (auth.uid() = user_id);
+
+-- Quiz Attempts: granular policies
+create policy "quiz_attempts_select" on public.quiz_attempts for select using (auth.uid() = user_id);
+create policy "quiz_attempts_insert" on public.quiz_attempts for insert with check (auth.uid() = user_id);
+create policy "quiz_attempts_update" on public.quiz_attempts for update using (auth.uid() = user_id);
+create policy "quiz_attempts_delete" on public.quiz_attempts for delete using (auth.uid() = user_id);
