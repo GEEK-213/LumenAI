@@ -5,6 +5,7 @@ import tempfile
 import re
 import asyncio
 import logging
+import json_repair
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks, Depends
 from app.database import supabase
 from app.engine.analyzer import LectureAnalyzer, RateLimitError
@@ -118,7 +119,7 @@ async def save_quiz_background(engine, contents, user_id, lecture_id):
             try:
                 result_str = await engine.generate_quiz(contents)
                 clean_json = extract_json_array(result_str)
-                quizzes = json.loads(clean_json, strict=False)
+                quizzes = json_repair.loads(clean_json)
                 
                 # Handle case where LLM returns a dictionary instead of a strict array
                 if isinstance(quizzes, dict):
@@ -172,7 +173,7 @@ async def save_flashcards_background(engine, contents, user_id, lecture_id):
             try:
                 result_str = await engine.generate_flashcards(contents)
                 clean_json = extract_json_array(result_str)
-                flashcards = json.loads(clean_json, strict=False)
+                flashcards = json_repair.loads(clean_json)
                 
                 # Handle case where LLM returns a dictionary instead of a strict array
                 if isinstance(flashcards, dict):
@@ -269,7 +270,8 @@ async def process_lecture(
 
         try:
             clean_json = extract_json(result_json_str)
-            data = json.loads(clean_json, strict=False)
+            # Use json_repair instead of strict json.loads to handle missing commas/unescaped quotes common in audio transcripts
+            data = json_repair.loads(clean_json)
             
             # Robustness: if LLM returned a quoted string instead of an object
             if isinstance(data, str):
@@ -278,7 +280,7 @@ async def process_lecture(
             elif not isinstance(data, dict):
                 data = {}
                 
-        except json.JSONDecodeError as e:
+        except Exception as e:
             print(f"❌ JSON Decode Error on Initial View: {e}")
             raise e
 

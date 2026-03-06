@@ -1,5 +1,6 @@
 fastapi
 uvicorn
+json-repair
 supabase
 python-multipart
 markitdown[pdf]

@@ -5,6 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import '../services/api_service.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 // --- Data Model for Messages
 class ChatMessage {
   final String text;
@@ -18,6 +20,20 @@ class ChatMessage {
     required this.time,
     this.suggestions = const [],
   });
+
+  Map<String, dynamic> toJson() => {
+    'text': text,
+    'isUser': isUser,
+    'time': time.toIso8601String(),
+    'suggestions': suggestions,
+  };
+
+  factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
+    text: json['text'],
+    isUser: json['isUser'],
+    time: DateTime.parse(json['time']),
+    suggestions: List<String>.from(json['suggestions'] ?? []),
+  );
 }
 
 class ChatScreen extends StatefulWidget {
@@ -30,27 +46,190 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _textController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final List<ChatMessage> _messages = [];
+  List<ChatMessage> _messages = [];
   bool _isTyping = false;
 
   final ApiService _apiService = ApiService();
   String get _baseUrl => _apiService.baseUrl;
 
+  List<Map<String, dynamic>> _subjects = [];
+  List<Map<String, dynamic>> _units = [];
+  String? _selectedSubjectId;
+  String? _selectedUnitId;
+  String _currentGreeting = '';
+
   @override
   void initState() {
     super.initState();
+    _initChat();
+  }
+
+  Future<void> _initChat() async {
     final user = Supabase.instance.client.auth.currentUser;
     final name =
         user?.userMetadata?['full_name']?.toString().split(' ').first ??
         user?.email?.split('@').first ??
         'there';
-    _messages.add(
-      ChatMessage(
-        text:
-            "Hello, $name! I'm Lumen AI. How can I help you with your studies today?",
-        isUser: false,
-        time: DateTime.now(),
+
+    _currentGreeting =
+        "Hello, $name! I'm Lumen AI. How can I help you with your studies today?";
+
+    // Fetch subjects from DB
+    try {
+      final data = await Supabase.instance.client
+          .from('subjects')
+          .select('id, name')
+          .eq('user_id', user?.id ?? '')
+          .order('created_at', ascending: false);
+
+      final unitData = await Supabase.instance.client
+          .from('units')
+          .select('id, subject_id, name')
+          .eq('user_id', user?.id ?? '')
+          .order('created_at', ascending: true);
+
+      if (mounted) {
+        setState(() {
+          _subjects = List<Map<String, dynamic>>.from(data);
+          _units = List<Map<String, dynamic>>.from(unitData);
+        });
+      }
+    } catch (e) {
+      debugPrint('Failed to load subjects/units for chat: $e');
+    }
+
+    await _loadMessages('general');
+  }
+
+  Future<void> _loadMessages(String subjectId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+
+    final key = 'chat_${user.id}_$subjectId';
+    final saved = prefs.getString(key);
+
+    if (saved != null) {
+      final List<dynamic> decoded = jsonDecode(saved);
+      setState(() {
+        _messages = decoded.map((e) => ChatMessage.fromJson(e)).toList();
+      });
+    } else {
+      // Setup initial greeting
+      setState(() {
+        _messages = [
+          ChatMessage(
+            text: _currentGreeting,
+            isUser: false,
+            time: DateTime.now(),
+          ),
+        ];
+      });
+    }
+    _scrollToBottom();
+  }
+
+  Future<void> _saveMessages(String subjectId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+
+    final key = 'chat_${user.id}_$subjectId';
+    final encoded = jsonEncode(_messages.map((m) => m.toJson()).toList());
+    await prefs.setString(key, encoded);
+  }
+
+  void _onSubjectChanged(String? newSubjectId) {
+    if (newSubjectId == _selectedSubjectId) return;
+    setState(() {
+      _selectedSubjectId = newSubjectId;
+      _selectedUnitId = null; // Reset unit filter when subject changes
+    });
+    // Load local history for new subject or "general"
+    _loadMessages(newSubjectId ?? 'general');
+  }
+
+  Future<void> _clearMessages(String subjectId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) return;
+
+    final key = 'chat_${user.id}_$subjectId';
+    await prefs.remove(key);
+
+    if (mounted) {
+      setState(() {
+        _messages = [
+          ChatMessage(
+            text: _currentGreeting,
+            isUser: false,
+            time: DateTime.now(),
+          ),
+        ];
+      });
+    }
+  }
+
+  void _showUnitPicker() {
+    final subjectUnits = _units
+        .where((u) => u['subject_id'].toString() == _selectedSubjectId)
+        .toList();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A2036),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      builder: (context) {
+        return Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Filter by Unit",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              ListTile(
+                title: const Text(
+                  "All Units",
+                  style: TextStyle(color: Colors.white70),
+                ),
+                trailing: _selectedUnitId == null
+                    ? const Icon(Icons.check, color: Colors.purpleAccent)
+                    : null,
+                onTap: () {
+                  setState(() => _selectedUnitId = null);
+                  Navigator.pop(context);
+                },
+              ),
+              ...subjectUnits.map((u) {
+                final isSelected = _selectedUnitId == u['id'].toString();
+                return ListTile(
+                  title: Text(
+                    u['name']?.toString() ?? 'Unnamed Unit',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  trailing: isSelected
+                      ? const Icon(Icons.check, color: Colors.purpleAccent)
+                      : null,
+                  onTap: () {
+                    setState(() => _selectedUnitId = u['id'].toString());
+                    Navigator.pop(context);
+                  },
+                );
+              }),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -79,6 +258,7 @@ class _ChatScreenState extends State<ChatScreen> {
       _messages.add(
         ChatMessage(text: text, isUser: true, time: DateTime.now()),
       );
+      _saveMessages(_selectedSubjectId ?? 'general');
       _isTyping = true;
     });
     _scrollToBottom();
@@ -90,12 +270,17 @@ class _ChatScreenState extends State<ChatScreen> {
       final headers = await _apiService.authHeaders;
       headers['Content-Type'] = 'application/x-www-form-urlencoded';
 
+      final body = {'question': text, 'context': history};
+
+      if (_selectedSubjectId != null) {
+        body['subject_id'] = _selectedSubjectId!;
+      }
+      if (_selectedUnitId != null) {
+        body['unit_id'] = _selectedUnitId!;
+      }
+
       final response = await http
-          .post(
-            Uri.parse('$_baseUrl/chat/ask'),
-            headers: headers,
-            body: {'question': text, 'context': history},
-          )
+          .post(Uri.parse('$_baseUrl/chat/ask'), headers: headers, body: body)
           .timeout(const Duration(seconds: 45));
 
       final data = jsonDecode(response.body);
@@ -119,6 +304,7 @@ class _ChatScreenState extends State<ChatScreen> {
               suggestions: suggestions,
             ),
           );
+          _saveMessages(_selectedSubjectId ?? 'general');
         });
         _scrollToBottom();
       }
@@ -134,6 +320,7 @@ class _ChatScreenState extends State<ChatScreen> {
               time: DateTime.now(),
             ),
           );
+          _saveMessages(_selectedSubjectId ?? 'general');
         });
         _scrollToBottom();
       }
@@ -180,12 +367,81 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
             const SizedBox(width: 10),
-            const Text(
-              "Lumen AI",
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
+            if (_subjects.isEmpty)
+              const Text(
+                "Lumen AI",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              )
+            else
+              DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  value: _selectedSubjectId,
+                  hint: const Text(
+                    "General Chat",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  dropdownColor: const Color(0xFF1A2036),
+                  icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  items: [
+                    const DropdownMenuItem<String>(
+                      value: null,
+                      child: Text("General Chat"),
+                    ),
+                    ..._subjects.map(
+                      (sub) => DropdownMenuItem<String>(
+                        value: sub['id'].toString(),
+                        child: Text(
+                          sub['name']?.toString() ?? 'Unnamed',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ),
+                  ],
+                  onChanged: _onSubjectChanged,
+                ),
+              ),
           ],
         ),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert, color: Colors.white),
+            color: const Color(0xFF1A2036),
+            onSelected: (value) async {
+              if (value == 'clear') {
+                await _clearMessages(_selectedSubjectId ?? 'general');
+              } else if (value == 'unit') {
+                _showUnitPicker();
+              }
+            },
+            itemBuilder: (context) => [
+              if (_selectedSubjectId != null)
+                const PopupMenuItem(
+                  value: 'unit',
+                  child: Text(
+                    'Filter by Unit',
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              const PopupMenuItem(
+                value: 'clear',
+                child: Text(
+                  'Clear Chat History',
+                  style: TextStyle(color: Colors.redAccent),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
 
       // --- Body ---

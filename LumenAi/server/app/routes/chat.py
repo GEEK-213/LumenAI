@@ -18,6 +18,8 @@ router = APIRouter()
 async def ask_ai(
     question: str = Form(...),
     context: str = Form(""),
+    subject_id: str = Form(None),
+    unit_id: str = Form(None),
     user_id: str = Depends(get_current_user),
 ):
     system_prompt = (
@@ -36,7 +38,14 @@ async def ask_ai(
     if user_id:
         try:
             # Fetch recent syllabus sources
-            syllabus_res = supabase.table("syllabus_sources").select("title, extracted_text").eq("user_id", user_id).order("created_at", desc=True).limit(3).execute()
+            syllabus_query = supabase.table("syllabus_sources").select("title, extracted_text").eq("user_id", user_id)
+            if subject_id:
+                syllabus_query = syllabus_query.eq("subject_id", subject_id)
+            if unit_id:
+                syllabus_query = syllabus_query.eq("unit_id", unit_id)
+                
+            syllabus_res = syllabus_query.order("created_at", desc=True).limit(3).execute()
+            
             if syllabus_res.data:
                 db_context += "--- RECENT SYLLABUS DOCS ---\n"
                 for item in syllabus_res.data:
@@ -44,7 +53,14 @@ async def ask_ai(
                     db_context += f"Syllabus: {item.get('title')}\nContent: {content}\n\n"
             
             # Fetch recent lectures
-            lectures_res = supabase.table("lectures").select("title, summary").eq("user_id", user_id).order("created_at", desc=True).limit(3).execute()
+            query = supabase.table("lectures").select("title, summary").eq("user_id", user_id)
+            if subject_id:
+                query = query.eq("subject_id", subject_id)
+            if unit_id:
+                query = query.eq("unit_id", unit_id)
+                
+            lectures_res = query.order("created_at", desc=True).limit(5).execute()
+            
             if lectures_res.data:
                 db_context += "--- RECENT LECTURE SUMMARIES ---\n"
                 for item in lectures_res.data:
