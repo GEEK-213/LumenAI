@@ -316,4 +316,42 @@ class ApiService {
     }
     return jsonDecode(response.body);
   }
+
+  /// Gamification: Generates 5 novel MCQs avoiding existing ones on the backend.
+  Future<List<QuizQuestion>> generateDynamicQuiz(String lectureId) async {
+    final uri = Uri.parse('$baseUrl/analysis/lecture/$lectureId/quiz/dynamic');
+    final headers = await _authHeaders();
+    final response = await http.post(uri, headers: headers);
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Failed to generate dynamic quiz: ${response.statusCode}',
+      );
+    }
+
+    final json = jsonDecode(response.body);
+    final data = json['data'] as List;
+    return data.map((e) => QuizQuestion.fromJson(e)).toList();
+  }
+
+  /// Gamification: Generates 5 novel Flashcards avoiding existing concepts.
+  Future<List<FlashcardData>> generateDynamicFlashcards(
+    String lectureId,
+  ) async {
+    final uri = Uri.parse(
+      '$baseUrl/analysis/lecture/$lectureId/flashcards/dynamic',
+    );
+    final headers = await _authHeaders();
+    final response = await http.post(uri, headers: headers);
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Failed to generate dynamic flashcards: ${response.statusCode}',
+      );
+    }
+
+    final json = jsonDecode(response.body);
+    final data = json['data'] as List;
+    return data.map((e) => FlashcardData.fromJson(e)).toList();
+  }
 }

@@ -218,3 +218,39 @@ Output ONLY valid JSON matching this schema:
         ]
         """
         return await self._execute_prompt(combined_content, system_prompt, json_schema)
+
+    async def generate_dynamic_quiz(self, combined_content: str, previous_questions: list) -> str:
+        """
+        Gamification (Phase 4): Generate 5 NOVEL MCQs avoiding previously asked questions.
+        """
+        import json
+        avoid_str = json.dumps(previous_questions, indent=2) if previous_questions else "None"
+        system_prompt = f"Generate EXACTLY 5 NOVEL Multiple Choice Questions. DO NOT generate questions similar to these: {avoid_str}"
+        json_schema = """
+        [
+            {
+                "question": "question text",
+                "options": ["A", "B", "C", "D"],
+                "correct_answer": "A", 
+                "explanation": "why"
+            }
+        ]
+        """
+        return await self._execute_prompt(combined_content, system_prompt, json_schema)
+
+    async def generate_dynamic_flashcards(self, combined_content: str, previous_fronts: list) -> str:
+        """
+        Gamification (Phase 4): Generate 5 NOVEL flashcards avoiding previously tested concepts.
+        """
+        import json
+        avoid_str = json.dumps(previous_fronts, indent=2) if previous_fronts else "None"
+        system_prompt = f"Generate EXACTLY 5 NOVEL Front/Back flashcards. Focus on definitions. DO NOT cover these topics: {avoid_str}"
+        json_schema = """
+        [
+            {
+                "front": "Term", 
+                "back": "Definition"
+            }
+        ]
+        """
+        return await self._execute_prompt(combined_content, system_prompt, json_schema)

@@ -515,3 +515,117 @@ async def rename_lecture(lecture_id: str, new_title: str = Form(...), user_id: s
         print(f"❌ Error renaming lecture: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/lecture/{lecture_id}/quiz/dynamic")
+async def generate_dynamic_quiz_endpoint(lecture_id: str, user_id: str = Depends(get_current_user)):
+    """Gamification: Generate 5 NOVEL MCQs avoiding existing ones."""
+    try:
+        # 1. Fetch Lecture Content
+        lecture_res = supabase.table("lectures").select("transcript, summary").eq("id", lecture_id).execute()
+        if not lecture_res.data:
+            raise HTTPException(status_code=404, detail="Lecture not found")
+            
+        lecture = lecture_res.data[0]
+        content = lecture.get("transcript") or lecture.get("summary") or ""
+        if not content:
+            raise HTTPException(status_code=400, detail="Lecture has no processable text.")
+            
+        # 2. Fetch Existing Questions
+        quizzes_res = supabase.table("quizzes").select("question").eq("lecture_id", lecture_id).execute()
+        previous_questions = [q.get("question") for q in (quizzes_res.data or []) if q.get("question")]
+        
+        # 3. Generate New Questions
+        print(f"🧠 Generating DYNAMIC Quizzes for {lecture_id}...")
+        engine = get_analyzer()
+        try:
+            result_str = await engine.generate_dynamic_quiz([content], previous_questions)
+        except Exception as e:
+            print(f"⚠️ Gemini failed ({e}). Falling back to Ollama...")
+            engine = get_local_analyzer()
+            result_str = await engine.generate_dynamic_quiz(content, previous_questions)
+            
+        # 4. Parse & Save
+        clean_json = extract_json_array(result_str)
+        quizzes = json_repair.loads(clean_json)
+        
+        if isinstance(quizzes, dict) and "quiz_questions" in quizzes:
+            quizzes = quizzes["quiz_questions"]
+            
+        db_quizzes = []
+        for q in quizzes:
+            if not isinstance(q, dict): continue
+            db_quizzes.append({
+                "user_id": user_id,
+                "lecture_id": lecture_id,
+                "question": q.get("question"),
+                "options": q.get("options", []),
+                "correct_answer": q.get("correct_answer"),
+                "explanation": q.get("explanation")
+            })
+            
+        if db_quizzes:
+            supabase.table("quizzes").insert(db_quizzes).execute()
+            
+        return {"status": "success", "data": db_quizzes}
+        
+    except Exception as e:
+        print(f"❌ Error generating dynamic quiz: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/lecture/{lecture_id}/flashcards/dynamic")
+async def generate_dynamic_flashcards_endpoint(lecture_id: str, user_id: str = Depends(get_current_user)):
+    """Gamification: Generate 5 NOVEL Flashcards avoiding existing concepts."""
+    try:
+        # 1. Fetch Lecture Content
+        lecture_res = supabase.table("lectures").select("transcript, summary").eq("id", lecture_id).execute()
+        if not lecture_res.data:
+            raise HTTPException(status_code=404, detail="Lecture not found")
+            
+        lecture = lecture_res.data[0]
+        content = lecture.get("transcript") or lecture.get("summary") or ""
+        if not content:
+            raise HTTPException(status_code=400, detail="Lecture has no processable text.")
+            
+        # 2. Fetch Existing Flashcard Fronts
+        cards_res = supabase.table("flashcards").select("front").eq("lecture_id", lecture_id).execute()
+        previous_fronts = [f.get("front") for f in (cards_res.data or []) if f.get("front")]
+        
+        # 3. Generate New Flashcards
+        print(f"🧠 Generating DYNAMIC Flashcards for {lecture_id}...")
+        engine = get_analyzer()
+        try:
+            result_str = await engine.generate_dynamic_flashcards([content], previous_fronts)
+        except Exception as e:
+            print(f"⚠️ Gemini failed ({e}). Falling back to Ollama...")
+            engine = get_local_analyzer()
+            result_str = await engine.generate_dynamic_flashcards(content, previous_fronts)
+            
+        # 4. Parse & Save
+        clean_json = extract_json_array(result_str)
+        cards = json_repair.loads(clean_json)
+        
+        if isinstance(cards, dict) and "flashcards" in cards:
+            cards = cards["flashcards"]
+            
+        db_cards = []
+        for c in cards:
+            if not isinstance(c, dict): continue
+            db_cards.append({
+                "user_id": user_id,
+                "lecture_id": lecture_id,
+                "front": c.get("front"),
+                "back": c.get("back")
+            })
+            
+        if db_cards:
+            supabase.table("flashcards").insert(db_cards).execute()
+            
+        return {"status": "success", "data": db_cards}
+        
+    except Exception as e:
+        print(f"❌ Error generating dynamic flashcards: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../models/data_models.dart';
 import '../../services/api_service.dart';
 import '../../services/quiz_service.dart';
+import '../../services/gamification_service.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'mind_map_tab.dart';
 import 'code_sandbox_tab.dart';
@@ -74,7 +75,10 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
               questions: _currentResult.quizQuestions,
               lectureId: widget.lectureId,
             ),
-            EnhancedFlashcardsTab(flashcards: _currentResult.flashcards),
+            EnhancedFlashcardsTab(
+              flashcards: _currentResult.flashcards,
+              lectureId: widget.lectureId,
+            ),
             _buildMindMapTab(),
             if (_currentResult.codeSnippets.isNotEmpty)
               CodeSandboxTab(codeSnippets: _currentResult.codeSnippets),
@@ -238,12 +242,22 @@ class EnhancedQuizTab extends StatefulWidget {
 class _EnhancedQuizTabState extends State<EnhancedQuizTab> {
   final Map<int, String> _selectedAnswers = {};
   final QuizService _quizService = QuizService();
+  final ApiService _apiService = ApiService();
+
+  late List<QuizQuestion> _currentQuestions;
   bool _quizCompleted = false;
+  bool _isGeneratingNewQuiz = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentQuestions = widget.questions;
+  }
 
   int get _correctCount {
     int count = 0;
     for (final entry in _selectedAnswers.entries) {
-      if (entry.value == widget.questions[entry.key].correctAnswer) {
+      if (entry.value == _currentQuestions[entry.key].correctAnswer) {
         count++;
       }
     }
@@ -251,7 +265,7 @@ class _EnhancedQuizTabState extends State<EnhancedQuizTab> {
   }
 
   int get _answeredCount => _selectedAnswers.length;
-  int get _totalCount => widget.questions.length;
+  int get _totalCount => _currentQuestions.length;
   double get _percentage =>
       _totalCount > 0 ? (_correctCount / _totalCount) * 100 : 0;
 
@@ -291,7 +305,18 @@ class _EnhancedQuizTabState extends State<EnhancedQuizTab> {
           score: _correctCount,
           total: _totalCount,
         );
-      } catch (_) {}
+
+        // Gamification: Award 10 Lumen Coins per correct answer
+        if (_correctCount > 0) {
+          final gamification = GamificationService();
+          await gamification.awardCoins(
+            _correctCount * 10,
+            reason: "Quiz Completion",
+          );
+        }
+      } catch (e) {
+        debugPrint("Error saving quiz attempt or awarding coins: $e");
+      }
     }
 
     // Show completion modal
@@ -362,16 +387,69 @@ class _EnhancedQuizTabState extends State<EnhancedQuizTab> {
     );
   }
 
-  void _retakeQuiz() {
+  Future<void> _retakeQuiz() async {
+    if (widget.lectureId == null) {
+      // Offline or no ID, just reset
+      setState(() {
+        _selectedAnswers.clear();
+        _quizCompleted = false;
+      });
+      return;
+    }
+
     setState(() {
+      _isGeneratingNewQuiz = true;
       _selectedAnswers.clear();
       _quizCompleted = false;
     });
+
+    try {
+      final newQuestions = await _apiService.generateDynamicQuiz(
+        widget.lectureId!,
+      );
+      if (mounted) {
+        setState(() {
+          _currentQuestions = newQuestions;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Generated 5 novel questions!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to generate new quiz: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGeneratingNewQuiz = false;
+        });
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (widget.questions.isEmpty) {
+    if (_isGeneratingNewQuiz) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(color: Colors.orangeAccent),
+            const SizedBox(height: 20),
+            const Text(
+              "Generating novel questions...",
+              style: TextStyle(color: Colors.white, fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_currentQuestions.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -473,9 +551,9 @@ class _EnhancedQuizTabState extends State<EnhancedQuizTab> {
         Expanded(
           child: ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: widget.questions.length,
+            itemCount: _currentQuestions.length,
             itemBuilder: (ctx, i) {
-              final q = widget.questions[i];
+              final q = _currentQuestions[i];
               return _buildQuizCard(i, q);
             },
           ),
@@ -607,18 +685,26 @@ class _EnhancedQuizTabState extends State<EnhancedQuizTab> {
 
 class EnhancedFlashcardsTab extends StatefulWidget {
   final List<FlashcardData> flashcards;
+  final String? lectureId;
 
-  const EnhancedFlashcardsTab({super.key, required this.flashcards});
+  const EnhancedFlashcardsTab({
+    super.key,
+    required this.flashcards,
+    this.lectureId,
+  });
 
   @override
   State<EnhancedFlashcardsTab> createState() => _EnhancedFlashcardsTabState();
 }
 
 class _EnhancedFlashcardsTabState extends State<EnhancedFlashcardsTab> {
+  final ApiService _apiService = ApiService();
   late PageController _pageController;
+  late List<FlashcardData> _currentFlashcards;
   int _currentIndex = 0;
   final Map<int, bool> _confidence = {}; // true = know, false = review
   bool _showSummary = false;
+  bool _isGeneratingNew = false;
 
   int get _knownCount => _confidence.values.where((v) => v).length;
   int get _reviewCount => _confidence.values.where((v) => !v).length;
@@ -626,6 +712,7 @@ class _EnhancedFlashcardsTabState extends State<EnhancedFlashcardsTab> {
   @override
   void initState() {
     super.initState();
+    _currentFlashcards = widget.flashcards;
     _pageController = PageController();
   }
 
@@ -641,7 +728,7 @@ class _EnhancedFlashcardsTabState extends State<EnhancedFlashcardsTab> {
     });
 
     // Auto-advance to next card
-    if (_currentIndex < widget.flashcards.length - 1) {
+    if (_currentIndex < _currentFlashcards.length - 1) {
       _pageController.nextPage(
         duration: const Duration(milliseconds: 400),
         curve: Curves.easeInOut,
@@ -665,9 +752,64 @@ class _EnhancedFlashcardsTabState extends State<EnhancedFlashcardsTab> {
     );
   }
 
+  Future<void> _generateMoreCards() async {
+    if (widget.lectureId == null) return;
+
+    setState(() {
+      _isGeneratingNew = true;
+      _showSummary = false;
+    });
+
+    try {
+      final newCards = await _apiService.generateDynamicFlashcards(
+        widget.lectureId!,
+      );
+      if (mounted) {
+        setState(() {
+          _currentFlashcards = newCards;
+          _confidence.clear();
+          _currentIndex = 0;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Generated 5 novel flashcards!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to generate cards: $e')));
+        setState(() => _showSummary = true); // Rollback to summary
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGeneratingNew = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (widget.flashcards.isEmpty) {
+    if (_isGeneratingNew) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(color: Colors.blueAccent),
+            const SizedBox(height: 20),
+            const Text(
+              "Generating novel flashcards...",
+              style: TextStyle(color: Colors.white, fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_currentFlashcards.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -707,7 +849,7 @@ class _EnhancedFlashcardsTabState extends State<EnhancedFlashcardsTab> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    "Card ${_currentIndex + 1} of ${widget.flashcards.length}",
+                    "Card ${_currentIndex + 1} of ${_currentFlashcards.length}",
                     style: const TextStyle(color: Colors.white70, fontSize: 14),
                   ),
                   Row(
@@ -743,8 +885,8 @@ class _EnhancedFlashcardsTabState extends State<EnhancedFlashcardsTab> {
               ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
-                  value: widget.flashcards.isNotEmpty
-                      ? (_currentIndex + 1) / widget.flashcards.length
+                  value: _currentFlashcards.isNotEmpty
+                      ? (_currentIndex + 1) / _currentFlashcards.length
                       : 0,
                   backgroundColor: Colors.white12,
                   valueColor: const AlwaysStoppedAnimation<Color>(
@@ -760,10 +902,10 @@ class _EnhancedFlashcardsTabState extends State<EnhancedFlashcardsTab> {
         Expanded(
           child: PageView.builder(
             controller: _pageController,
-            itemCount: widget.flashcards.length,
+            itemCount: _currentFlashcards.length,
             onPageChanged: (i) => setState(() => _currentIndex = i),
             itemBuilder: (ctx, i) {
-              final card = widget.flashcards[i];
+              final card = _currentFlashcards[i];
               return _SwipeableFlashcard(
                 front: card.front,
                 back: card.back,
@@ -804,7 +946,7 @@ class _EnhancedFlashcardsTabState extends State<EnhancedFlashcardsTab> {
   }
 
   Widget _buildMasterySummary() {
-    final total = widget.flashcards.length;
+    final total = _currentFlashcards.length;
     final mastery = total > 0 ? (_knownCount / total * 100) : 0.0;
     final color = mastery >= 80
         ? Colors.greenAccent
@@ -858,7 +1000,7 @@ class _EnhancedFlashcardsTabState extends State<EnhancedFlashcardsTab> {
                     onPressed: _restart,
                     icon: const Icon(Icons.replay, color: Colors.orangeAccent),
                     label: const Text(
-                      "Review Again",
+                      "Review Missed",
                       style: TextStyle(color: Colors.orangeAccent),
                     ),
                     style: OutlinedButton.styleFrom(
@@ -884,6 +1026,19 @@ class _EnhancedFlashcardsTabState extends State<EnhancedFlashcardsTab> {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+            if (widget.lectureId != null)
+              TextButton.icon(
+                onPressed: _generateMoreCards,
+                icon: const Icon(
+                  Icons.auto_awesome,
+                  color: Colors.purpleAccent,
+                ),
+                label: const Text(
+                  "Generate More Cards",
+                  style: TextStyle(color: Colors.purpleAccent, fontSize: 16),
+                ),
+              ),
           ],
         ),
       ),

@@ -180,3 +180,31 @@ class LectureAnalyzer:
         ]
         """
         return await self._execute_prompt(contents, instructions)
+
+    async def generate_dynamic_quiz(self, contents: list, previous_questions: list) -> str:
+        """
+        Gamification (Phase 4): Generate 5 NOVEL MCQs avoiding previously asked questions.
+        """
+        import json
+        avoid_str = json.dumps(previous_questions, indent=2) if previous_questions else "None"
+        instructions = f"""
+        You are strictly an MCQ generating API.
+        
+        GOAL: Generate EXACTLY 5 *NOVEL* Multiple Choice Questions based on this text.
+        
+        CRITICAL CONSTRAINT: DO NOT generate any questions similar to the following previously asked questions:
+        {avoid_str}
+        
+        CONSTRAINT: Output ONLY strict RAW JSON array. No markdown blocks.
+        
+        OUTPUT FORMAT (Strict JSON Array):
+        [
+            {{
+                "question": "Exam-style MCQ question",
+                "options": ["Option A", "Option B", "Option C", "Option D"],
+                "correct_answer": "Option A", 
+                "explanation": "Brief explanation"
+            }}
+        ]
+        """
+        return await self._execute_prompt(contents, instructions)
