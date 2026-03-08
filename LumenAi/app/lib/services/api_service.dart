@@ -212,6 +212,8 @@ class ApiService {
           ? raw
           : Map<String, dynamic>.from(raw);
 
+      rawMap['lecture_id'] = lectureId;
+
       if (quizRes.isNotEmpty) {
         rawMap['quiz_questions'] = quizRes;
       }
@@ -390,5 +392,36 @@ class ApiService {
     final json = jsonDecode(response.body);
     final data = json['data'] as List;
     return data.map((e) => FlashcardData.fromJson(e)).toList();
+  }
+
+  // --- Phase 5: Next-Gen AI Learning (LumenCast Podcasts) ---
+
+  /// Requests the backend to generate a TTS podcast audio file for a given lecture.
+  Future<LumenCast> generateLumenCast(String lectureId) async {
+    final uri = Uri.parse(
+      '$baseUrl/analysis/lecture/$lectureId/podcast/generate',
+    );
+    final headers = await _authHeaders();
+    final response = await http.post(uri, headers: headers);
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Failed to generate LumenCast: ${response.statusCode} - ${response.body}',
+      );
+    }
+
+    final json = jsonDecode(response.body);
+    return LumenCast.fromJson(json['data']);
+  }
+
+  /// Fetches existing generated podcasts from Supabase for a given lecture.
+  Future<List<LumenCast>> getLumenCasts(String lectureId) async {
+    final response = await _supabase
+        .from('lumen_casts')
+        .select()
+        .eq('lecture_id', lectureId)
+        .order('created_at', ascending: false);
+
+    return (response as List).map((e) => LumenCast.fromJson(e)).toList();
   }
 }

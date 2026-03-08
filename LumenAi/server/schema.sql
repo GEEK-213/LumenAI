@@ -82,7 +82,17 @@ create table if not exists public.code_snippets (
   code_content text
 );
 
--- 6. Extracted Tasks Table
+-- 3.5 Generated Podcasts (LumenCasts)
+create table if not exists public.lumen_casts (
+  id uuid default gen_random_uuid() primary key,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  lecture_id uuid references public.lectures(id) on delete cascade not null,
+  audio_url text not null,
+  duration_seconds int default 0,
+  transcript text
+);
+
+-- 4. Extracted Tasks / Action Items
 create table if not exists public.extracted_tasks (
   id uuid default gen_random_uuid() primary key,
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
@@ -143,6 +153,7 @@ create index if not exists idx_quiz_questions_user_id on public.quiz_questions(u
 create index if not exists idx_quiz_questions_lecture_id on public.quiz_questions(lecture_id);
 create index if not exists idx_mind_maps_lecture_id on public.mind_maps(lecture_id);
 create index if not exists idx_code_snippets_lecture_id on public.code_snippets(lecture_id);
+create index if not exists idx_lumen_casts_lecture_id on public.lumen_casts(lecture_id);
 create index if not exists idx_extracted_tasks_user_id on public.extracted_tasks(user_id);
 create index if not exists idx_extracted_tasks_lecture_id on public.extracted_tasks(lecture_id);
 create index if not exists idx_quiz_attempts_user_id on public.quiz_attempts(user_id);
@@ -164,6 +175,7 @@ alter table public.flashcards enable row level security;
 alter table public.quiz_questions enable row level security;
 alter table public.mind_maps enable row level security;
 alter table public.code_snippets enable row level security;
+alter table public.lumen_casts enable row level security;
 alter table public.extracted_tasks enable row level security;
 alter table public.syllabus_sources enable row level security;
 alter table public.user_integrations enable row level security;
@@ -207,9 +219,22 @@ create policy "mind_maps_delete" on public.mind_maps for delete using (auth.uid(
 
 -- Code Snippets: granular policies
 create policy "code_snippets_select" on public.code_snippets for select using (auth.uid() = user_id);
-create policy "code_snippets_insert" on public.code_snippets for insert with check (auth.uid() = user_id);
+create policy "code_snippets_insert" on public.code_snippets for insert with check (
+  lecture_id in (select id from public.lectures where user_id = auth.uid())
+);
 create policy "code_snippets_update" on public.code_snippets for update using (auth.uid() = user_id);
 create policy "code_snippets_delete" on public.code_snippets for delete using (auth.uid() = user_id);
+
+-- => LumenCasts
+create policy "lumen_casts_select" on public.lumen_casts for select using (
+  lecture_id in (select id from public.lectures where user_id = auth.uid())
+);
+create policy "lumen_casts_insert" on public.lumen_casts for insert with check (
+  lecture_id in (select id from public.lectures where user_id = auth.uid())
+);
+create policy "lumen_casts_delete" on public.lumen_casts for delete using (
+  lecture_id in (select id from public.lectures where user_id = auth.uid())
+);
 
 -- Extracted Tasks: granular policies
 create policy "extracted_tasks_select" on public.extracted_tasks for select using (auth.uid() = user_id);

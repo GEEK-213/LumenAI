@@ -254,3 +254,24 @@ Output ONLY valid JSON matching this schema:
         ]
         """
         return await self._execute_prompt(combined_content, system_prompt, json_schema)
+
+    async def generate_podcast_script(self, combined_content: str) -> str:
+        """
+        Phase 5: Generate a LumenCast audio script using Ollama.
+        """
+        system_prompt = (
+            "Write a 2-host conversational podcast script (Host 1: Alex, Host 2: Jamie) "
+            "explaining the key concepts of the provided lecture material. "
+            "STRICTLY output valid JSON containing the script as a single string field 'script'. "
+            "Inside the script string, separate hosts' dialogue with double newlines. "
+            "NO host labels or stage directions."
+        )
+        json_schema = '{"script": "The full spoken text of the podcast separated by double newlines."}'
+        
+        result = await self._execute_prompt(combined_content, system_prompt, json_schema)
+        try:
+            import json_repair
+            parsed = json_repair.loads(result)
+            return parsed.get("script", "")
+        except:
+            return ""

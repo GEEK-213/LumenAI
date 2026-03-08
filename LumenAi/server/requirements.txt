@@ -18,4 +18,6 @@ aiofiles
 PyJWT
 pytest
 pytest-asyncio
+# TTS Podcast Engine
+gTTS
 slowapi

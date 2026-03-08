@@ -208,3 +208,51 @@ class LectureAnalyzer:
         ]
         """
         return await self._execute_prompt(contents, instructions)
+
+    async def generate_dynamic_flashcards(self, contents: list, previous_fronts: list) -> str:
+        """
+        Gamification (Phase 4): Generate 5 NOVEL Flashcards avoiding previously generated concepts.
+        """
+        import json
+        avoid_str = json.dumps(previous_fronts, indent=2) if previous_fronts else "None"
+        instructions = f"""
+        You are strictly a Flashcard generating API.
+        
+        GOAL: Generate EXACTLY 5 *NOVEL* Front/Back flashcards based on this text. Focus on definitions.
+        
+        CRITICAL CONSTRAINT: DO NOT generate flashcards for the following terms which the user already knows:
+        {avoid_str}
+        
+        CONSTRAINT: Output ONLY strict RAW JSON array. No markdown blocks.
+        
+        OUTPUT FORMAT (Strict JSON Array):
+        [
+            {{
+                "front": "Term (e.g., Polymorphism)", 
+                "back": "Definition based on syllabus/content"
+            }}
+        ]
+        """
+        return await self._execute_prompt(contents, instructions)
+
+    async def generate_podcast_script(self, contents: list) -> str:
+        """
+        Phase 5: Generate a LumenCast audio script from the lecture materials.
+        """
+        instructions = """
+        You are a talented scriptwriter for a deeply engaging educational podcast.
+        
+        GOAL: Write a 2-host conversational podcast script (Host 1: Alex, Host 2: Jamie) 
+        explaining the key concepts of the provided lecture material.
+        
+        STYLE:
+        - Conversational, enthusiastic, and insightful (like NPR's Planet Money or Stuff You Should Know).
+        - Use analogies and real-world examples.
+        - The hosts seamlessly bounce off each other, occasionally asking rhetorical questions.
+        - STRICTLY output spoken dialogue lines only. NO speaker labels (like Alex:, Jamie:) and NO stage directions ([laughs], etc).
+        - Separate each host's spoken paragraph by a double newline so the TTS can pause naturally.
+        - Do not explicitly say their names or introduce them, just jump right into the fascinating content.
+        
+        LENGTH: Aim for script text that would take about 2-3 minutes to read out loud.
+        """
+        return await self._execute_prompt(contents, instructions)

@@ -530,7 +530,7 @@ async def generate_dynamic_quiz_endpoint(lecture_id: str, user_id: str = Depends
             raise HTTPException(status_code=400, detail="Lecture has no processable text.")
             
         # 2. Fetch Existing Questions
-        quizzes_res = supabase.table("quizzes").select("question").eq("lecture_id", lecture_id).execute()
+        quizzes_res = supabase.table("quiz_questions").select("question").eq("lecture_id", lecture_id).execute()
         previous_questions = [q.get("question") for q in (quizzes_res.data or []) if q.get("question")]
         
         # 3. Generate New Questions
@@ -563,7 +563,7 @@ async def generate_dynamic_quiz_endpoint(lecture_id: str, user_id: str = Depends
             })
             
         if db_quizzes:
-            supabase.table("quizzes").insert(db_quizzes).execute()
+            supabase.table("quiz_questions").insert(db_quizzes).execute()
             
         return {"status": "success", "data": db_quizzes}
         
@@ -626,6 +626,70 @@ async def generate_dynamic_flashcards_endpoint(lecture_id: str, user_id: str = D
         
     except Exception as e:
         print(f"❌ Error generating dynamic flashcards: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/lecture/{lecture_id}/podcast/generate")
+async def generate_podcast_endpoint(lecture_id: str, user_id: str = Depends(get_current_user)):
+    """Generate a TTS podcast from lecture notes using LLM scripting + Google TTS."""
+    from app.engine.audio_service import AudioService
+    try:
+        # 1. Fetch Lecture Content
+        lecture_res = supabase.table("lectures").select("transcript, summary").eq("id", lecture_id).execute()
+        if not lecture_res.data:
+            raise HTTPException(status_code=404, detail="Lecture not found")
+            
+        lecture = lecture_res.data[0]
+        content = lecture.get("transcript") or lecture.get("summary") or ""
+        if not content:
+            raise HTTPException(status_code=400, detail="Lecture has no processable text.")
+        
+        # 2. Generate Podcast Script via LLM
+        print(f"🎧 Generating Podcast Script for {lecture_id}...")
+        engine = get_analyzer()
+        try:
+            script_text = await engine.generate_podcast_script([content])
+        except Exception as e:
+            print(f"⚠️ Gemini podcast dictation failed ({e}). Falling back to Ollama...")
+            engine = get_local_analyzer()
+            script_text = await engine.generate_podcast_script(content)
+            
+        # 3. Generate Audio via gTTS
+        print(f"🎙️ Synthesizing Audio Podcast using gTTS...")
+        audio_service = AudioService()
+        audio_path = await audio_service.generate_podcast_audio(script_text)
+        
+        # 4. Upload to Supabase Storage
+        filename = f"podcast_{lecture_id}.mp3"
+        storage_path = f"{user_id}/{filename}"
+        
+        with open(audio_path, "rb") as f:
+            supabase.storage.from_("lumencasts").upload(
+                path=storage_path, 
+                file=f,
+                file_options={"content-type": "audio/mpeg", "upsert": "true"}
+            )
+            
+        public_url = supabase.storage.from_("lumencasts").get_public_url(storage_path)
+        
+        # Cleanup temp file
+        import os
+        if os.path.exists(audio_path):
+            os.remove(audio_path)
+            
+        # 5. Insert Record into LumenCasts table
+        cast_record = {
+            "lecture_id": lecture_id,
+            "audio_url": public_url,
+            "transcript": script_text
+        }
+        res = supabase.table("lumen_casts").insert(cast_record).execute()
+        
+        return {"status": "success", "data": res.data[0]}
+        
+    except Exception as e:
+        print(f"❌ Error generating podcast: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))

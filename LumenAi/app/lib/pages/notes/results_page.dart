@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../../models/data_models.dart';
 import '../../services/api_service.dart';
 import '../../services/quiz_service.dart';
@@ -24,14 +25,20 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
   bool _isRefreshing = false;
   final ApiService _apiService = ApiService();
 
+  String? get _effectiveLectureId =>
+      widget.lectureId ?? _currentResult.lectureId;
+
   @override
   void initState() {
     super.initState();
     _currentResult = widget.result;
-    _tabController = TabController(
-      length: _currentResult.codeSnippets.isNotEmpty ? 5 : 4,
-      vsync: this,
-    );
+
+    int tabCount = 4; // Summary, Quiz, Cards, Mind Map
+    if (_effectiveLectureId != null)
+      tabCount++; // Podcast requires DB interaction
+    if (_currentResult.codeSnippets.isNotEmpty) tabCount++; // Code
+
+    _tabController = TabController(length: tabCount, vsync: this);
   }
 
   @override
@@ -54,10 +61,15 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
         ),
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.blueAccent,
-          isScrollable: _currentResult.codeSnippets.isNotEmpty,
+          indicatorColor: Colors.purpleAccent,
+          isScrollable: true, // Switched to true to accommodate new tabs
           tabs: [
             const Tab(text: "Summary"),
+            if (_effectiveLectureId != null)
+              const Tab(
+                icon: Icon(Icons.headphones, size: 20),
+                text: "Podcast",
+              ),
             const Tab(text: "Quiz"),
             const Tab(text: "Cards"),
             const Tab(text: "Mind Map"),
@@ -71,13 +83,15 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
           controller: _tabController,
           children: [
             _buildSummaryTab(),
+            if (_effectiveLectureId != null)
+              LumenCastPlayerWidget(lectureId: _effectiveLectureId!),
             EnhancedQuizTab(
               questions: _currentResult.quizQuestions,
-              lectureId: widget.lectureId,
+              lectureId: _effectiveLectureId,
             ),
             EnhancedFlashcardsTab(
               flashcards: _currentResult.flashcards,
-              lectureId: widget.lectureId,
+              lectureId: _effectiveLectureId,
             ),
             _buildMindMapTab(),
             if (_currentResult.codeSnippets.isNotEmpty)
@@ -99,12 +113,12 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
   }
 
   Future<void> _refreshData() async {
-    if (widget.lectureId == null) return;
+    if (_effectiveLectureId == null) return;
     setState(() => _isRefreshing = true);
 
     try {
       final updatedResult = await _apiService.getAnalysisResult(
-        widget.lectureId!,
+        _effectiveLectureId!,
       );
       if (updatedResult != null && mounted) {
         setState(() {
@@ -220,6 +234,286 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
         color: Color(0xFF64B5F6),
         fontSize: 18,
         fontWeight: FontWeight.bold,
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// PHASE 5: LUMENCAST PODCAST PLAYER
+// ═══════════════════════════════════════════════════════════
+
+class LumenCastPlayerWidget extends StatefulWidget {
+  final String lectureId;
+
+  const LumenCastPlayerWidget({super.key, required this.lectureId});
+
+  @override
+  State<LumenCastPlayerWidget> createState() => _LumenCastPlayerWidgetState();
+}
+
+class _LumenCastPlayerWidgetState extends State<LumenCastPlayerWidget> {
+  final ApiService _apiService = ApiService();
+  final AudioPlayer _audioPlayer = AudioPlayer();
+
+  bool _isLoading = true;
+  bool _isGenerating = false;
+  bool _isPlaying = false;
+  Duration _duration = Duration.zero;
+  Duration _position = Duration.zero;
+  LumenCast? _currentCast;
+
+  @override
+  void initState() {
+    super.initState();
+    _initAudioListeners();
+    _fetchExistingCast();
+  }
+
+  void _initAudioListeners() {
+    _audioPlayer.onPlayerStateChanged.listen((state) {
+      if (mounted) {
+        setState(() {
+          _isPlaying = state == PlayerState.playing;
+        });
+      }
+    });
+    _audioPlayer.onDurationChanged.listen((newDuration) {
+      if (mounted) setState(() => _duration = newDuration);
+    });
+    _audioPlayer.onPositionChanged.listen((newPosition) {
+      if (mounted) setState(() => _position = newPosition);
+    });
+  }
+
+  Future<void> _fetchExistingCast() async {
+    try {
+      final casts = await _apiService.getLumenCasts(widget.lectureId);
+      if (casts.isNotEmpty && mounted) {
+        setState(() {
+          _currentCast = casts.first;
+          _isLoading = false;
+        });
+        await _audioPlayer.setSourceUrl(_currentCast!.audioUrl);
+      } else {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      debugPrint("Error fetching LumenCast: \$e");
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _generateNewCast() async {
+    setState(() {
+      _isGenerating = true;
+    });
+    try {
+      final newCast = await _apiService.generateLumenCast(widget.lectureId);
+      if (mounted) {
+        setState(() {
+          _currentCast = newCast;
+        });
+        await _audioPlayer.setSourceUrl(_currentCast!.audioUrl);
+        // Autoplay
+        _audioPlayer.resume();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to generate podcast: \$e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isGenerating = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
+  }
+
+  String _formatDuration(Duration d) {
+    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return "\$minutes:\$seconds";
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.blueAccent),
+      );
+    }
+
+    if (_currentCast == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.headphones_outlined,
+              size: 64,
+              color: Colors.white24,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "No LumenCast available for this lecture.",
+              style: TextStyle(color: Colors.white54),
+            ),
+            const SizedBox(height: 24),
+            _isGenerating
+                ? const CircularProgressIndicator(color: Colors.purpleAccent)
+                : ElevatedButton.icon(
+                    onPressed: _generateNewCast,
+                    icon: const Icon(Icons.auto_awesome),
+                    label: const Text("Generate AI Podcast"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purple.shade900,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.graphic_eq, color: Colors.purpleAccent),
+              const SizedBox(width: 8),
+              Text(
+                "LumenCast",
+                style: TextStyle(
+                  color: Colors.purple.shade200,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+          // Player Card
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.purple.withOpacity(0.3)),
+            ),
+            child: Column(
+              children: [
+                Slider(
+                  value: _position.inSeconds.toDouble(),
+                  min: 0,
+                  max: _duration.inSeconds.toDouble() > 0
+                      ? _duration.inSeconds.toDouble()
+                      : 1.0,
+                  activeColor: Colors.purpleAccent,
+                  inactiveColor: Colors.purple.withOpacity(0.3),
+                  onChanged: (value) {
+                    _audioPlayer.seek(Duration(seconds: value.toInt()));
+                  },
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _formatDuration(_position),
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                      Text(
+                        _formatDuration(_duration),
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.replay_10,
+                        size: 32,
+                        color: Colors.white,
+                      ),
+                      onPressed: () {
+                        _audioPlayer.seek(
+                          _position - const Duration(seconds: 10),
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 16),
+                    CircleAvatar(
+                      radius: 32,
+                      backgroundColor: Colors.purpleAccent,
+                      child: IconButton(
+                        icon: Icon(
+                          _isPlaying ? Icons.pause : Icons.play_arrow,
+                          size: 32,
+                          color: Colors.white,
+                        ),
+                        onPressed: () {
+                          if (_isPlaying) {
+                            _audioPlayer.pause();
+                          } else {
+                            _audioPlayer.resume();
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.forward_10,
+                        size: 32,
+                        color: Colors.white,
+                      ),
+                      onPressed: () {
+                        _audioPlayer.seek(
+                          _position + const Duration(seconds: 10),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            "Transcript Snippet:",
+            style: TextStyle(
+              color: Colors.white54,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Text(
+                _currentCast!.transcript,
+                style: const TextStyle(color: Colors.white70, height: 1.6),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -734,8 +1028,24 @@ class _EnhancedFlashcardsTabState extends State<EnhancedFlashcardsTab> {
         curve: Curves.easeInOut,
       );
     } else {
-      // Last card — show summary
-      setState(() => _showSummary = true);
+      // Last card — show summary & save attempt
+      _completeDeck();
+    }
+  }
+
+  Future<void> _completeDeck() async {
+    setState(() => _showSummary = true);
+
+    if (widget.lectureId != null && _knownCount > 0) {
+      try {
+        final gamification = GamificationService();
+        await gamification.awardCoins(
+          _knownCount * 5,
+          reason: "Flashcard Mastery",
+        );
+      } catch (e) {
+        debugPrint("Error saving flashcard gamification tracking: \$e");
+      }
     }
   }
 
@@ -745,11 +1055,8 @@ class _EnhancedFlashcardsTabState extends State<EnhancedFlashcardsTab> {
       _currentIndex = 0;
       _showSummary = false;
     });
-    _pageController.animateToPage(
-      0,
-      duration: const Duration(milliseconds: 400),
-      curve: Curves.easeInOut,
-    );
+    // Setting _showSummary back to false will rebuild the PageView.
+    // Since _currentIndex is reset to 0, it natively builds back to the start.
   }
 
   Future<void> _generateMoreCards() async {
