@@ -18,3 +18,4 @@ aiofiles
 PyJWT
 pytest
 pytest-asyncio
+slowapi

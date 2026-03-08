@@ -1,0 +1,288 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.13.7, pytest-9.0.2, pluggy-1.6.0
+rootdir: C:\Users\faari\OneDrive\Desktop\FinalProject\LumenAI\LumenAi\server
+plugins: anyio-4.12.1, Faker-40.1.2, asyncio-1.3.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collected 114 items
+
+tests\test_audio_pipeline.py .FEFFE                                      [  5%]
+tests\test_comprehensive.py ............................................ [ 43%]
+..F...................                                                   [ 63%]
+tests\test_engine.py .                                                   [ 64%]
+tests\test_phase2.py .....................F.....                         [ 87%]
+tests\test_security.py ..............                                    [100%]
+
+=================================== ERRORS ====================================
+__________________ ERROR at setup of test_process_audio_file __________________
+file C:\Users\faari\OneDrive\Desktop\FinalProject\LumenAI\LumenAi\server\tests\test_audio_pipeline.py, line 118
+  def test_process_audio_file(audio_path):
+E       fixture 'audio_path' not found
+>       available fixtures: _class_scoped_runner, _function_scoped_runner, _module_scoped_runner, _package_scoped_runner, _session_faker, _session_scoped_runner, anyio_backend, anyio_backend_name, anyio_backend_options, cache, capfd, capfdbinary, caplog, capsys, capsysbinary, capteesys, doctest_namespace, event_loop_policy, faker, free_tcp_port, free_tcp_port_factory, free_udp_port, free_udp_port_factory, monkeypatch, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, subtests, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory, unused_tcp_port, unused_tcp_port_factory, unused_udp_port, unused_udp_port_factory
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+C:\Users\faari\OneDrive\Desktop\FinalProject\LumenAI\LumenAi\server\tests\test_audio_pipeline.py:118
+________________ ERROR at setup of test_json_output_structure _________________
+file C:\Users\faari\OneDrive\Desktop\FinalProject\LumenAI\LumenAi\server\tests\test_audio_pipeline.py, line 224
+  def test_json_output_structure(process_result):
+E       fixture 'process_result' not found
+>       available fixtures: _class_scoped_runner, _function_scoped_runner, _module_scoped_runner, _package_scoped_runner, _session_faker, _session_scoped_runner, anyio_backend, anyio_backend_name, anyio_backend_options, cache, capfd, capfdbinary, caplog, capsys, capsysbinary, capteesys, doctest_namespace, event_loop_policy, faker, free_tcp_port, free_tcp_port_factory, free_udp_port, free_udp_port_factory, monkeypatch, pytestconfig, record_property, record_testsuite_property, record_xml_attribute, recwarn, subtests, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory, unused_tcp_port, unused_tcp_port_factory, unused_udp_port, unused_udp_port_factory
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+C:\Users\faari\OneDrive\Desktop\FinalProject\LumenAI\LumenAi\server\tests\test_audio_pipeline.py:224
+================================== FAILURES ===================================
+___________________________ test_process_text_file ____________________________
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\connection.py:198: in _new_conn
+    sock = connection.create_connection(
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\util\connection.py:85: in create_connection
+    raise err
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\util\connection.py:73: in create_connection
+    sock.connect(sa)
+E   ConnectionRefusedError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\connectionpool.py:787: in urlopen
+    response = self._make_request(
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\connectionpool.py:493: in _make_request
+    conn.request(
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\connection.py:494: in request
+    self.endheaders()
+C:\Python313\Lib\http\client.py:1333: in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+C:\Python313\Lib\http\client.py:1093: in _send_output
+    self.send(msg)
+C:\Python313\Lib\http\client.py:1037: in send
+    self.connect()
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\connection.py:325: in connect
+    self.sock = self._new_conn()
+                ^^^^^^^^^^^^^^^^
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\connection.py:213: in _new_conn
+    raise NewConnectionError(
+E   urllib3.exceptions.NewConnectionError: <urllib3.connection.HTTPConnection object at 0x0000021423F3BC50>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\requests\adapters.py:644: in send
+    resp = conn.urlopen(
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\connectionpool.py:841: in urlopen
+    retries = retries.increment(
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\util\retry.py:519: in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /analysis/process (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021423F3BC50>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+
+During handling of the above exception, another exception occurred:
+tests\test_audio_pipeline.py:86: in test_process_text_file
+    response = requests.post(
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\requests\api.py:115: in post
+    return request("post", url, data=data, json=json, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\requests\api.py:59: in request
+    return session.request(method=method, url=url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\requests\sessions.py:589: in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\requests\sessions.py:703: in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\requests\adapters.py:677: in send
+    raise ConnectionError(e, request=request)
+E   requests.exceptions.ConnectionError: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /analysis/process (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021423F3BC50>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+---------------------------- Captured stdout call -----------------------------
+
+--- Test 2: Process Text File (Full Pipeline) ---
+_____________________________ test_chat_endpoint ______________________________
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\connection.py:198: in _new_conn
+    sock = connection.create_connection(
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\util\connection.py:85: in create_connection
+    raise err
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\util\connection.py:73: in create_connection
+    sock.connect(sa)
+E   ConnectionRefusedError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\connectionpool.py:787: in urlopen
+    response = self._make_request(
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\connectionpool.py:493: in _make_request
+    conn.request(
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\connection.py:494: in request
+    self.endheaders()
+C:\Python313\Lib\http\client.py:1333: in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+C:\Python313\Lib\http\client.py:1093: in _send_output
+    self.send(msg)
+C:\Python313\Lib\http\client.py:1037: in send
+    self.connect()
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\connection.py:325: in connect
+    self.sock = self._new_conn()
+                ^^^^^^^^^^^^^^^^
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\connection.py:213: in _new_conn
+    raise NewConnectionError(
+E   urllib3.exceptions.NewConnectionError: <urllib3.connection.HTTPConnection object at 0x0000021423F39D10>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\requests\adapters.py:644: in send
+    resp = conn.urlopen(
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\connectionpool.py:841: in urlopen
+    retries = retries.increment(
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\util\retry.py:519: in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /chat/ask (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021423F39D10>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+
+During handling of the above exception, another exception occurred:
+tests\test_audio_pipeline.py:161: in test_chat_endpoint
+    response = requests.post(
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\requests\api.py:115: in post
+    return request("post", url, data=data, json=json, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\requests\api.py:59: in request
+    return session.request(method=method, url=url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\requests\sessions.py:589: in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\requests\sessions.py:703: in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\requests\adapters.py:677: in send
+    raise ConnectionError(e, request=request)
+E   requests.exceptions.ConnectionError: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /chat/ask (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021423F39D10>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+---------------------------- Captured stdout call -----------------------------
+
+--- Test 4: Chat /ask Endpoint ---
+____________________________ test_syllabus_upload _____________________________
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\connection.py:198: in _new_conn
+    sock = connection.create_connection(
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\util\connection.py:85: in create_connection
+    raise err
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\util\connection.py:73: in create_connection
+    sock.connect(sa)
+E   ConnectionRefusedError: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\connectionpool.py:787: in urlopen
+    response = self._make_request(
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\connectionpool.py:493: in _make_request
+    conn.request(
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\connection.py:494: in request
+    self.endheaders()
+C:\Python313\Lib\http\client.py:1333: in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+C:\Python313\Lib\http\client.py:1093: in _send_output
+    self.send(msg)
+C:\Python313\Lib\http\client.py:1037: in send
+    self.connect()
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\connection.py:325: in connect
+    self.sock = self._new_conn()
+                ^^^^^^^^^^^^^^^^
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\connection.py:213: in _new_conn
+    raise NewConnectionError(
+E   urllib3.exceptions.NewConnectionError: <urllib3.connection.HTTPConnection object at 0x0000021423EE63F0>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it
+
+The above exception was the direct cause of the following exception:
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\requests\adapters.py:644: in send
+    resp = conn.urlopen(
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\connectionpool.py:841: in urlopen
+    retries = retries.increment(
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\urllib3\util\retry.py:519: in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   urllib3.exceptions.MaxRetryError: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /ingest/upload (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021423EE63F0>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+
+During handling of the above exception, another exception occurred:
+tests\test_audio_pipeline.py:195: in test_syllabus_upload
+    response = requests.post(
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\requests\api.py:115: in post
+    return request("post", url, data=data, json=json, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\requests\api.py:59: in request
+    return session.request(method=method, url=url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\requests\sessions.py:589: in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\requests\sessions.py:703: in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\requests\adapters.py:677: in send
+    raise ConnectionError(e, request=request)
+E   requests.exceptions.ConnectionError: HTTPConnectionPool(host='localhost', port=8001): Max retries exceeded with url: /ingest/upload (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000021423EE63F0>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+---------------------------- Captured stdout call -----------------------------
+
+--- Test 5: Syllabus Upload /ingest/upload ---
+__________ TestClassroomRoute.test_manual_sync_request_model_fields ___________
+tests\test_comprehensive.py:320: in test_manual_sync_request_model_fields
+    assert req.user_id == "u1"
+           ^^^^^^^^^^^
+C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\pydantic\main.py:1026: in __getattr__
+    raise AttributeError(f'{type(self).__name__!r} object has no attribute {item!r}')
+E   AttributeError: 'ManualSyncRequest' object has no attribute 'user_id'
+__________________ TestSemaphore.test_semaphore_limits_to_2 ___________________
+tests\test_phase2.py:199: in test_semaphore_limits_to_2
+    await asyncio.gather(*[mock_task(i) for i in range(5)])
+tests\test_phase2.py:192: in mock_task
+    async with analysis_semaphore:
+               ^^^^^^^^^^^^^^^^^^
+C:\Python313\Lib\asyncio\locks.py:14: in __aenter__
+    await self.acquire()
+C:\Python313\Lib\asyncio\locks.py:402: in acquire
+    fut = self._get_loop().create_future()
+          ^^^^^^^^^^^^^^^^
+C:\Python313\Lib\asyncio\mixins.py:20: in _get_loop
+    raise RuntimeError(f'{self!r} is bound to a different event loop')
+E   RuntimeError: <asyncio.locks.Semaphore object at 0x000002144B267770 [locked]> is bound to a different event loop
+============================== warnings summary ===============================
+tests/test_audio_pipeline.py::test_server_health
+  C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\_pytest\python.py:170: PytestReturnNotNoneWarning: Test functions should return None, but tests/test_audio_pipeline.py::test_server_health returned <class 'bool'>.
+  Did you mean to use `assert` instead of `return`?
+  See https://docs.pytest.org/en/stable/how-to/assert.html#return-not-none for more information.
+    warnings.warn(
+
+tests/test_comprehensive.py::TestExtractJSON::test_clean_json_object
+  C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\pydub\utils.py:170: RuntimeWarning: Couldn't find ffmpeg or avconv - defaulting to ffmpeg, but may not work
+    warn("Couldn't find ffmpeg or avconv - defaulting to ffmpeg, but may not work", RuntimeWarning)
+
+tests/test_comprehensive.py::TestDatabaseModule::test_supabase_client_has_storage
+  C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\supabase\_sync\client.py:264: DeprecationWarning: The 'timeout' parameter is deprecated. Please configure it in the http client instead.
+    return SyncStorageClient(
+
+tests/test_comprehensive.py::TestDatabaseModule::test_supabase_client_has_storage
+  C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\supabase\_sync\client.py:264: DeprecationWarning: The 'verify' parameter is deprecated. Please configure it in the http client instead.
+    return SyncStorageClient(
+
+tests/test_comprehensive.py::TestMainApp::test_main_app_imports
+  C:\Users\faari\OneDrive\Desktop\FinalProject\LumenAI\LumenAi\server\tests\..\main.py:91: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    @app.on_event("startup")
+
+tests/test_comprehensive.py::TestMainApp::test_main_app_imports
+  C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\fastapi\applications.py:4573: DeprecationWarning: 
+          on_event is deprecated, use lifespan event handlers instead.
+  
+          Read more about it in the
+          [FastAPI docs for Lifespan Events](https://fastapi.tiangolo.com/advanced/events/).
+          
+    return self.router.on_event(event_type)
+
+tests/test_security.py::TestHealthCheck::test_health_returns_200
+  C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\supabase\_sync\client.py:309: DeprecationWarning: The 'timeout' parameter is deprecated. Please configure it in the http client instead.
+    return SyncPostgrestClient(
+
+tests/test_security.py::TestHealthCheck::test_health_returns_200
+  C:\Users\faari\AppData\Roaming\Python\Python313\site-packages\supabase\_sync\client.py:309: DeprecationWarning: The 'verify' parameter is deprecated. Please configure it in the http client instead.
+    return SyncPostgrestClient(
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_audio_pipeline.py::test_process_text_file - requests.except...
+FAILED tests/test_audio_pipeline.py::test_chat_endpoint - requests.exceptions...
+FAILED tests/test_audio_pipeline.py::test_syllabus_upload - requests.exceptio...
+FAILED tests/test_comprehensive.py::TestClassroomRoute::test_manual_sync_request_model_fields
+FAILED tests/test_phase2.py::TestSemaphore::test_semaphore_limits_to_2 - Runt...
+ERROR tests/test_audio_pipeline.py::test_process_audio_file
+ERROR tests/test_audio_pipeline.py::test_json_output_structure
+============ 5 failed, 107 passed, 8 warnings, 2 errors in 29.49s =============

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
@@ -5,6 +6,32 @@ import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../config.dart';
 import '../models/data_models.dart';
+
+class MultipartRequestWithProgress extends http.MultipartRequest {
+  MultipartRequestWithProgress(String method, Uri url, {this.onProgress})
+    : super(method, url);
+
+  final void Function(int bytes, int totalBytes)? onProgress;
+
+  @override
+  http.ByteStream finalize() {
+    final byteStream = super.finalize();
+    if (onProgress == null) return byteStream;
+
+    final total = contentLength;
+    int bytes = 0;
+
+    final transformer = StreamTransformer<List<int>, List<int>>.fromHandlers(
+      handleData: (data, sink) {
+        bytes += data.length;
+        if (onProgress != null) onProgress!(bytes, total);
+        sink.add(data);
+      },
+    );
+
+    return http.ByteStream(byteStream.transform(transformer));
+  }
+}
 
 class ApiService {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -62,9 +89,14 @@ class ApiService {
     required String subjectId,
     String? unitId,
     String? title,
+    void Function(int sent, int total)? onProgress,
   }) async {
     final uri = Uri.parse('$baseUrl/analysis/process');
-    final request = http.MultipartRequest('POST', uri);
+    final request = MultipartRequestWithProgress(
+      'POST',
+      uri,
+      onProgress: onProgress,
+    );
 
     // Auth header
     final headers = await _authHeaders();
@@ -112,9 +144,14 @@ class ApiService {
     required String subjectId,
     String? unitId,
     String? title,
+    void Function(int sent, int total)? onProgress,
   }) async {
     final uri = Uri.parse('$baseUrl/ingestion/upload');
-    final request = http.MultipartRequest('POST', uri);
+    final request = MultipartRequestWithProgress(
+      'POST',
+      uri,
+      onProgress: onProgress,
+    );
 
     // Auth header
     final headers = await _authHeaders();

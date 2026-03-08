@@ -12,6 +12,7 @@ import json
 import logging
 from app.database import supabase
 from app.tasks.classroom_sync import manual_sync_subject_classroom
+from app.utils.encryption import encrypt_dict, decrypt_dict
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -94,7 +95,7 @@ async def oauth_callback(state: str, code: str):
         flow.fetch_token(code=code)
         credentials = flow.credentials
 
-        # Save tokens to Supabase for this user
+        # Save tokens to Supabase for this user (Encrypted at rest)
         tokens = {
             "token": credentials.token,
             "refresh_token": credentials.refresh_token,
@@ -104,21 +105,18 @@ async def oauth_callback(state: str, code: str):
             "scopes": credentials.scopes
         }
         
-        # We need a new table `user_integrations` or just update `users` table
-        # We will assume a `user_integrations` table or save it to a secure column
-        # Wait, does the user table exist? Let's check or create a table.
-        # For prototype, we'll save it to a new table.
+        encrypted_tokens = encrypt_dict(tokens)
         
         # Check if row exists
         resp = supabase.table("user_integrations").select("id").eq("user_id", user_id).execute()
         if len(resp.data) > 0:
             supabase.table("user_integrations").update({
-                "google_tokens": tokens
+                "google_tokens": encrypted_tokens
             }).eq("user_id", user_id).execute()
         else:
             supabase.table("user_integrations").insert({
                 "user_id": user_id,
-                "google_tokens": tokens
+                "google_tokens": encrypted_tokens
             }).execute()
 
         # Redirect the user back to the app (deep link)
@@ -142,7 +140,16 @@ async def list_courses(user_id: str = Depends(get_current_user)):
     if not resp.data or not resp.data.get("google_tokens"):
         raise HTTPException(status_code=401, detail="Google Classroom not connected.")
         
-    creds_data = resp.data["google_tokens"]
+    try:
+        if isinstance(resp.data["google_tokens"], str):
+            creds_data = decrypt_dict(resp.data["google_tokens"])
+        else:
+            # Fallback for unencrypted legacy tokens
+            creds_data = resp.data["google_tokens"]
+    except Exception as e:
+        logger.error(f"Failed to decrypt Google tokens: {e}")
+        raise HTTPException(status_code=401, detail="Invalid or corrupted Google Classroom tokens.")
+
     creds = Credentials(
         token=creds_data["token"],
         refresh_token=creds_data["refresh_token"],

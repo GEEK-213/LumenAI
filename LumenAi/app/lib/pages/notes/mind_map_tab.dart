@@ -243,6 +243,55 @@ class _MindMapViewState extends State<MindMapView>
       ..scale(defaultScale);
   }
 
+  void _showNodeDefinition(Map<String, dynamic> node, Color color) {
+    final label = node['label']?.toString() ?? '?';
+    // Use definition from AI payload if available, else placeholder
+    final description =
+        node['definition']?.toString() ??
+        node['description']?.toString() ??
+        'Detailed definition for "$label" will appear here.';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2746),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(Icons.hub, color: color),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          description,
+          style: const TextStyle(
+            color: Colors.white70,
+            height: 1.5,
+            fontSize: 16,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              'Close',
+              style: TextStyle(color: Colors.blueAccent),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _computeLayout() {
     final nodes = widget.nodes;
     final edges = widget.edges;
@@ -402,7 +451,10 @@ class _MindMapViewState extends State<MindMapView>
                               });
                               _showNodeDetail(label, color, i);
                             },
-                            onDoubleTap: () => _centerOnNode(pos),
+                            onDoubleTap: () {
+                              _centerOnNode(pos, defaultScale: 2.5);
+                              _showNodeDefinition(node, color);
+                            },
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [

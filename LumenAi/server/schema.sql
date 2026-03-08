@@ -234,3 +234,49 @@ create policy "quiz_attempts_select" on public.quiz_attempts for select using (a
 create policy "quiz_attempts_insert" on public.quiz_attempts for insert with check (auth.uid() = user_id);
 create policy "quiz_attempts_update" on public.quiz_attempts for update using (auth.uid() = user_id);
 create policy "quiz_attempts_delete" on public.quiz_attempts for delete using (auth.uid() = user_id);
+
+-- ═══════════════════════════════════════════════════════════
+-- GAMIFICATION TABLES & FUNCTIONS
+-- ═══════════════════════════════════════════════════════════
+
+create table if not exists public.lumen_profiles (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users not null unique,
+  display_name text,
+  avatar_url text,
+  lumen_coins int default 0,
+  xp int default 0,
+  streak_days int default 0,
+  rank_title text default 'Novice Scholar',
+  unlocked_items text[] default '{}',
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+create index if not exists idx_lumen_profiles_user_id on public.lumen_profiles(user_id);
+create index if not exists idx_lumen_profiles_xp on public.lumen_profiles(xp desc);
+
+alter table public.lumen_profiles enable row level security;
+create policy "lumen_profiles_select" on public.lumen_profiles for select using (true); -- Publicly viewable for leaderboards
+create policy "lumen_profiles_insert" on public.lumen_profiles for insert with check (auth.uid() = user_id);
+create policy "lumen_profiles_update" on public.lumen_profiles for update using (auth.uid() = user_id);
+
+-- Function to perfectly fetch leaderboard
+create or replace function public.get_global_leaderboard(limit_count int default 50)
+returns table (
+  user_id uuid,
+  display_name text,
+  xp int,
+  rank_title text,
+  lumen_coins int
+) language sql security definer as $$
+  select 
+    user_id, 
+    coalesce(display_name, 'Anonymous Scholar') as display_name,
+    xp, 
+    rank_title, 
+    lumen_coins
+  from public.lumen_profiles
+  order by xp desc
+  limit limit_count;
+$$;

@@ -9,6 +9,7 @@ import logging
 import difflib
 
 from app.database import supabase
+from app.utils.encryption import encrypt_dict, decrypt_dict
 
 logger = logging.getLogger(__name__)
 
@@ -41,8 +42,9 @@ def get_valid_credentials(tokens: dict, user_id: str = None) -> Credentials:
                     "token": creds.token,
                 }
                 try:
+                    encrypted_updated = encrypt_dict(updated_tokens)
                     supabase.table("user_integrations").update({
-                        "google_tokens": updated_tokens
+                        "google_tokens": encrypted_updated
                     }).eq("user_id", user_id).execute()
                     print("💾 Refreshed token saved to Supabase.")
                 except Exception as save_err:
@@ -65,8 +67,17 @@ async def start_classroom_sync_job():
             
             for row in res.data:
                 user_id = row['user_id']
-                tokens = row.get('google_tokens')
-                if not tokens:
+                raw_tokens = row.get('google_tokens')
+                if not raw_tokens:
+                    continue
+                
+                try:
+                    if isinstance(raw_tokens, str):
+                        tokens = decrypt_dict(raw_tokens)
+                    else:
+                        tokens = raw_tokens
+                except Exception:
+                    logger.warning(f"Failed to decrypt token for user {user_id}")
                     continue
                     
                 await sync_user_classroom(user_id, tokens)
@@ -228,7 +239,15 @@ async def manual_sync_subject_classroom(user_id: str, subject_id: str):
         raise Exception("Google Classroom not connected.")
     print(f"✅ Google tokens found for user")
     
-    tokens = res.data[0]["google_tokens"]
+    raw_tokens = res.data[0]["google_tokens"]
+    try:
+        if isinstance(raw_tokens, str):
+            tokens = decrypt_dict(raw_tokens)
+        else:
+            tokens = raw_tokens
+    except Exception:
+        raise Exception("Failed to decrypt tokens. Re-connect Google Classroom.")
+        
     creds = get_valid_credentials(tokens, user_id=user_id)
     
     service = build('classroom', 'v1', credentials=creds)

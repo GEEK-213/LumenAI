@@ -6,6 +6,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from dotenv import load_dotenv
 import asyncio
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 
 from app.routes import analysis, chat, ingestion, classroom
 from app.tasks.classroom_sync import start_classroom_sync_job
@@ -20,7 +24,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger("lumenai")
 
+# --- Rate Limiter Setup ---
+limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
+
 app = FastAPI(title="Lumen AI Brain")
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 # --- CORS Middleware (Restricted) ---
 ALLOWED_ORIGINS = os.getenv(

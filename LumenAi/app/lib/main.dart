@@ -4,6 +4,7 @@ import 'package:app_links/app_links.dart';
 import 'package:app/pages/profile/splash_page.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'config.dart';
 import 'pages/profile/login.dart';
 import 'pages/main_page.dart';
@@ -20,6 +21,8 @@ void main() async {
     debugPrint('🔴 Unhandled Error: $error\n$stack');
     return true;
   };
+
+  await dotenv.load(fileName: ".env");
 
   await Supabase.initialize(
     url: AppConfig.supabaseUrl,

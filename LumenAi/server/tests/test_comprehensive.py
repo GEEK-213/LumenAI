@@ -316,8 +316,7 @@ class TestClassroomRoute:
 
     def test_manual_sync_request_model_fields(self):
         from app.routes.classroom import ManualSyncRequest
-        req = ManualSyncRequest(user_id="u1", subject_id="s1")
-        assert req.user_id == "u1"
+        req = ManualSyncRequest(subject_id="s1")
         assert req.subject_id == "s1"
 
     def test_classroom_connect_request_model(self):
