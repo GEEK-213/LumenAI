@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../services/api_service.dart';
 
-
 class FilePreviewPage extends StatefulWidget {
   final String lectureId;
   final String title;
@@ -121,9 +120,11 @@ class _FilePreviewPageState extends State<FilePreviewPage> {
     final fileColor = _getFileColor();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0C1223),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A2036),
+        backgroundColor:
+            Theme.of(context).appBarTheme.backgroundColor ??
+            Theme.of(context).cardColor,
         title: Text(
           widget.title,
           style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),

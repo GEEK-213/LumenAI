@@ -177,7 +177,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1A2036),
+      backgroundColor: Theme.of(context).cardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -344,7 +344,7 @@ class _ChatScreenState extends State<ChatScreen> {
     return Scaffold(
       // --- App Bar ---
       appBar: AppBar(
-        backgroundColor: const Color(0xFF050B18),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         centerTitle: true,
         leading: IconButton(
@@ -384,7 +384,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       color: Colors.white,
                     ),
                   ),
-                  dropdownColor: const Color(0xFF1A2036),
+                  dropdownColor: Theme.of(context).cardColor,
                   icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
                   style: const TextStyle(
                     fontSize: 16,
@@ -415,7 +415,7 @@ class _ChatScreenState extends State<ChatScreen> {
         actions: [
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: Colors.white),
-            color: const Color(0xFF1A2036),
+            color: Theme.of(context).cardColor,
             onSelected: (value) async {
               if (value == 'clear') {
                 await _clearMessages(_selectedSubjectId ?? 'general');

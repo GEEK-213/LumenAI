@@ -66,8 +66,8 @@ class CodeSandboxTab extends StatelessWidget {
         return Container(
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
-            color: const Color(0xFF1A2036),
-            borderRadius: BorderRadius.circular(16),
+            color: Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(12),
             border: Border.all(color: langColor.withOpacity(0.3)),
           ),
           child: Column(

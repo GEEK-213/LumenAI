@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/gamification_service.dart';
+import '../theme/theme_provider.dart';
 
 class StorePage extends StatefulWidget {
   const StorePage({super.key});
@@ -23,7 +25,7 @@ class _StorePageState extends State<StorePage> {
       'name': 'Socratic Tutor Avatar',
       'description':
           'An AI persona that asks guiding questions instead of giving direct answers.',
-      'cost': 500,
+      'cost': 150,
       'icon': Icons.psychology,
       'color': Colors.blueAccent,
       'type': 'Avatar',
@@ -33,29 +35,67 @@ class _StorePageState extends State<StorePage> {
       'name': 'Hype-Man Avatar',
       'description':
           'An energetic AI that aggressively encourages you to keep studying.',
-      'cost': 500,
+      'cost': 150,
       'icon': Icons.local_fire_department,
       'color': Colors.orangeAccent,
       'type': 'Avatar',
     },
     {
-      'id': 'theme_synthwave',
-      'name': 'Synthwave Theme',
-      'description':
-          'Unlock a nostalgic 80s neon-grid visual theme for the app.',
-      'cost': 1000,
+      'id': 'default',
+      'name': 'Midnight Ocean',
+      'description': 'The default smooth dark theme for late night focus.',
+      'cost': 0,
       'icon': Icons.nightlight_round,
-      'color': Colors.purpleAccent,
+      'color': Colors.blue,
       'type': 'Theme',
     },
     {
-      'id': 'theme_midnight',
-      'name': 'Midnight Ocean',
+      'id': 'theme_synthwave',
+      'name': 'Cyberpunk / Neon',
       'description':
-          'A deep, calming dark blue palette optimized for late-night studying.',
-      'cost': 800,
-      'icon': Icons.water,
-      'color': Colors.indigoAccent,
+          'Unlock a glowing retro-futuristic dark neon visual theme.',
+      'cost': 350,
+      'icon': Icons.bolt,
+      'color': Colors.pinkAccent,
+      'type': 'Theme',
+    },
+    {
+      'id': 'theme_sunset',
+      'name': 'Sunset Warm',
+      'description': 'A bright minimal theme resembling warm sunset gradients.',
+      'cost': 250,
+      'icon': Icons.wb_sunny,
+      'color': Colors.orange,
+      'type': 'Theme',
+    },
+    {
+      'id': 'theme_crimson',
+      'name': 'Crimson Tech',
+      'description':
+          'Dark minimalist theme marked by aggressive red tech accents.',
+      'cost': 400,
+      'icon': Icons.memory,
+      'color': Colors.redAccent,
+      'type': 'Theme',
+    },
+    {
+      'id': 'theme_sketch',
+      'name': 'Sketchbook',
+      'description':
+          'Clean white background with sketchy borders and mint aesthetic.',
+      'cost': 400,
+      'icon': Icons.brush,
+      'color': Colors.greenAccent,
+      'type': 'Theme',
+    },
+    {
+      'id': 'theme_noir',
+      'name': 'Noir Minimal',
+      'description':
+          'Sleek, heavily desaturated dark mode with muted gold trims.',
+      'cost': 300,
+      'icon': Icons.diamond,
+      'color': Colors.amber,
       'type': 'Theme',
     },
   ];
@@ -118,10 +158,13 @@ class _StorePageState extends State<StorePage> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final currentAppTheme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0C1223),
+      backgroundColor: currentAppTheme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0C1223),
+        backgroundColor: currentAppTheme.scaffoldBackgroundColor,
         elevation: 0,
         title: const Text(
           'Lumen Store',
@@ -136,8 +179,10 @@ class _StorePageState extends State<StorePage> {
                 const SizedBox(width: 6),
                 Text(
                   '$_lumenCoins',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color:
+                        currentAppTheme.textTheme.bodyLarge?.color ??
+                        Colors.white,
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
                   ),
@@ -170,12 +215,12 @@ class _StorePageState extends State<StorePage> {
                     return Container(
                       margin: const EdgeInsets.only(bottom: 16),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1A2235),
+                        color: currentAppTheme.cardColor,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: isOwned
+                          color: isOwned || cost == 0
                               ? Colors.green.withOpacity(0.5)
-                              : Colors.white.withOpacity(0.05),
+                              : Colors.grey.withOpacity(0.05),
                         ),
                       ),
                       child: Column(
@@ -219,8 +264,13 @@ class _StorePageState extends State<StorePage> {
                                     children: [
                                       Text(
                                         name,
-                                        style: const TextStyle(
-                                          color: Colors.white,
+                                        style: TextStyle(
+                                          color:
+                                              currentAppTheme
+                                                  .textTheme
+                                                  .bodyLarge
+                                                  ?.color ??
+                                              Colors.white,
                                           fontWeight: FontWeight.bold,
                                           fontSize: 18,
                                         ),
@@ -228,8 +278,14 @@ class _StorePageState extends State<StorePage> {
                                       const SizedBox(height: 6),
                                       Text(
                                         desc,
-                                        style: const TextStyle(
-                                          color: Colors.white60,
+                                        style: TextStyle(
+                                          color:
+                                              (currentAppTheme
+                                                          .textTheme
+                                                          .bodyLarge
+                                                          ?.color ??
+                                                      Colors.white)
+                                                  .withOpacity(0.6),
                                           fontSize: 14,
                                         ),
                                       ),
@@ -237,58 +293,17 @@ class _StorePageState extends State<StorePage> {
                                   ),
                                 ),
                                 const SizedBox(width: 16),
-                                isOwned
-                                    ? Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 16,
-                                          vertical: 8,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.green.withOpacity(0.2),
-                                          borderRadius: BorderRadius.circular(
-                                            20,
-                                          ),
-                                          border: Border.all(
-                                            color: Colors.green,
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          'OWNED',
-                                          style: TextStyle(
-                                            color: Colors.greenAccent,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      )
-                                    : ElevatedButton.icon(
-                                        onPressed: () =>
-                                            _purchaseItem(id, cost, name),
-                                        icon: const Icon(
-                                          Icons.shopping_cart,
-                                          size: 16,
-                                        ),
-                                        label: Text(
-                                          '$cost',
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: _lumenCoins >= cost
-                                              ? Colors.purpleAccent
-                                              : Colors.grey[800],
-                                          foregroundColor: Colors.white,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 16,
-                                            vertical: 12,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              20,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
+                                _buildActionWidget(
+                                  type: type,
+                                  isOwned: isOwned || cost == 0,
+                                  isEquipped:
+                                      themeProvider.currentThemeId == id,
+                                  cost: cost,
+                                  onPurchase: () =>
+                                      _purchaseItem(id, cost, name),
+                                  onEquip: () =>
+                                      themeProvider.setEquippedTheme(id),
+                                ),
                               ],
                             ),
                           ),
@@ -308,6 +323,88 @@ class _StorePageState extends State<StorePage> {
                   ),
               ],
             ),
+    );
+  }
+
+  Widget _buildActionWidget({
+    required String type,
+    required bool isOwned,
+    required bool isEquipped,
+    required int cost,
+    required VoidCallback onPurchase,
+    required VoidCallback onEquip,
+  }) {
+    if (type == 'Theme') {
+      if (isOwned) {
+        if (isEquipped) {
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.green.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.green),
+            ),
+            child: const Text(
+              'EQUIPPED',
+              style: TextStyle(
+                color: Colors.green,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          );
+        } else {
+          return ElevatedButton(
+            onPressed: onEquip,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blueAccent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            child: const Text(
+              'EQUIP',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          );
+        }
+      } else {
+        return _buildPurchaseButton(cost, onPurchase);
+      }
+    } else {
+      // Avatars logic
+      if (isOwned) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.green.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.green),
+          ),
+          child: const Text(
+            'OWNED',
+            style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold),
+          ),
+        );
+      } else {
+        return _buildPurchaseButton(cost, onPurchase);
+      }
+    }
+  }
+
+  Widget _buildPurchaseButton(int cost, VoidCallback onPurchase) {
+    return ElevatedButton.icon(
+      onPressed: onPurchase,
+      icon: const Icon(Icons.shopping_cart, size: 16),
+      label: Text('$cost', style: const TextStyle(fontWeight: FontWeight.bold)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: _lumenCoins >= cost
+            ? Colors.purpleAccent
+            : Colors.grey[800],
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      ),
     );
   }
 }

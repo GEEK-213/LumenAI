@@ -141,7 +141,7 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1A2036),
+        backgroundColor: Theme.of(context).cardColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: Text('Rename ${isLecture ? "Lecture" : "Syllabus"}'),
         content: TextField(
@@ -308,7 +308,7 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1A2036),
+                  color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: Colors.white.withOpacity(0.05)),
                 ),
@@ -384,7 +384,7 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0C1223),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(widget.subject.name),
         backgroundColor: widget.baseColor,

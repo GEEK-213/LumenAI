@@ -8,6 +8,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'config.dart';
 import 'pages/profile/login.dart';
 import 'pages/main_page.dart';
+import 'package:provider/provider.dart';
+import 'theme/theme_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,7 +30,12 @@ void main() async {
     url: AppConfig.supabaseUrl,
     anonKey: AppConfig.supabaseAnonKey,
   );
-  runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => ThemeProvider(),
+      child: const MyApp(),
+    ),
+  );
 }
 
 final supabase = Supabase.instance.client;
@@ -75,20 +82,20 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      scaffoldMessengerKey: scaffoldMessengerKey,
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF0C1223),
-        primaryColor: const Color(0xFF1E88E5),
-        colorScheme: const ColorScheme.dark(secondary: Color(0xFF1E88E5)),
-      ),
-      initialRoute: '/',
-      routes: {
-        '/': (context) => const SplashPage(),
-        '/login': (context) => const LoginPage(),
-        '/main': (context) => const MainPage(),
-        '/account': (context) => const MainPage(),
+    return Consumer<ThemeProvider>(
+      builder: (context, themeProvider, child) {
+        return MaterialApp(
+          scaffoldMessengerKey: scaffoldMessengerKey,
+          debugShowCheckedModeBanner: false,
+          theme: themeProvider.currentThemeData,
+          initialRoute: '/',
+          routes: {
+            '/': (context) => const SplashPage(),
+            '/login': (context) => const LoginPage(),
+            '/main': (context) => const MainPage(),
+            '/account': (context) => const MainPage(),
+          },
+        );
       },
     );
   }

@@ -5,6 +5,10 @@ import '../../models/data_models.dart';
 import '../notes/results_page.dart';
 import '../profile/profilePage.dart';
 import '../ai_chat_page.dart';
+import 'package:provider/provider.dart';
+import '../../theme/theme_provider.dart';
+import 'home_page_cyberpunk.dart';
+import 'home_page_sketch.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -198,7 +202,10 @@ class _HomePageState extends State<HomePage> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (_) => AnalysisResultScreen(result: result),
+            builder: (_) => AnalysisResultScreen(
+              result: result,
+              lectureId: lecture['id']?.toString(),
+            ),
           ),
         );
       }
@@ -213,8 +220,70 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final themeId = Provider.of<ThemeProvider>(context).currentThemeId;
+
+    if (themeId == 'theme_crimson') {
+      return HomePageCyberpunk(
+        userName: _userName,
+        avatarUrl: _avatarUrl,
+        studyStreak: _studyStreak,
+        tasksDue: _tasksDue,
+        subjects: _subjects,
+        selectedSubject: _selectedSubject,
+        onSubjectSelected: (s) => setState(() => _selectedSubject = s),
+        filteredLectures: _filteredLectures,
+        isLoading: _loading,
+        onRefresh: _loadData,
+        onLectureTap: (id) {
+          try {
+            final lecture = _lectures.cast<Map<String, dynamic>>().firstWhere(
+              (l) => l['id'].toString() == id,
+            );
+            _openLecture(lecture);
+          } catch (e) {}
+        },
+        onChatPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ChatScreen()),
+        ),
+        onProfilePressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const Profilepage()),
+        ),
+      );
+    } else if (themeId == 'theme_sketch') {
+      return HomePageSketch(
+        userName: _userName,
+        avatarUrl: _avatarUrl,
+        studyStreak: _studyStreak,
+        tasksDue: _tasksDue,
+        subjects: _subjects,
+        selectedSubject: _selectedSubject,
+        onSubjectSelected: (s) => setState(() => _selectedSubject = s),
+        filteredLectures: _filteredLectures,
+        isLoading: _loading,
+        onRefresh: _loadData,
+        onLectureTap: (id) {
+          try {
+            final lecture = _lectures.cast<Map<String, dynamic>>().firstWhere(
+              (l) => l['id'].toString() == id,
+            );
+            _openLecture(lecture);
+          } catch (e) {}
+        },
+        onChatPressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ChatScreen()),
+        ),
+        onProfilePressed: () => Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const Profilepage()),
+        ),
+      );
+    }
+
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         toolbarHeight: 80,
         leadingWidth: 80,
@@ -360,7 +429,7 @@ class _HomePageState extends State<HomePage> {
   Widget _buildSearchBar() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF1A2036),
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(30),
       ),
       child: TextField(
@@ -418,7 +487,7 @@ class _HomePageState extends State<HomePage> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1A2036),
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
@@ -493,8 +562,8 @@ class _HomePageState extends State<HomePage> {
                           ),
                           decoration: BoxDecoration(
                             color: isActive
-                                ? const Color(0xFF1E88E5)
-                                : const Color(0xFF1A2036),
+                                ? Theme.of(context).primaryColor
+                                : Theme.of(context).cardColor,
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
@@ -577,7 +646,7 @@ class _HomePageState extends State<HomePage> {
         margin: const EdgeInsets.only(bottom: 16),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1A2036),
+          color: Theme.of(context).cardColor,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(color: Colors.white.withOpacity(0.04)),
         ),

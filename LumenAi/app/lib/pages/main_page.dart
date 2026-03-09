@@ -37,7 +37,7 @@ class _MainPageState extends State<MainPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0C1223),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: _buildPage(),
       floatingActionButton: _selectedIndex != 2
           ? FloatingActionButton(
@@ -74,9 +74,15 @@ class _MainPageState extends State<MainPage> {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: Container(
         height: 80,
-        decoration: const BoxDecoration(
-          color: Color(0xFF050B18),
-          border: Border(top: BorderSide(color: Color(0xFF1E2746))),
+        decoration: BoxDecoration(
+          color:
+              Theme.of(context).bottomAppBarTheme.color ??
+              Theme.of(context).colorScheme.surface,
+          border: Border(
+            top: BorderSide(
+              color: Theme.of(context).dividerColor.withOpacity(0.1),
+            ),
+          ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -106,14 +112,18 @@ class _MainPageState extends State<MainPage> {
         children: [
           Icon(
             isSelected ? activeIcon : icon,
-            color: isSelected ? Colors.blueAccent : Colors.grey.shade600,
+            color: isSelected
+                ? Theme.of(context).primaryColor
+                : Colors.grey.shade600,
             size: 24,
           ),
           const SizedBox(height: 4),
           Text(
             label,
             style: TextStyle(
-              color: isSelected ? Colors.blueAccent : Colors.grey.shade600,
+              color: isSelected
+                  ? Theme.of(context).primaryColor
+                  : Colors.grey.shade600,
               fontSize: 10,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             ),

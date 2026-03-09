@@ -62,7 +62,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
             Container(
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
-                color: const Color(0xFF0C1223),
+                color: Theme.of(context).scaffoldBackgroundColor,
                 shape: BoxShape.circle,
                 border: Border.all(color: color, width: 2),
               ),
@@ -106,9 +106,9 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
     final remaining = _leaderboard.skip(3).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0C1223),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0C1223),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
         title: const Text(
           'Global Rankings',

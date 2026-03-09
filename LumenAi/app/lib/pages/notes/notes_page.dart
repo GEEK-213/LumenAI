@@ -105,7 +105,7 @@ class _NotesPageState extends State<NotesPage> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1A2036),
+        backgroundColor: Theme.of(context).cardColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Add Subject'),
         content: TextField(
@@ -170,13 +170,16 @@ class _NotesPageState extends State<NotesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0C1223),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0C1223),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'My Subjects',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).textTheme.titleLarge?.color,
+          ),
         ),
         actions: [
           IconButton(
@@ -202,10 +205,12 @@ class _NotesPageState extends State<NotesPage> {
                 children: [
                   _buildWalletCard(),
                   const SizedBox(height: 24),
-                  const Text(
+                  Text(
                     "Your Subjects",
                     style: TextStyle(
-                      color: Colors.white,
+                      color:
+                          Theme.of(context).textTheme.titleLarge?.color ??
+                          Colors.white,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),

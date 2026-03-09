@@ -95,7 +95,7 @@ class _MindMapViewState extends State<MindMapView>
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1A2036),
+      backgroundColor: Theme.of(context).cardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -167,7 +167,7 @@ class _MindMapViewState extends State<MindMapView>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: const Color(0xFF1A2036),
+      backgroundColor: Theme.of(context).cardColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -519,8 +519,8 @@ class _MindMapViewState extends State<MindMapView>
                                       maxWidth: 220,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: const Color(0xFF1A2036),
-                                      borderRadius: BorderRadius.circular(10),
+                                      color: Theme.of(context).cardColor,
+                                      borderRadius: BorderRadius.circular(12),
                                       border: Border.all(
                                         color: color.withValues(alpha: 0.6),
                                       ),

@@ -133,4 +133,22 @@ class GamificationService {
       return false;
     }
   }
+
+  /// Equip a purchased theme
+  Future<bool> equipTheme(String themeId) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) return false;
+
+    try {
+      await _supabase
+          .from('lumen_profiles')
+          .update({'equipped_theme': themeId})
+          .eq('user_id', user.id);
+      print('🎨 Successfully equipped theme: $themeId');
+      return true;
+    } catch (e) {
+      print('❌ Error equipping theme: $e');
+      return false;
+    }
+  }
 }
