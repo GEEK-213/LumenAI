@@ -1,12 +1,17 @@
-import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../../models/data_models.dart';
-
 import '../../services/api_service.dart';
+import '../../services/quiz_service.dart';
+import '../../services/gamification_service.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
+import 'mind_map_tab.dart';
+import 'code_sandbox_tab.dart';
+import '../../widgets/keyboard_shortcuts.dart';
 
 class AnalysisResultScreen extends StatefulWidget {
   final AnalysisResult result;
-  final String? lectureId; // Pass lecture ID so we can refetch easily
+  final String? lectureId;
 
   const AnalysisResultScreen({super.key, required this.result, this.lectureId});
 
@@ -21,11 +26,20 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
   bool _isRefreshing = false;
   final ApiService _apiService = ApiService();
 
+  String? get _effectiveLectureId =>
+      widget.lectureId ?? _currentResult.lectureId;
+
   @override
   void initState() {
     super.initState();
     _currentResult = widget.result;
-    _tabController = TabController(length: 4, vsync: this);
+
+    int tabCount = 4; // Summary, Quiz, Cards, Mind Map
+    if (_effectiveLectureId != null)
+      tabCount++; // Podcast requires DB interaction
+    if (_currentResult.codeSnippets.isNotEmpty) tabCount++; // Code
+
+    _tabController = TabController(length: tabCount, vsync: this);
   }
 
   @override
@@ -48,12 +62,19 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
         ),
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.blueAccent,
-          tabs: const [
-            Tab(text: "Summary"),
-            Tab(text: "Quiz"),
-            Tab(text: "Cards"),
-            Tab(text: "Mind Map"),
+          indicatorColor: Colors.purpleAccent,
+          isScrollable: true, // Switched to true to accommodate new tabs
+          tabs: [
+            const Tab(text: "Summary"),
+            if (_effectiveLectureId != null)
+              const Tab(
+                icon: Icon(Icons.headphones, size: 20),
+                text: "Podcast",
+              ),
+            const Tab(text: "Quiz"),
+            const Tab(text: "Cards"),
+            const Tab(text: "Mind Map"),
+            if (_currentResult.codeSnippets.isNotEmpty) const Tab(text: "Code"),
           ],
         ),
       ),
@@ -63,9 +84,19 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
           controller: _tabController,
           children: [
             _buildSummaryTab(),
-            _buildQuizTab(),
-            _buildFlashcardsTab(),
+            if (_effectiveLectureId != null)
+              LumenCastPlayerWidget(lectureId: _effectiveLectureId!),
+            EnhancedQuizTab(
+              questions: _currentResult.quizQuestions,
+              lectureId: _effectiveLectureId,
+            ),
+            EnhancedFlashcardsTab(
+              flashcards: _currentResult.flashcards,
+              lectureId: _effectiveLectureId,
+            ),
             _buildMindMapTab(),
+            if (_currentResult.codeSnippets.isNotEmpty)
+              CodeSandboxTab(codeSnippets: _currentResult.codeSnippets),
           ],
         ),
       ),
@@ -83,14 +114,12 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
   }
 
   Future<void> _refreshData() async {
-    if (widget.lectureId == null) return;
+    if (_effectiveLectureId == null) return;
     setState(() => _isRefreshing = true);
 
     try {
-      // In a real implementation, you would call `_apiService.getLecture(widget.lectureId)`
-      // For this refactor, we simulate the structure.
       final updatedResult = await _apiService.getAnalysisResult(
-        widget.lectureId!,
+        _effectiveLectureId!,
       );
       if (updatedResult != null && mounted) {
         setState(() {
@@ -128,9 +157,16 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
               color: const Color(0xFF1E2746),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(
-              _currentResult.summary,
-              style: const TextStyle(color: Colors.white, height: 1.5),
+            child: MarkdownBody(
+              data: _currentResult.summary,
+              styleSheet: MarkdownStyleSheet(
+                p: const TextStyle(color: Colors.white, height: 1.5),
+                strong: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+                listBullet: const TextStyle(color: Colors.white),
+              ),
             ),
           ),
           const SizedBox(height: 20),
@@ -170,9 +206,553 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
     );
   }
 
-  // --- 2. Quiz Tab ---
-  Widget _buildQuizTab() {
-    if (_currentResult.quizQuestions.isEmpty) {
+  // --- 4. Mind Map Tab ---
+  Widget _buildMindMapTab() {
+    if (_currentResult.mindMap == null ||
+        _currentResult.mindMap!.nodes.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.account_tree, size: 48, color: Colors.white24),
+            SizedBox(height: 12),
+            Text('No mind map data.', style: TextStyle(color: Colors.white38)),
+          ],
+        ),
+      );
+    }
+
+    return MindMapView(
+      nodes: _currentResult.mindMap!.nodes,
+      edges: _currentResult.mindMap!.edges,
+    );
+  }
+
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title,
+      style: const TextStyle(
+        color: Color(0xFF64B5F6),
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// PHASE 5: LUMENCAST PODCAST PLAYER
+// ═══════════════════════════════════════════════════════════
+
+class LumenCastPlayerWidget extends StatefulWidget {
+  final String lectureId;
+
+  const LumenCastPlayerWidget({super.key, required this.lectureId});
+
+  @override
+  State<LumenCastPlayerWidget> createState() => _LumenCastPlayerWidgetState();
+}
+
+class _LumenCastPlayerWidgetState extends State<LumenCastPlayerWidget> {
+  final ApiService _apiService = ApiService();
+  final AudioPlayer _audioPlayer = AudioPlayer();
+
+  bool _isLoading = true;
+  bool _isGenerating = false;
+  bool _isPlaying = false;
+  Duration _duration = Duration.zero;
+  Duration _position = Duration.zero;
+  LumenCast? _currentCast;
+
+  @override
+  void initState() {
+    super.initState();
+    _initAudioListeners();
+    _fetchExistingCast();
+  }
+
+  void _initAudioListeners() {
+    _audioPlayer.onPlayerStateChanged.listen((state) {
+      if (mounted) {
+        setState(() {
+          _isPlaying = state == PlayerState.playing;
+        });
+      }
+    });
+    _audioPlayer.onDurationChanged.listen((newDuration) {
+      if (mounted) setState(() => _duration = newDuration);
+    });
+    _audioPlayer.onPositionChanged.listen((newPosition) {
+      if (mounted) setState(() => _position = newPosition);
+    });
+  }
+
+  Future<void> _fetchExistingCast() async {
+    try {
+      final casts = await _apiService.getLumenCasts(widget.lectureId);
+      if (casts.isNotEmpty && mounted) {
+        setState(() {
+          _currentCast = casts.first;
+          _isLoading = false;
+        });
+        await _audioPlayer.setSourceUrl(_currentCast!.audioUrl);
+      } else {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      debugPrint("Error fetching LumenCast: \$e");
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _generateNewCast() async {
+    setState(() {
+      _isGenerating = true;
+    });
+    try {
+      final newCast = await _apiService.generateLumenCast(widget.lectureId);
+      if (mounted) {
+        setState(() {
+          _currentCast = newCast;
+        });
+        await _audioPlayer.setSourceUrl(_currentCast!.audioUrl);
+        // Autoplay
+        _audioPlayer.resume();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to generate podcast: \$e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isGenerating = false);
+    }
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
+  }
+
+  String _formatDuration(Duration d) {
+    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return "\$minutes:\$seconds";
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.blueAccent),
+      );
+    }
+
+    if (_currentCast == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.headphones_outlined,
+              size: 64,
+              color: Colors.white24,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "No LumenCast available for this lecture.",
+              style: TextStyle(color: Colors.white54),
+            ),
+            const SizedBox(height: 24),
+            _isGenerating
+                ? const CircularProgressIndicator(color: Colors.purpleAccent)
+                : ElevatedButton.icon(
+                    onPressed: _generateNewCast,
+                    icon: const Icon(Icons.auto_awesome),
+                    label: const Text("Generate AI Podcast"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purple.shade900,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 24,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.graphic_eq, color: Colors.purpleAccent),
+              const SizedBox(width: 8),
+              Text(
+                "LumenCast",
+                style: TextStyle(
+                  color: Colors.purple.shade200,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+          // Player Card
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.05),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: Colors.purple.withOpacity(0.3)),
+            ),
+            child: Column(
+              children: [
+                Slider(
+                  value: _position.inSeconds.toDouble(),
+                  min: 0,
+                  max: _duration.inSeconds.toDouble() > 0
+                      ? _duration.inSeconds.toDouble()
+                      : 1.0,
+                  activeColor: Colors.purpleAccent,
+                  inactiveColor: Colors.purple.withOpacity(0.3),
+                  onChanged: (value) {
+                    _audioPlayer.seek(Duration(seconds: value.toInt()));
+                  },
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _formatDuration(_position),
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                      Text(
+                        _formatDuration(_duration),
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.replay_10,
+                        size: 32,
+                        color: Colors.white,
+                      ),
+                      onPressed: () {
+                        _audioPlayer.seek(
+                          _position - const Duration(seconds: 10),
+                        );
+                      },
+                    ),
+                    const SizedBox(width: 16),
+                    CircleAvatar(
+                      radius: 32,
+                      backgroundColor: Colors.purpleAccent,
+                      child: IconButton(
+                        icon: Icon(
+                          _isPlaying ? Icons.pause : Icons.play_arrow,
+                          size: 32,
+                          color: Colors.white,
+                        ),
+                        onPressed: () {
+                          if (_isPlaying) {
+                            _audioPlayer.pause();
+                          } else {
+                            _audioPlayer.resume();
+                          }
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.forward_10,
+                        size: 32,
+                        color: Colors.white,
+                      ),
+                      onPressed: () {
+                        _audioPlayer.seek(
+                          _position + const Duration(seconds: 10),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            "Transcript Snippet:",
+            style: TextStyle(
+              color: Colors.white54,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Text(
+                _currentCast!.transcript,
+                style: const TextStyle(color: Colors.white70, height: 1.6),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// ENHANCED QUIZ TAB — Score tracker + Completion modal + Retake
+// ═══════════════════════════════════════════════════════════
+
+class EnhancedQuizTab extends StatefulWidget {
+  final List<QuizQuestion> questions;
+  final String? lectureId;
+
+  const EnhancedQuizTab({super.key, required this.questions, this.lectureId});
+
+  @override
+  State<EnhancedQuizTab> createState() => _EnhancedQuizTabState();
+}
+
+class _EnhancedQuizTabState extends State<EnhancedQuizTab> {
+  final Map<int, String> _selectedAnswers = {};
+  final QuizService _quizService = QuizService();
+  final ApiService _apiService = ApiService();
+  final ScrollController _quizScrollController = ScrollController();
+
+  late List<QuizQuestion> _currentQuestions;
+  bool _quizCompleted = false;
+  bool _isGeneratingNewQuiz = false;
+  int _focusedQuizIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentQuestions = widget.questions;
+  }
+
+  @override
+  void dispose() {
+    _quizScrollController.dispose();
+    super.dispose();
+  }
+
+  int get _correctCount {
+    int count = 0;
+    for (final entry in _selectedAnswers.entries) {
+      if (entry.value == _currentQuestions[entry.key].correctAnswer) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  int get _answeredCount => _selectedAnswers.length;
+  int get _totalCount => _currentQuestions.length;
+  double get _percentage =>
+      _totalCount > 0 ? (_correctCount / _totalCount) * 100 : 0;
+
+  Color get _scoreColor {
+    if (_percentage >= 80) return Colors.greenAccent;
+    if (_percentage >= 50) return Colors.orangeAccent;
+    return Colors.redAccent;
+  }
+
+  String get _scoreEmoji {
+    if (_percentage >= 90) return "🏆";
+    if (_percentage >= 80) return "🌟";
+    if (_percentage >= 60) return "👍";
+    if (_percentage >= 40) return "📚";
+    return "💪";
+  }
+
+  void _selectAnswer(int questionIndex, String option) {
+    if (_selectedAnswers.containsKey(questionIndex)) return;
+    setState(() {
+      _selectedAnswers[questionIndex] = option;
+    });
+
+    // Check if quiz is complete
+    if (_answeredCount == _totalCount && !_quizCompleted) {
+      _quizCompleted = true;
+      _saveAndShowResults();
+    }
+  }
+
+  Future<void> _saveAndShowResults() async {
+    // Save to DB
+    if (widget.lectureId != null) {
+      try {
+        await _quizService.saveAttempt(
+          lectureId: widget.lectureId!,
+          score: _correctCount,
+          total: _totalCount,
+        );
+
+        // Gamification: Award 10 Lumen Coins per correct answer
+        if (_correctCount > 0) {
+          final gamification = GamificationService();
+          await gamification.awardCoins(
+            _correctCount * 10,
+            reason: "Quiz Completion",
+          );
+        }
+      } catch (e) {
+        debugPrint("Error saving quiz attempt or awarding coins: $e");
+      }
+    }
+
+    // Show completion modal
+    if (mounted) {
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) _showCompletionDialog();
+      });
+    }
+  }
+
+  void _showCompletionDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1E2746),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          "$_scoreEmoji Quiz Complete!",
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.white, fontSize: 22),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              "$_correctCount / $_totalCount correct",
+              style: TextStyle(
+                color: _scoreColor,
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "${_percentage.toStringAsFixed(0)}%",
+              style: TextStyle(color: _scoreColor, fontSize: 20),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _percentage >= 80
+                  ? "Excellent! You've mastered this material!"
+                  : _percentage >= 50
+                  ? "Good effort! Review the explanations below."
+                  : "Keep studying! Focus on the topics you missed.",
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _retakeQuiz();
+            },
+            child: const Text(
+              "Retake",
+              style: TextStyle(color: Colors.orangeAccent),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+            child: const Text("Review Answers"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _retakeQuiz() async {
+    if (widget.lectureId == null) {
+      // Offline or no ID, just reset
+      setState(() {
+        _selectedAnswers.clear();
+        _quizCompleted = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isGeneratingNewQuiz = true;
+      _selectedAnswers.clear();
+      _quizCompleted = false;
+    });
+
+    try {
+      final newQuestions = await _apiService.generateDynamicQuiz(
+        widget.lectureId!,
+      );
+      if (mounted) {
+        setState(() {
+          _currentQuestions = newQuestions;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Generated 5 novel questions!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to generate new quiz: $e')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGeneratingNewQuiz = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isGeneratingNewQuiz) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(color: Colors.orangeAccent),
+            const SizedBox(height: 20),
+            const Text(
+              "Generating novel questions...",
+              style: TextStyle(color: Colors.white, fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_currentQuestions.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -194,150 +774,138 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
         ),
       );
     }
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _currentResult.quizQuestions.length,
-      itemBuilder: (ctx, i) {
-        final q = _currentResult.quizQuestions[i];
-        return InteractiveQuizCard(questionIndex: i + 1, question: q);
+
+    return KeyboardShortcutWrapper(
+      onNumberKey: (optionIndex) {
+        if (_focusedQuizIndex < _currentQuestions.length) {
+          final q = _currentQuestions[_focusedQuizIndex];
+          if (optionIndex < q.options.length) {
+            _selectAnswer(_focusedQuizIndex, q.options[optionIndex]);
+            // Auto-advance focus to next unanswered
+            for (
+              int i = _focusedQuizIndex + 1;
+              i < _currentQuestions.length;
+              i++
+            ) {
+              if (!_selectedAnswers.containsKey(i)) {
+                setState(() => _focusedQuizIndex = i);
+                break;
+              }
+            }
+          }
+        }
       },
-    );
-  }
-
-  // --- 3. Flashcards Tab ---
-  Widget _buildFlashcardsTab() {
-    if (_currentResult.flashcards.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(),
-            const SizedBox(height: 20),
-            const Text(
-              "Generating flashcards in the background...",
-              style: TextStyle(color: Colors.white, fontSize: 16),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 10),
-            Text(
-              "Tap the Refresh (↻) button in a few seconds.",
-              style: TextStyle(color: Colors.grey[400]),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      );
-    }
-    return GridView.builder(
-      padding: const EdgeInsets.all(16),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 1,
-        childAspectRatio: 1.5,
-        mainAxisSpacing: 16,
-      ),
-      itemCount: _currentResult.flashcards.length,
-      itemBuilder: (ctx, i) {
-        final f = _currentResult.flashcards[i];
-        return InteractiveFlashcard(front: f.front, back: f.back);
+      onRight: () {
+        if (_focusedQuizIndex < _currentQuestions.length - 1) {
+          setState(() => _focusedQuizIndex++);
+        }
       },
-    );
-  }
-
-  // --- 4. Mind Map Tab ---
-  Widget _buildMindMapTab() {
-    // Implementing a full graph view is complex.
-    // For now, we'll list the nodes close to the edges to show the relationships textually.
-    if (_currentResult.mindMap == null ||
-        _currentResult.mindMap!.nodes.isEmpty) {
-      return const Center(
-        child: Text("No mind map data.", style: TextStyle(color: Colors.white)),
-      );
-    }
-
-    final nodes = _currentResult.mindMap!.nodes;
-    final edges = _currentResult.mindMap!.edges;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
+      onLeft: () {
+        if (_focusedQuizIndex > 0) {
+          setState(() => _focusedQuizIndex--);
+        }
+      },
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Mind Map Connections",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+          // Score tracker bar
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A2E),
+              border: Border(bottom: BorderSide(color: Colors.white12)),
+            ),
+            child: Row(
+              children: [
+                // Progress
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "$_answeredCount / $_totalCount answered",
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: _totalCount > 0
+                              ? _answeredCount / _totalCount
+                              : 0,
+                          backgroundColor: Colors.white12,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            _answeredCount == _totalCount
+                                ? _scoreColor
+                                : Colors.blueAccent,
+                          ),
+                          minHeight: 6,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Score
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _scoreColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: _scoreColor.withOpacity(0.4)),
+                  ),
+                  child: Text(
+                    "✓ $_correctCount",
+                    style: TextStyle(
+                      color: _scoreColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+                // Retake button (only after completion)
+                if (_quizCompleted) ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.replay, color: Colors.orangeAccent),
+                    tooltip: 'Retake Quiz',
+                    onPressed: _retakeQuiz,
+                  ),
+                ],
+              ],
             ),
           ),
-          const SizedBox(height: 20),
-          ...edges.map((e) {
-            final fromNode = nodes.firstWhere(
-              (n) => n['id'] == e['from'],
-              orElse: () => {'label': '?'},
-            )['label'];
-            final toNode = nodes.firstWhere(
-              (n) => n['id'] == e['to'],
-              orElse: () => {'label': '?'},
-            )['label'];
-            return Container(
-              margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E2746),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Text(fromNode, style: const TextStyle(color: Colors.white)),
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 8.0),
-                    child: Icon(Icons.arrow_forward, color: Colors.blueAccent),
-                  ),
-                  Text(toNode, style: const TextStyle(color: Colors.white)),
-                ],
-              ),
-            );
-          }),
+          // Keyboard hint bar
+          const ShortcutHintBar(
+            hints: [
+              ShortcutHint('1-4', 'Select answer'),
+              ShortcutHint('←→', 'Navigate'),
+            ],
+          ),
+          // Quiz cards
+          Expanded(
+            child: ListView.builder(
+              controller: _quizScrollController,
+              padding: const EdgeInsets.all(16),
+              itemCount: _currentQuestions.length,
+              itemBuilder: (ctx, i) {
+                final q = _currentQuestions[i];
+                return _buildQuizCard(i, q);
+              },
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: const TextStyle(
-        color: Color(0xFF64B5F6),
-        fontSize: 18,
-        fontWeight: FontWeight.bold,
-      ),
-    );
-  }
-}
-
-// --- Interactive Widgets ---
-
-class InteractiveQuizCard extends StatefulWidget {
-  final int questionIndex;
-  final QuizQuestion question;
-
-  const InteractiveQuizCard({
-    super.key,
-    required this.questionIndex,
-    required this.question,
-  });
-
-  @override
-  State<InteractiveQuizCard> createState() => _InteractiveQuizCardState();
-}
-
-class _InteractiveQuizCardState extends State<InteractiveQuizCard> {
-  String? selectedOption;
-
-  @override
-  Widget build(BuildContext context) {
-    final q = widget.question;
+  Widget _buildQuizCard(int index, QuizQuestion q) {
+    final selectedOption = _selectedAnswers[index];
     final isAnswered = selectedOption != null;
 
     return Card(
@@ -350,7 +918,7 @@ class _InteractiveQuizCardState extends State<InteractiveQuizCard> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "Q${widget.questionIndex}: ${q.question}",
+              "Q${index + 1}: ${q.question}",
               style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -374,17 +942,12 @@ class _InteractiveQuizCardState extends State<InteractiveQuizCard> {
                 borderColor = Colors.red;
                 highlightColor = Colors.red.withOpacity(0.2);
               } else if (isSelected) {
-                // Before revealing (fallback if needed)
                 borderColor = Colors.blueAccent;
                 highlightColor = Colors.blueAccent.withOpacity(0.2);
               }
 
               return GestureDetector(
-                onTap: () {
-                  if (!isAnswered) {
-                    setState(() => selectedOption = opt);
-                  }
-                },
+                onTap: () => _selectAnswer(index, opt),
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 300),
                   margin: const EdgeInsets.only(bottom: 8),
@@ -458,93 +1021,624 @@ class _InteractiveQuizCardState extends State<InteractiveQuizCard> {
   }
 }
 
-class InteractiveFlashcard extends StatefulWidget {
-  final String front;
-  final String back;
+// ═══════════════════════════════════════════════════════════
+// ENHANCED FLASHCARDS TAB — Swipeable PageView + Progress
+// ═══════════════════════════════════════════════════════════
 
-  const InteractiveFlashcard({
+class EnhancedFlashcardsTab extends StatefulWidget {
+  final List<FlashcardData> flashcards;
+  final String? lectureId;
+
+  const EnhancedFlashcardsTab({
     super.key,
-    required this.front,
-    required this.back,
+    required this.flashcards,
+    this.lectureId,
   });
 
   @override
-  State<InteractiveFlashcard> createState() => _InteractiveFlashcardState();
+  State<EnhancedFlashcardsTab> createState() => _EnhancedFlashcardsTabState();
 }
 
-class _InteractiveFlashcardState extends State<InteractiveFlashcard> {
-  bool isFlipped = false;
+class _EnhancedFlashcardsTabState extends State<EnhancedFlashcardsTab> {
+  final ApiService _apiService = ApiService();
+  late PageController _pageController;
+  late List<FlashcardData> _currentFlashcards;
+  int _currentIndex = 0;
+  final Map<int, bool> _confidence = {}; // true = know, false = review
+  bool _showSummary = false;
+  bool _isGeneratingNew = false;
+
+  int get _knownCount => _confidence.values.where((v) => v).length;
+  int get _reviewCount => _confidence.values.where((v) => !v).length;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentFlashcards = widget.flashcards;
+    _pageController = PageController();
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _markCard(bool knows) {
+    setState(() {
+      _confidence[_currentIndex] = knows;
+    });
+
+    // Auto-advance to next card
+    if (_currentIndex < _currentFlashcards.length - 1) {
+      _pageController.nextPage(
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOut,
+      );
+    } else {
+      // Last card — show summary & save attempt
+      _completeDeck();
+    }
+  }
+
+  Future<void> _completeDeck() async {
+    setState(() => _showSummary = true);
+
+    if (widget.lectureId != null && _knownCount > 0) {
+      try {
+        final gamification = GamificationService();
+        await gamification.awardCoins(
+          _knownCount * 5,
+          reason: "Flashcard Mastery",
+        );
+      } catch (e) {
+        debugPrint("Error saving flashcard gamification tracking: \$e");
+      }
+    }
+  }
+
+  void _restart() {
+    setState(() {
+      _confidence.clear();
+      _currentIndex = 0;
+      _showSummary = false;
+    });
+    // Setting _showSummary back to false will rebuild the PageView.
+    // Since _currentIndex is reset to 0, it natively builds back to the start.
+  }
+
+  Future<void> _generateMoreCards() async {
+    if (widget.lectureId == null) return;
+
+    setState(() {
+      _isGeneratingNew = true;
+      _showSummary = false;
+    });
+
+    try {
+      final newCards = await _apiService.generateDynamicFlashcards(
+        widget.lectureId!,
+      );
+      if (mounted) {
+        setState(() {
+          _currentFlashcards = newCards;
+          _confidence.clear();
+          _currentIndex = 0;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Generated 5 novel flashcards!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to generate cards: $e')));
+        setState(() => _showSummary = true); // Rollback to summary
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGeneratingNew = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        setState(() => isFlipped = !isFlipped);
-      },
-      child: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 400),
-        transitionBuilder: (Widget child, Animation<double> animation) {
-          final rotateAnim = Tween(begin: 3.14, end: 0.0).animate(animation);
-          return AnimatedBuilder(
-            animation: rotateAnim,
-            child: child,
-            builder: (context, widgetChild) {
-              final isUnder = (ValueKey(isFlipped) != widgetChild?.key);
-              var tilt = ((animation.value - 0.5).abs() - 0.5) * 0.003;
-              tilt *= isUnder ? -1.0 : 1.0;
-              final value = isUnder
-                  ? min(rotateAnim.value, 1.57)
-                  : rotateAnim.value;
-              return Transform(
-                transform: Matrix4.rotationX(value)..setEntry(3, 1, tilt),
-                alignment: Alignment.center,
-                child: widgetChild,
-              );
-            },
+    if (_isGeneratingNew) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(color: Colors.blueAccent),
+            const SizedBox(height: 20),
+            const Text(
+              "Generating novel flashcards...",
+              style: TextStyle(color: Colors.white, fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_currentFlashcards.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 20),
+            const Text(
+              "Generating flashcards in the background...",
+              style: TextStyle(color: Colors.white, fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 10),
+            Text(
+              "Tap the Refresh (↻) button in a few seconds.",
+              style: TextStyle(color: Colors.grey[400]),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_showSummary) return _buildMasterySummary();
+
+    return KeyboardShortcutWrapper(
+      onLeft: () {
+        if (_currentIndex > 0) {
+          _pageController.previousPage(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
           );
-        },
-        child: isFlipped
-            ? _buildCardSide(widget.back, true, key: const ValueKey(true))
-            : _buildCardSide(widget.front, false, key: const ValueKey(false)),
+        }
+      },
+      onRight: () {
+        if (_currentIndex < _currentFlashcards.length - 1) {
+          _pageController.nextPage(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        }
+      },
+      onSpace: () => _markCard(true),
+      onEnter: () => _markCard(false),
+      child: Column(
+        children: [
+          // Progress bar
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            decoration: const BoxDecoration(
+              color: Color(0xFF1A1A2E),
+              border: Border(bottom: BorderSide(color: Colors.white12)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Card ${_currentIndex + 1} of ${_currentFlashcards.length}",
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.check_circle,
+                          color: Colors.greenAccent,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          "$_knownCount",
+                          style: const TextStyle(
+                            color: Colors.greenAccent,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Icon(
+                          Icons.replay,
+                          color: Colors.orangeAccent,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          "$_reviewCount",
+                          style: const TextStyle(
+                            color: Colors.orangeAccent,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: _currentFlashcards.isNotEmpty
+                        ? (_currentIndex + 1) / _currentFlashcards.length
+                        : 0,
+                    backgroundColor: Colors.white12,
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Colors.blueAccent,
+                    ),
+                    minHeight: 5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Keyboard hint bar
+          const ShortcutHintBar(
+            hints: [
+              ShortcutHint('←→', 'Navigate'),
+              ShortcutHint('Space', 'Know it'),
+              ShortcutHint('Enter', 'Review'),
+            ],
+          ),
+          // Flashcard PageView
+          Expanded(
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: _currentFlashcards.length,
+              onPageChanged: (i) => setState(() => _currentIndex = i),
+              itemBuilder: (ctx, i) {
+                final card = _currentFlashcards[i];
+                return _SwipeableFlashcard(
+                  front: card.front,
+                  back: card.back,
+                  onKnow: () => _markCard(true),
+                  onReview: () => _markCard(false),
+                  confidence: _confidence[i],
+                );
+              },
+            ),
+          ),
+          // Swipe hint
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.arrow_back,
+                  color: Colors.redAccent.withOpacity(0.5),
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  "Swipe or use buttons below",
+                  style: TextStyle(color: Colors.white38, fontSize: 12),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.arrow_forward,
+                  color: Colors.greenAccent.withOpacity(0.5),
+                  size: 18,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildCardSide(String text, bool isBack, {required Key key}) {
+  Widget _buildMasterySummary() {
+    final total = _currentFlashcards.length;
+    final mastery = total > 0 ? (_knownCount / total * 100) : 0.0;
+    final color = mastery >= 80
+        ? Colors.greenAccent
+        : mastery >= 50
+        ? Colors.orangeAccent
+        : Colors.redAccent;
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              mastery >= 80
+                  ? "🏆"
+                  : mastery >= 50
+                  ? "👍"
+                  : "📚",
+              style: const TextStyle(fontSize: 48),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              "Flashcard Review Complete!",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              "${mastery.toStringAsFixed(0)}% Mastery",
+              style: TextStyle(
+                color: color,
+                fontSize: 36,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "$_knownCount known · $_reviewCount need review",
+              style: const TextStyle(color: Colors.white54, fontSize: 16),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (_reviewCount > 0)
+                  OutlinedButton.icon(
+                    onPressed: _restart,
+                    icon: const Icon(Icons.replay, color: Colors.orangeAccent),
+                    label: const Text(
+                      "Review Missed",
+                      style: TextStyle(color: Colors.orangeAccent),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.orangeAccent),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: 12),
+                ElevatedButton.icon(
+                  onPressed: _restart,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text("Start Over"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.blueAccent,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            if (widget.lectureId != null)
+              TextButton.icon(
+                onPressed: _generateMoreCards,
+                icon: const Icon(
+                  Icons.auto_awesome,
+                  color: Colors.purpleAccent,
+                ),
+                label: const Text(
+                  "Generate More Cards",
+                  style: TextStyle(color: Colors.purpleAccent, fontSize: 16),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Individual flashcard with flip + swipe confidence buttons
+class _SwipeableFlashcard extends StatefulWidget {
+  final String front;
+  final String back;
+  final VoidCallback onKnow;
+  final VoidCallback onReview;
+  final bool? confidence;
+
+  const _SwipeableFlashcard({
+    required this.front,
+    required this.back,
+    required this.onKnow,
+    required this.onReview,
+    this.confidence,
+  });
+
+  @override
+  State<_SwipeableFlashcard> createState() => _SwipeableFlashcardState();
+}
+
+class _SwipeableFlashcardState extends State<_SwipeableFlashcard> {
+  bool _isFlipped = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      child: Column(
+        children: [
+          // Card
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _isFlipped = !_isFlipped),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 400),
+                child: _buildCardFace(
+                  text: _isFlipped ? widget.back : widget.front,
+                  isBack: _isFlipped,
+                  key: ValueKey(_isFlipped),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          // Confidence buttons
+          if (widget.confidence == null)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _ConfidenceButton(
+                  label: "Review Again",
+                  icon: Icons.replay,
+                  color: Colors.redAccent,
+                  onTap: widget.onReview,
+                ),
+                _ConfidenceButton(
+                  label: "Know It!",
+                  icon: Icons.check_circle,
+                  color: Colors.greenAccent,
+                  onTap: widget.onKnow,
+                ),
+              ],
+            )
+          else
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color:
+                    (widget.confidence!
+                            ? Colors.greenAccent
+                            : Colors.orangeAccent)
+                        .withOpacity(0.15),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                widget.confidence!
+                    ? "✓ Marked as known"
+                    : "↻ Marked for review",
+                style: TextStyle(
+                  color: widget.confidence!
+                      ? Colors.greenAccent
+                      : Colors.orangeAccent,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCardFace({
+    required String text,
+    required bool isBack,
+    required Key key,
+  }) {
     return Container(
       key: key,
       width: double.infinity,
       decoration: BoxDecoration(
-        color: isBack ? const Color(0xFF2C3E50) : const Color(0xFF1E2746),
-        borderRadius: BorderRadius.circular(16),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isBack
+              ? [const Color(0xFF2C3E50), const Color(0xFF1A2530)]
+              : [const Color(0xFF1E2746), const Color(0xFF162040)],
+        ),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isBack ? Colors.blueAccent : Colors.white12,
+          color: isBack ? Colors.blueAccent.withOpacity(0.5) : Colors.white12,
           width: 2,
         ),
-        boxShadow: const [
-          BoxShadow(color: Colors.black26, blurRadius: 8, offset: Offset(0, 4)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
         ],
       ),
-      padding: const EdgeInsets.all(24),
-      child: Stack(
+      padding: const EdgeInsets.all(28),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Center(
-            child: Text(
-              text,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: isBack ? Colors.white : Colors.blueAccent,
-                fontSize: 18,
-                fontWeight: isBack ? FontWeight.w500 : FontWeight.bold,
+          Text(
+            isBack ? "ANSWER" : "QUESTION",
+            style: TextStyle(
+              color: (isBack ? Colors.blueAccent : Colors.white38),
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 2,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: Center(
+              child: Text(
+                text,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: isBack ? Colors.white : Colors.blueAccent,
+                  fontSize: 20,
+                  fontWeight: isBack ? FontWeight.w500 : FontWeight.bold,
+                  height: 1.4,
+                ),
               ),
             ),
           ),
-          Positioned(
-            bottom: 0,
-            right: 0,
-            child: Icon(Icons.touch_app, color: Colors.white24, size: 24),
+          Icon(Icons.touch_app, color: Colors.white24, size: 20),
+          const SizedBox(height: 4),
+          Text(
+            "Tap to flip",
+            style: TextStyle(color: Colors.white24, fontSize: 11),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ConfidenceButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ConfidenceButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: color.withOpacity(0.4)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

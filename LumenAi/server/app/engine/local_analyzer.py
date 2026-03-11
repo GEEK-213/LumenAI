@@ -131,8 +131,9 @@ class LocalAnalyzer:
             raise ValueError("No content could be extracted.")
         return combined_content
 
-    def _execute_prompt(self, content_text: str, system_prompt: str, json_schema: str) -> str:
+    async def _execute_prompt(self, content_text: str, system_prompt: str, json_schema: str) -> str:
         """Helper to run ollama chat strictly returning JSON."""
+        import asyncio
         # Trim content so we don't blow up context window on edge cases
         content_preview = content_text[:300].replace('"', '\\"').replace('\n', ' ')
         lecture_body = content_text[:40000] # Increased context limit for robust PDFs
@@ -167,18 +168,21 @@ Output ONLY valid JSON matching this schema:
             except Exception as e:
                 print(f"  ⚠️ Ollama Error (Attempt {attempt + 1}): {e}")
                 last_error = e
-                time.sleep(3)
+                await asyncio.sleep(3)
 
         raise RuntimeError(f"Local LLM failed after {max_retries} attempts: {last_error}")
 
 
     async def generate_initial_view(self, combined_content: str) -> str:
-        system_prompt = "Summarize the text into 3 distinct paragraphs and extract 5-8 key topics."
+        system_prompt = "Summarize the text into 3 distinct paragraphs, extract 5-8 key topics, and generate a hierarchical mind map structure connecting these topics. Return AT LEAST 5 nodes in the mind map."
         json_schema = """
         {
             "summary": "markdown string",
             "topics": ["topic1", "topic2"],
-            "mind_map": {"nodes": [], "edges": []},
+            "mind_map": {
+                "nodes": [{"id": 1, "label": "Central Topic"}],
+                "edges": [{"from": 1, "to": 2}]
+            },
             "code_snippets": [],
             "extracted_tasks": [],
             "teacher_questions": [],
@@ -186,7 +190,7 @@ Output ONLY valid JSON matching this schema:
             "transcript": "string"
         }
         """
-        return self._execute_prompt(combined_content, system_prompt, json_schema)
+        return await self._execute_prompt(combined_content, system_prompt, json_schema)
 
 
     async def generate_quiz(self, combined_content: str) -> str:
@@ -201,7 +205,7 @@ Output ONLY valid JSON matching this schema:
             }
         ]
         """
-        return self._execute_prompt(combined_content, system_prompt, json_schema)
+        return await self._execute_prompt(combined_content, system_prompt, json_schema)
 
     async def generate_flashcards(self, combined_content: str) -> str:
         system_prompt = "Generate EXACTLY 5 Front/Back flashcards based on the text. Focus on definitions."
@@ -213,4 +217,61 @@ Output ONLY valid JSON matching this schema:
             }
         ]
         """
-        return self._execute_prompt(combined_content, system_prompt, json_schema)
+        return await self._execute_prompt(combined_content, system_prompt, json_schema)
+
+    async def generate_dynamic_quiz(self, combined_content: str, previous_questions: list) -> str:
+        """
+        Gamification (Phase 4): Generate 5 NOVEL MCQs avoiding previously asked questions.
+        """
+        import json
+        avoid_str = json.dumps(previous_questions, indent=2) if previous_questions else "None"
+        system_prompt = f"Generate EXACTLY 5 NOVEL Multiple Choice Questions. DO NOT generate questions similar to these: {avoid_str}"
+        json_schema = """
+        [
+            {
+                "question": "question text",
+                "options": ["A", "B", "C", "D"],
+                "correct_answer": "A", 
+                "explanation": "why"
+            }
+        ]
+        """
+        return await self._execute_prompt(combined_content, system_prompt, json_schema)
+
+    async def generate_dynamic_flashcards(self, combined_content: str, previous_fronts: list) -> str:
+        """
+        Gamification (Phase 4): Generate 5 NOVEL flashcards avoiding previously tested concepts.
+        """
+        import json
+        avoid_str = json.dumps(previous_fronts, indent=2) if previous_fronts else "None"
+        system_prompt = f"Generate EXACTLY 5 NOVEL Front/Back flashcards. Focus on definitions. DO NOT cover these topics: {avoid_str}"
+        json_schema = """
+        [
+            {
+                "front": "Term", 
+                "back": "Definition"
+            }
+        ]
+        """
+        return await self._execute_prompt(combined_content, system_prompt, json_schema)
+
+    async def generate_podcast_script(self, combined_content: str) -> str:
+        """
+        Phase 5: Generate a LumenCast audio script using Ollama.
+        """
+        system_prompt = (
+            "Write a 2-host conversational podcast script (Host 1: Alex, Host 2: Jamie) "
+            "explaining the key concepts of the provided lecture material. "
+            "STRICTLY output valid JSON containing the script as a single string field 'script'. "
+            "Inside the script string, separate hosts' dialogue with double newlines. "
+            "NO host labels or stage directions."
+        )
+        json_schema = '{"script": "The full spoken text of the podcast separated by double newlines."}'
+        
+        result = await self._execute_prompt(combined_content, system_prompt, json_schema)
+        try:
+            import json_repair
+            parsed = json_repair.loads(result)
+            return parsed.get("script", "")
+        except:
+            return ""

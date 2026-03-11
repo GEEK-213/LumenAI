@@ -26,6 +26,8 @@ class _FileInputPageState extends State<FileInputPage> {
 
   File? selectedFile;
   bool isProcessing = false;
+  double _uploadProgress = 0.0;
+  String _uploadStage = '';
 
   // Dropdown State
   List<Subject> _subjects = [];
@@ -125,12 +127,25 @@ class _FileInputPageState extends State<FileInputPage> {
 
         final fileName = selectedFile!.path.split('/').last;
 
+        setState(() {
+          _uploadProgress = 0.0;
+          _uploadStage = 'Uploading Syllabus...';
+        });
+
         await _apiService.uploadSyllabus(
           documentFile: selectedFile!,
           subjectId: _selectedSubject!.id,
           unitId: _selectedUnit?.id,
           userId: userId,
           title: fileName,
+          onProgress: (sent, total) {
+            setState(() {
+              _uploadProgress = sent / total;
+              if (_uploadProgress >= 1.0) {
+                _uploadStage = "Processing Data...";
+              }
+            });
+          },
         );
 
         if (mounted) {
@@ -158,12 +173,25 @@ class _FileInputPageState extends State<FileInputPage> {
           return;
         }
 
+        setState(() {
+          _uploadProgress = 0.0;
+          _uploadStage = 'Uploading Lecture...';
+        });
+
         final result = await _apiService.processLecture(
           audioFile: selectedFile!,
           subjectId: _selectedSubject!.id,
           unitId: _selectedUnit?.id,
           userId: userId,
           title: fileName,
+          onProgress: (sent, total) {
+            setState(() {
+              _uploadProgress = sent / total;
+              if (_uploadProgress >= 1.0) {
+                _uploadStage = "Analyzing with AI. This may take a minute...";
+              }
+            });
+          },
         );
 
         if (!mounted) return;
@@ -312,7 +340,24 @@ class _FileInputPageState extends State<FileInputPage> {
 
             // --- 3. Analyze Button ---
             if (isProcessing)
-              const CircularProgressIndicator()
+              Column(
+                children: [
+                  LinearProgressIndicator(
+                    value: _uploadProgress < 1.0 ? _uploadProgress : null,
+                    backgroundColor: Colors.white12,
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Colors.blueAccent,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    _uploadProgress < 1.0
+                        ? "$_uploadStage ${(_uploadProgress * 100).toStringAsFixed(0)}%"
+                        : _uploadStage,
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                ],
+              )
             else
               SizedBox(
                 width: double.infinity,

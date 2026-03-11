@@ -24,3 +24,14 @@ downloads/
 temp/
 *.log
 ignored_scripts/
+
+credentials.json
+token.json
+
+.DS_Store
+
+.env
+
+.env.example
+
+

@@ -31,9 +31,11 @@ class AnalysisResult {
   final List<FlashcardData> flashcards;
   final List<QuizQuestion> quizQuestions;
   final MindMapData? mindMap;
+  final List<Map<String, dynamic>> codeSnippets;
   final List<String> tasks;
   final List<String> teacherQuestions;
   final String transcript;
+  final String? lectureId;
 
   AnalysisResult({
     required this.summary,
@@ -41,31 +43,41 @@ class AnalysisResult {
     required this.flashcards,
     required this.quizQuestions,
     this.mindMap,
+    required this.codeSnippets,
     required this.tasks,
     required this.teacherQuestions,
     required this.transcript,
+    this.lectureId,
   });
 
   factory AnalysisResult.fromJson(Map<String, dynamic> json) {
     return AnalysisResult(
       summary: json['summary'] ?? '',
       topics: List<String>.from(json['topics'] ?? []),
-      flashcards: (json['flashcards'] as List?)
+      flashcards:
+          (json['flashcards'] as List?)
               ?.map((e) => FlashcardData.fromJson(e))
               .toList() ??
           [],
-      quizQuestions: (json['quiz_questions'] as List?)
+      quizQuestions:
+          (json['quiz_questions'] as List?)
               ?.map((e) => QuizQuestion.fromJson(e))
               .toList() ??
           [],
-      mindMap:
-          json['mind_map'] != null ? MindMapData.fromJson(json['mind_map']) : null,
-      tasks: (json['extracted_tasks'] as List?)
+      mindMap: json['mind_map'] != null
+          ? MindMapData.fromJson(json['mind_map'])
+          : null,
+      codeSnippets: List<Map<String, dynamic>>.from(
+        json['code_snippets'] ?? [],
+      ),
+      tasks:
+          (json['extracted_tasks'] as List?)
               ?.map((e) => e['title'].toString())
               .toList() ??
           [],
       teacherQuestions: List<String>.from(json['teacher_questions'] ?? []),
       transcript: json['transcript'] ?? '',
+      lectureId: json['lecture_id'],
     );
   }
 }
@@ -114,6 +126,29 @@ class MindMapData {
     return MindMapData(
       nodes: List<Map<String, dynamic>>.from(json['nodes'] ?? []),
       edges: List<Map<String, dynamic>>.from(json['edges'] ?? []),
+    );
+  }
+}
+
+class LumenCast {
+  final String id;
+  final String audioUrl;
+  final String transcript;
+  final int durationSeconds;
+
+  LumenCast({
+    required this.id,
+    required this.audioUrl,
+    required this.transcript,
+    required this.durationSeconds,
+  });
+
+  factory LumenCast.fromJson(Map<String, dynamic> json) {
+    return LumenCast(
+      id: json['id'] ?? '',
+      audioUrl: json['audio_url'] ?? '',
+      transcript: json['transcript'] ?? '',
+      durationSeconds: json['duration_seconds'] ?? 0,
     );
   }
 }

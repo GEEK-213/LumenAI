@@ -1,0 +1,1024 @@
+Total pages: 50
+
+
+=== PAGE 1 ===
+ 
+  
+LUMEN  AI 
+Illuminate your learning  
+
+
+=== PAGE 2 ===
+ 
+ TITLE OF THE PAGE  
+Title of the 
+Project:  LUMEN  AI - Illuminate your learning  
+Name of the 
+candidates:  Shri. Chetan Mahantesh Badiger  
+Shri. Mohammed Faaris Khan  
+Shri. Gaurang  Bhus han Gaude  
+Shri. Ajay Prakash Naik  
+Shri. Gauresh  Gajanan  Gaude  
+Course:  Bachelor Of Computer Application  
+(B.C.A)  
+Academic 
+Year:  2025 -2026  
+Name of the 
+project guide:  Mrs.Diksha Prabhu Khorjuvenkar  
+Name of the 
+college:  GVMS Gopal Govind Poy Raiturcar 
+College of Commerce & Economics, 
+Ponda -Goa 
+ 
+   
+
+=== PAGE 3 ===
+ 
+ DECLARATION  
+We, the undersigned, hereby declare that the project work entitled 
+Lumen AI: Illuminate your learning has been prepared by us under the 
+guidance of Assistant professor Mrs.  Diksha Prabhu Khorjuvenkar. This 
+project is a work submitted in partial fulfillment of the requirements for 
+the award of the degree of Bachelor of Computer Applications (B.C.A). 
+The project work has been prepared by us and to the best of our 
+knowledge, it has not previously formed the basis for the award of any 
+Diploma or Degree.  
+ 
+Admission No.  Name of the candidates  Signature  
+ 
+2305002   
+Shri. Chetan Mahantesh Badiger   
+ 
+2305004   
+Shri. Mohammed Faaris Khan  
+  
+ 
+2305012   
+Shri. Gaurang Bhus han Gaude  
+  
+ 
+2305021   
+Shri. Ajay Prakash Naik  
+  
+ 
+2305023   
+Shri. Gauresh  Gajanan  Gaude   
+ 
+
+=== PAGE 4 ===
+ 
+ CERTIFICATE BY GUIDE  
+ 
+This is to certify that the project report/document is a record of work 
+done by the candidates under my guidance during the period of study. 
+To the best of my knowledge, the study carried out and the result 
+obtained, have not been submitted to this or any other university or 
+institute for the award of any degree or diploma.  
+ 
+ 
+ 
+ 
+_____________________________  
+Asst. Professor in computer science  
+                                                           Mrs.Diksha Prabhu Khorjuvenkar  
+ 
+ 
+ 
+ 
+ 
+ 
+  
+ 
+ 
+ 
+
+=== PAGE 5 ===
+ 
+ GOA  VIDHYAPRASARAK  MANDAL’S  
+GOPAL  GOVIND  POY  RAITURCAR  COLLEGE  OF COMMERCE & 
+ECONOMICS  
+FARMAGUDI - PONDA  GOA  
+Certified that the project work entitled  
+“Lumen AI - Illuminate your learning”  
+Is a bonafide work carried out by  
+             Shri. Chetan Mahantesh Badiger  
+         Shri. Mohammed Faaris Khan  
+          Shri. Gaurang Bhushan Gaude  
+Shri. Ajay Prakash Naik  
+         Shri. Gauresh Gajanan Gaude  
+In partial fulfillment for the award of the degree of Bachelor of Computer Applications (B.C.A) of 
+Goa University for the academic year 2024 -2025. It is certified that all corrections and suggestions 
+for integrated assessment have been incorporated in the report deposited in the departmental library. 
+The report has been approved as it satisfies the academic requirements of the project work for the 
+Bachelor of Computer Applications.  
+ 
+       ____________                       _______________                          ____________  
+       Internal Guide                      Head of the Department                          Principal  
+ 
+____________  
+External Examiner  
+
+
+=== PAGE 6 ===
+ 
+ ACKNOWLEDGEMENT  
+ 
+We would like to express our sincere thanks and appreciation to all those who  
+have contributed to the successful completion of our college project.  
+ 
+We would like to thank our project guide/mentor, Mrs.Diksha Prabhu Khorjuvenkar, for  
+providing us with guidance, support, and valuable feedback throughout the  
+project. Your expertise, knowledge, and encouragement have been  
+instrumental in shaping the project and helping us achieve our goals.  
+ 
+We extend our gratitude to our fellow team members who have worked  
+tirelessly to complete the project on time. Your hard work, dedication, and  
+collaboration have been critical in ensuring the success of the project.  
+ 
+We would also like to thank the faculty and staff of our college for providing  
+us with the necessary resources and support to undertake this project. Your  
+encouragement and assistance have been invaluable in enabling us to  
+complete this project successfully.  
+ 
+We appreciate the support and cooperation of our classmates and friends  
+who have provided us with feedback, insights, and encouragement  
+throughout the project. Your input has been instrumental in improving the  
+quality of our project and enhancing our learning experience.  
+ 
+ 
+
+=== PAGE 7 ===
+ 
+ TABLE OF CONTENT  
+SR 
+NO. TOPICS  PAGE  
+NO. 
+1 ANALYSIS  1- 
+ 1.1 Proposed System   
+      1.1.1 Objectives   
+      1.1.2 Features   
+      1.1.3 Intended Audience   
+      1.1.4 Assumptions and dependencies   
+ 1.2 Hardware and Software Specificaton   
+      1.2.1 Hardware requirements   
+      1.2.2 Software requirements   
+ 1.3 Gnatt Chart   
+2 DESIGNS   
+ 2.1 Use Case Diagram   
+ 2.2 ER Diagram   
+ 2.3 Class Diagram   
+ 2.4 Flow Diagram   
+ 2.5 Customer Interaction Diagram   
+ 2.6 Client Device Diagram   
+3 IMPLEMENTATION   
+ 3.1 User Interface   
+
+=== PAGE 8 ===
+ 
+       3.1.1 Auth Module   
+      3.1.2  App User Profile   
+ 3.2 Functionality  Design   
+      3.2.1 Notes  
+      3.2.2 Calendar   
+      3.2.3 Chatbot   
+      3.2.4 Flashcards   
+      3.2.5 Quizzes   
+      3.2.6 Results   
+ 3.3 Testing   
+4 CONCLUSION AND FUTURE GOALS   
+ 4.1 Conclusion   
+ 4.2 Future Goals   
+5 REFERENCE   
+   
+   
+
+=== PAGE 9 ===
+ 
+  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ANALYSIS  
+ 
+ 
+
+=== PAGE 10 ===
+1 
+ CHAPTER 1  
+ 
+1. Analysis  
+With the increasing demand for intelligent and efficient learning tools, AI -powered 
+educational applications are becoming essential in modern academic environments. This 
+project aims to design and develop an educational support application titled Lumen AI:  
+Illuminate Your Learning. The application is specifically designed for students and focuses 
+on automating the note -taking process by allowing users to upload documents or record 
+lecture audio, which is then securely stored and organized into structured da ta. Lumen AI 
+integrates an AI chatbot that enables students to retrieve information and receive instant 
+answers whenever needed. Additionally, the platform enhances learning through 
+automated flashcards and quizzes, promoting better retention and long -term 
+understanding. Available on Android devices, Lumen AI provides a professional, 
+innovative solution that simplifies information management while supporting students in 
+achieving academic success.  
+ 
+1.1 Proposed System  
+Artificial intelligence is transforming the way students manage and interact with academic 
+content. Lumen AI  is a comprehensive educational support application designed to 
+automate and enhance the note -taking process. The platform allows students to log in, add 
+their classes, select specific lecture dates, and upload audio recordings or documents from 
+their sessi ons. The system then generates accurate transcripts along with fully summarized 
+and structured notes, enabling students to clearly understand compl ex topics without 
+spending hours manually organizing information.  
+ 
+The application includes intelligent features such as an AI -powered chatbot that can 
+answer questions based strictly on the recorded class content. Students can select a specific 
+lecture date and request detailed explanations, clarifications, or key points  instantly. In 
+addition, Lumen AI automatically generates flashcards and quizzes to test understanding 
+and support exam preparation, reinforcing knowledge retention through active recall and 
+structured practice.  
+ 
+Overall, Lumen AI enhances educational experiences by providing a streamlined and user -
+friendly platform for academic organization and revision. With reliable long -term storage 
+powered by Supabase and an intuitive Android -based interface, the application p rioritizes 
+ease of use and efficiency. By automating note -taking and content structuring, Lumen AI 
+
+=== PAGE 11 ===
+2 
+ allows students to dedicate more time to deeper understanding and critical thinking, 
+ultimately transforming how they approach learning in the digital age.  
+ 
+1.1.1 Objectives  
+The Lumen AI: Illuminate Your Learning application is designed with several key 
+objectives in mind, each focused on improving academic efficiency and reducing the 
+pressures students face in modern educational environments:  
+1. Enhance Academic Efficiency and Reduce Stress:  
+Our primary goal is to minimize the time students spend on manual note -taking by 
+automating lecture transcription and summarization. By streamlining this process, Lumen 
+AI allows students to focus on deeper understanding of subject material while reducing 
+academic stress and improving overall exam performance.  
+2. Automate and Structure Learning Materials:  
+The application aims to transform unstructured lecture audio and documents into 
+organized, structured notes. By enabling students to upload recordings or files based on 
+specific classes and dates, Lumen AI ensures that information is clearly categorized, e asily 
+accessible, and academically meaningful.  
+3. Provide Instantaneous Academic Support:  
+An AI -powered chatbot is integrated within the platform to function as a virtual academic 
+assistant. This feature allows students to ask detailed questions related to specific lectures 
+and receive accurate responses based solely on their recorded content, fostering an 
+efficient and responsive learning environment.  
+4. Strengthen Exam Preparation and Knowledge Retention:  
+The application automatically generates flashcards and quizzes designed to test 
+understanding and reinforce key concepts. This objective supports active recall practices, 
+helping students prepare more effectively for assessments and long -term knowledge 
+retention.  
+5. Support Diverse Educational Levels:  
+Lumen AI is designed to accommodate learners ranging from high school students to 
+university and even PhD candidates. By providing structured academic assistance across 
+various subjects and complexity levels, the platform promotes independent and adaptable  
+learning.  
+6. Expand Accessibility and Future Integration:  
+Currently developed as a prototype and offered free of charge, Lumen AI aims to expand 
+its accessibility by launching on major app stores and developing a web -based platform for 
+laptop users. Future integration with platforms such as Google Classroom is en visioned to 
+enhance usability and ensure seamless adoption within existing educational ecosystems.  
+ 
+
+=== PAGE 12 ===
+3 
+ 1.1.2 Features  
+The Lumen AI application introduces a focused and practical set of core features designed 
+to streamline academic workflows and enhance productivity for students. Each 
+functionality has been carefully developed to automate essential study tasks while 
+mainta ining simplicity and efficiency within the Android platform. Below is a detailed 
+overview of its primary features and capabilities.  
+1. Automated Lecture Processing and Smart Note Generation  
+Lumen AI supports multiple file formats, including documents and audio files such as 
+PDF, DOCX, and MP3. After a user uploads lecture material and selects the appropriate 
+class and date, the system processes the content and generates a raw results page 
+containing both a full transcript (for audio recordings) and an AI -generated summary. This 
+automation significantly reduces the time students spend manually writing notes. While 
+summaries are initially  structured around main topics, students can further refine or 
+reorganize content through interaction with the chatbot, enabling clearer academic 
+organization.  
+2. Context -Based AI Chatbot Assistance  
+The application integrates an AI chatbot designed to answer questions strictly based on the 
+uploaded and processed lecture materials. Students can select specific class dates and 
+request clarification on recorded content, ensuring responses remain relevant  and context -
+specific. Although the chatbot currently focuses on direct question -and-answer 
+functionality without advanced adaptive learning features, it serves as an immediate 
+academic reference tool, reducing the ne ed to manually search through notes.  
+3. Automated Flashcards and Multiple -Choice Quiz System  
+To strengthen exam preparation and knowledge retention, Lumen AI automatically 
+generates flashcards and multiple -choice quizzes derived from processed lecture content. 
+Flashcards are system -generated and designed to reinforce key concepts through active 
+recall techniques. The quiz feature provides multiple -choice questions and displays scores 
+upon completion, enabling students to assess their understanding before examinations. 
+While flashcards are not currently editable, the automated system ensures consistency and 
+structured revision support.  
+4. Academic Organization and Class Management System  
+Lumen AI allows users to create and manage their own subjects or classes based on 
+individual academic needs. Students can assign uploaded materials to specific classes and 
+dates, helping maintain chronological organization. Although filtering options are 
+currently limited to calendar -based navigation and class name search functionality, the 
+structure provides a foundational academic management system that centralizes lecture 
+materials within one accessibl e platform.  
+5. User Interface and System Infrastructure  
+Developed as an Android prototype, Lumen AI offers a partially minimal interface with 
+dark mode support to enhance usability and visual comfort. The application operates 
+
+=== PAGE 13 ===
+4 
+ without offline access and currently utilizes Supabase under its free -tier limitations for 
+backend services. While cloud synchronization and advanced storage optimization are not 
+yet implemented, the infrastructure provides a functional foundation for futu re scalability 
+and deployment to major app distribution platforms.  
+ 
+1.1.3 Intended Audience  
+The Lumen AI application has been strategically developed to support a wide range of 
+learners by addressing common academic challenges such as time management, 
+information overload, and exam preparation. The platform is designed to assist students 
+across m ultiple educational levels by automating note -taking and organizing lecture 
+content into structured, accessible formats. Below is a detailed overview of the intended 
+audience and how the application serves their specific academic needs.  
+1. High School Students  
+One of the primary target groups for Lumen AI is high school students, who often face 
+increasing academic pressure and dense curricular content.  
+Functionality:  
+By allowing students to upload lecture recordings or documents, the application 
+automatically generates transcripts and concise summaries, reducing the burden of manual 
+note-taking. The integrated chatbot enables learners to ask questions about specific 
+lessons, while auto -generated flashcards and multiple -choice quizzes support revision and 
+exam preparation. This structured and automated approach helps high school students 
+better manage their workload, improve comprehension, and reduce acade mic stress.  
+2. University Students  
+University learners represent another significant audience, particularly due to the volume 
+and complexity of lecture -based learning.  
+Functionality:  
+Students can create and organize multiple classes, assign lectures by date, and retrieve 
+summarized content instantly. This is especially beneficial for large lecture environments 
+where note -taking can be overwhelming. The ability to generate quizzes and r eview 
+flashcards directly from lecture material enhances retention and supports efficient 
+preparation for midterms and final examinations.  
+3. Postgraduate and Research Students  
+Lumen AI is also suitable for postgraduate and PhD students who manage advanced 
+theoretical material and extensive academic discussions.  
+Functionality:  
+The automated transcription and summarization system assists in documenting detailed 
+lectures, seminars, or research discussions. By centralizing content within structured class 
+categories, the platform simplifies academic organization, enabling advanced l earners to 
+
+=== PAGE 14 ===
+5 
+ focus more on critical analysis and research development rather than administrative note 
+management.  
+ 
+1.2 Hardware and Software Specification  
+ 
+1.2.1 Hardware Requirements  
+1. Development Environment:  
+The development of Lumen AI is conducted on systems running the Windows operating 
+system, utilizing  VS code  as the primary development environment.  VS code  provides the 
+necessary tools for coding, testing, debugging, and performance optimization to ensure 
+stable application deployment on supported Android devices.  
+2. User Device Compatibility:  
+Lumen AI is designed exclusively for Android devices running Android version 8.0  or  
+higher. The application supports both smartphones and tablets to maximize accessibility 
+across different device types.  
+Device Requirements:  
+• Minimum 4GB RAM for stable performance  
+• Minimum available storage space below 2GB for installation and operational data  
+• Functional microphone access (user permission required) for recording lecture audio  
+• Stable internet connectivity for AI processing and data handling  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+=== PAGE 15 ===
+6 
+  
+1.2.2 Software Requirements  
+ 
+Flutter  
+ 
+ 
+ 
+ 
+Flutter is an open -source UI software development toolkit developed by Google that 
+enables developers to build natively compiled applications from a single codebase. It is 
+widely recognized for its ability to create high -performance, visually consistent, a nd 
+responsive mobile applications. Flutter uses a rich set of pre -designed widgets that follow 
+modern design principles, allowing developers to construct intuitive and aesthetically 
+pleasing user interfaces efficiently. Its hot reload feature significantly  accelerates 
+development by enabling real -time updates without restarting the application.  
+In the Lumen AI application, Flutter is responsible for constructing the entire Android user 
+interface, including authentication screens, class management pages, lecture upload 
+interfaces, chatbot interaction windows, and quiz modules. Its reactive framewo rk ensures 
+smooth transitions between screens and efficient rendering of dynamic content such as 
+transcripts and summaries. Additionally, Flutter’s scalable architecture makes it suitable 
+for potential future expansion to other platforms, including web and  iOS, without requiring 
+a complete rewrite of the codebase.  
+
+
+=== PAGE 16 ===
+7 
+  
+Dart  
+ 
+ 
+ 
+Dart is a modern, object -oriented programming language developed by Google and serves 
+as the primary language for Flutter development. It is optimized for building fast and 
+scalable applications, supporting both just -in-time (JIT) compilation for developme nt 
+efficiency and ahead -of-time (AOT) compilation for optimized production performance. 
+Dart emphasizes readability, structured programming, and strong typing, making it 
+suitable for maintaining clean and maintainable codebases.  
+Within Lumen AI, Dart handles the application’s internal logic, state management, and 
+user interactions. It manages processes such as user authentication, lecture uploads, date 
+selection, API communication, and display of processed results. Dart also suppo rts 
+asynchronous programming, which is essential for handling file uploads and waiting for 
+
+
+=== PAGE 17 ===
+8 
+ AI-generated transcripts and summaries without freezing the interface. This ensures a 
+smooth and responsive experience for users while interacting with AI -driven features.  
+ 
+FastAPI  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+FastAPI is a high -performance web framework built with Python for developing APIs 
+quickly and efficiently. It is designed to create secure and scalable backend systems with 
+automatic request validation and interactive documentation support. FastAPI is 
+particularly valued for its speed, as it is built on modern asynchronous programming 
+standards that allow handling multiple requests concurrently.  
+In Lumen AI, FastAPI functions as the backbone of backend communication. It manages 
+incoming requests from the Flutter application, processes uploaded files, and coordinates 
+interactions with external AI services such as the Gemini API. FastAPI ensures str uctured 
+data exchange between the frontend and backend while maintaining performance 
+efficiency. Its ability to handle asynchronous operations is especially important for 
+
+
+=== PAGE 18 ===
+9 
+ managing AI processing tasks, which may require several seconds to generate transcripts 
+and summaries.  
+ 
+Python  
+ 
+ 
+ 
+ 
+ 
+Python is a versatile and widely adopted programming language known for its simplicity, 
+readability, and extensive ecosystem of libraries. It is extensively used in artificial 
+intelligence, machine learning, backend development, and data processing due to its 
+flexibility and strong community support. Python’s clean syntax enables efficient 
+development and easier maintenance of complex systems.  
+In the Lumen AI architecture, Python is utilized alongside FastAPI to manage backend 
+operations and AI -related processing. It facilitates communication with the Gemini API for 
+transcription, summarization, and chatbot responses. Python handles data process ing 
+workflows, ensuring that uploaded lecture materials are structured properly before being 
+
+
+=== PAGE 19 ===
+10 
+ returned to the mobile application. Its adaptability allows seamless integration of future AI 
+enhancements or additional backend features as the application evolves.  
+ 
+Supabase  
+ 
+ 
+ 
+ 
+Supabase is an open -source backend -as-a-service platform that provides database 
+management, authentication services, and storage solutions. Built on PostgreSQL, 
+Supabase offers structured relational database capabilities combined with modern backend 
+featur es. It simplifies backend development by eliminating the need to manually configure 
+complex server infrastructure.  
+For Lumen AI, Supabase is responsible for managing user authentication and storing 
+structured academic data. It maintains user accounts, class records, lecture metadata, 
+transcripts, summaries, flashcards, and quiz results within its database system. Opera ting 
+under the free -tier plan, Supabase provides reliable backend support while maintaining 
+
+
+=== PAGE 20 ===
+11 
+ cost efficiency during the prototype phase. Although limited by storage capacity, it 
+establishes a scalable foundation for future system expansion and improved data 
+management.  
+ 
+Visual Studio Code (VS Code)  
+ 
+ 
+ 
+Visual Studio Code (VS Code) is a lightweight yet powerful source -code editor developed 
+by Microsoft. It supports a wide range of programming languages and offers extensive 
+extension capabilities that enhance productivity, debugging, and version control 
+integration. VS Code is widely preferred by developers due to its customizable 
+environment and efficient performance.  
+During the development of Lumen AI, VS Code is used as a primary development tool for 
+writing and managing backend and application code. It supports Dart and Flutter 
+extensions for mobile development, as well as Python and FastAPI configurations for 
+backen d implementation. Integrated debugging tools, syntax highlighting, and Git version 
+control features streamline collaboration and code maintenance. VS Code’s flexibility 
+
+
+=== PAGE 21 ===
+12 
+ ensures an organized and efficient development workflow, contributing to the structured 
+implementation of Lumen AI’s features.  
+ 
+1.4 Gantt Chart  
+A Gantt chart is a planning tool used in project management to organize and monitor a 
+project’s timeline. It clearly displays when each task begins and ends, how tasks are 
+connected to one another, and the progress made on each activity. By presenting this  
+information in a visual format, it allows project managers to see the overall status of the 
+project at a glance. Gantt charts are widely used across different industries to allocate 
+resources effectively, keep track of milestones, and help ensure projects  are finished on 
+schedule . 
+
+=== PAGE 22 ===
+13 
+  
+ 
+
+
+=== PAGE 23 ===
+14 
+ 
+
+
+=== PAGE 24 ===
+ 
+  
+ 
+ 
+ 
+DESIGNS  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+=== PAGE 25 ===
+16 
+ CHAPTER 2  
+ 
+2.1 Use Case Diagram  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+
+=== PAGE 26 ===
+17 
+ 2.2 ER  Diagram  
+ 
+
+
+=== PAGE 27 ===
+18 
+ 2.3 Class Diagram  
+ 
+ 
+ 
+ 
+ 
+ 
+
+
+=== PAGE 28 ===
+19 
+ 2.4 Flowchart Diagram  
+ 
+ 
+ 
+
+
+=== PAGE 29 ===
+20 
+ 2.5 Customer Interaction Diagram  
+ 
+
+
+=== PAGE 30 ===
+21 
+ 2.6 Client Device Diagram  
+ 
+ 
+ 
+ 
+ 
+ 
+
+
+=== PAGE 31 ===
+ 
+  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+IMPLEMENTAION  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+=== PAGE 32 ===
+23 
+ Chapter 3  
+ 
+3.1 User Interface  
+ 
+3.1.1 Auth Module  
+Register page  
+ 
+
+
+=== PAGE 33 ===
+24 
+ Login page  
+ 
+ 
+
+
+=== PAGE 34 ===
+25 
+  
+ 
+3.1.2 App User Profile  
+ 
+ 
+
+
+=== PAGE 35 ===
+26 
+  
+ 
+
+
+=== PAGE 36 ===
+27 
+ Edit Information  
+ 
+
+
+=== PAGE 37 ===
+28 
+  
+
+
+=== PAGE 38 ===
+29 
+ Reset password  
+ 
+
+
+=== PAGE 39 ===
+30 
+ 3.2 Functionality Design  
+ 
+     3.2.1 Notes  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+=== PAGE 40 ===
+31 
+ 3.2.2 Calendar  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+=== PAGE 41 ===
+32 
+ 3.2.3 Chatbot  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+=== PAGE 42 ===
+33 
+ 3.2.4 Flashcards  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+=== PAGE 43 ===
+34 
+ 3.2.5 Quizzes  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+=== PAGE 44 ===
+35 
+ 3.2.6 Results  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+=== PAGE 45 ===
+ 
+  
+ 
+ 
+ 
+ 
+ 
+CONCLUSION AND 
+FUTURE GOALS  
+ 
+  
+  
+ 
+ 
+ 
+
+=== PAGE 46 ===
+37 
+ Chapter 4  
+ 
+4.1 Conclusion  
+The development of Lumen AI represents a significant step toward integrating artificial 
+intelligence into everyday academic workflows. This project was designed with a clear 
+objective: to reduce student stress, automate time -consuming note -taking processes , and 
+enhance overall academic performance. In an era where students are constantly managing 
+dense lecture materials, multiple subjects, and limited time, Lumen AI provides a 
+structured and intelligent solution that simplifies learning management.  
+ 
+Through out the development process, the application was built to function exclusively on 
+Android devices running version 8.0 and above, ensuring compatibility with a wide range 
+of modern smartphones and tablets. By leveraging Flutter and Dart for the frontend, th e 
+project achieved a responsive and intuitive user interface capable of handling dynamic 
+content such as transcripts, summaries, flashcards, and quizzes. The integration of FastAPI 
+and Python on the backend enabled efficient communication between the mobil e 
+application and AI services, while Supabase provided reliable database management and 
+user authentication support.  
+ 
+A key achievement of this project is the successful implementation of automated lecture 
+processing. Students can upload audio recordings or academic documents in supported 
+formats, after which the system generates full transcripts and concise summaries. Th is 
+automation eliminates the need for manual note -taking, allowing learners to focus more on 
+understanding concepts rather than transcribi ng information. The AI -powered chatbot 
+further strengthens this functionality by enabling students to ask questions based strictly 
+on their recorded lectures, ensuring relevant and context -specific responses.  
+In conclusion, Lumen AI successfully fulfills  its primary mission of automating academic 
+organization and reducing cognitive overload for students across high school, university, 
+and postgraduate levels. By combining intelligent automation, structured content 
+management, and AI -driven assistance with in a single mobile platform, the project 
+demonstrates how technology can meaningfully enhance modern education.  
+ 
+ 
+
+=== PAGE 47 ===
+38 
+ 4.2 Future Goals  
+As Lumen AI continues to evolve beyond its prototype stage, several strategic future goals 
+have been identified to enhance its functionality, scalability, and overall impact within the 
+educational technology landscape. These planned developments aim to str engthen 
+accessibility, introduce sustainable monetization strategies, improve personalization, and 
+expand platform availability while maintaining the core mission of reducing academic 
+stress and automating learning workflows.  
+ 
+1. Multiple languages  and Audio Processing Enhancement  
+expand compatibility with multiple languages, particularly in audio processing and 
+transcription. Currently, lecture recordings are processed  only with English  however, 
+future development will focus on integrating multilingual speech recognition systems. 
+This enhancement will allow students from diverse linguistic backgrounds to upload and 
+process lectures delivered in various languages. By incorporating multili ngual audio 
+transcription and summarization, Lumen AI can broaden its accessibility to internatio nal 
+students and institutions. Such expansion not only increases inclusivity but also 
+strengthens the application’s potential for global adoption in academic environments.  
+ 
+2. Monetization Through Premium Subscription Plans  
+Premium subscription plans as part of a structured monetization model. While Lumen AI 
+currently operates without paid features, introducing tiered premium plans would ensure 
+long-term sustainability and continued technological improvement. Premium offerings  
+may include expanded storage capacity beyond free -tier backend limitations, faster AI 
+processing, advanced summarization options, enhanced chatbot functionality, and priority 
+access to newly released features.  
+ 
+3. Customized Assessment Generation  
+The current system automatically generates multiple -choice quizzes; however, future 
+iterations will incorporate fully customized test generation. This feature would allow 
+students to select difficulty levels, define specific topics within a lecture, choose  question 
+formats such as short -answer or scenario -based questions, and determine the number of 
+questions per test.  
+
+=== PAGE 48 ===
+39 
+ 4. Deployment to Major App Stores  
+The official release of Lumen AI on the Google Play Store and Apple App Store will 
+increase visibility, credibility, and user trust. Publishing on these platforms requires 
+compliance with industry standards, performance optimization, and enhanced security 
+measures. Successfully achieving store deployment will not only expand the user base but 
+also position Lumen AI as a competitive educational technology solution within the global 
+marketplace.  
+ 
+5. Audio -Responsive Chatbot Integration  
+chatbot with audio -listening capability is a forward -looking innovation goal. This 
+enhancement would allow the chatbot to actively process and respond to spoken queries, 
+enabling hands -free interaction. By incorporating speech -to-text and text -to-speech 
+technologies, students could verbally ask questions about their lectures and receive spoken 
+explanations in return. Such functionality would significantly improve accessibility . 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+=== PAGE 49 ===
+ 
+  
+ 
+ 
+ 
+ 
+REFERENCE  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+
+=== PAGE 50 ===
+41 
+ https://developer.android.com/get -started/overview  
+https://fastapi.tiangolo.com/  
+https://supabase.com/docs  
+https://docs.flutter.dev/  
+https://youtu.be/9gpAtzQhYkY?si=fxYKfXkK9c_7cKPf  
+https://www.geeksforgeeks.org/dart/dart -tutorial/  
+https://www.geeksforgeeks.org/flutter/flutter -tutorial/  
+https://curriculumredesign.org/our -work/artificial -intelligence -in-education/  
+ 

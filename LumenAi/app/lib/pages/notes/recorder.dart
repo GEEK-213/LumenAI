@@ -7,7 +7,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/data_models.dart'; // Import models
 import '../../services/audio_service.dart';
 import '../../services/api_service.dart'; // Import API Service
-import '../../components/audio_player_ui.dart';
 import 'results_page.dart'; // Import Results Page
 
 class RecorderPage extends StatefulWidget {
@@ -30,6 +29,8 @@ class _RecorderPageState extends State<RecorderPage> {
   Timer? _timer;
   int _seconds = 0;
   String? _recordedFilePath;
+  double _uploadProgress = 0.0;
+  String _uploadStage = '';
 
   // Dropdown State
   List<Subject> _subjects = [];
@@ -148,7 +149,11 @@ class _RecorderPageState extends State<RecorderPage> {
   Future<void> _processRecording() async {
     if (_recordedFilePath == null) return;
 
-    setState(() => isProcessing = true);
+    setState(() {
+      isProcessing = true;
+      _uploadProgress = 0.0;
+      _uploadStage = 'Preparing upload...';
+    });
 
     try {
       final user = _supabase.auth.currentUser;
@@ -179,6 +184,20 @@ class _RecorderPageState extends State<RecorderPage> {
         return;
       }
 
+      // Stage 1: Uploading
+      setState(() {
+        _uploadProgress = 0.15;
+        _uploadStage = 'Uploading audio...';
+      });
+
+      // Small delay for visual feedback
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      setState(() {
+        _uploadProgress = 0.4;
+        _uploadStage = 'Sending to Lumen AI...';
+      });
+
       final result = await _apiService.processLecture(
         audioFile: File(_recordedFilePath!),
         subjectId: _selectedSubject!.id,
@@ -188,6 +207,19 @@ class _RecorderPageState extends State<RecorderPage> {
             ? "Lecture on ${_selectedUnit!.name}"
             : "New Recording",
       );
+
+      // Stage 2: AI Processing
+      setState(() {
+        _uploadProgress = 0.85;
+        _uploadStage = 'Analyzing with Gemini...';
+      });
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      setState(() {
+        _uploadProgress = 1.0;
+        _uploadStage = 'Complete!';
+      });
+      await Future.delayed(const Duration(milliseconds: 300));
 
       if (!mounted) return;
 
@@ -302,15 +334,64 @@ class _RecorderPageState extends State<RecorderPage> {
 
               // --- 2. Recording Status ---
               if (isProcessing)
-                const Column(
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 10),
-                    Text(
-                      "Analyzing with Gemini...",
-                      style: TextStyle(color: Colors.white),
-                    ),
-                  ],
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: Column(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          value: _uploadProgress,
+                          backgroundColor: Colors.white12,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            _uploadProgress >= 1.0
+                                ? Colors.greenAccent
+                                : Colors.blueAccent,
+                          ),
+                          minHeight: 8,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        _uploadStage,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        '${(_uploadProgress * 100).toStringAsFixed(0)}%',
+                        style: TextStyle(
+                          color: _uploadProgress >= 1.0
+                              ? Colors.greenAccent
+                              : Colors.blueAccent,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      if (_uploadProgress < 1.0)
+                        TextButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              isProcessing = false;
+                              _uploadProgress = 0.0;
+                              _uploadStage = '';
+                            });
+                          },
+                          icon: const Icon(
+                            Icons.cancel,
+                            color: Colors.orangeAccent,
+                            size: 18,
+                          ),
+                          label: const Text(
+                            'Cancel',
+                            style: TextStyle(color: Colors.orangeAccent),
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
 
               const SizedBox(height: 20),

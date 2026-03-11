@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/data_models.dart';
+import '../../services/gamification_service.dart';
 import 'subject_detail_page.dart';
+import '../leaderboard_page.dart';
+import '../store_page.dart';
 
 class NotesPage extends StatefulWidget {
   const NotesPage({super.key});
@@ -15,11 +18,26 @@ class _NotesPageState extends State<NotesPage> {
 
   List<Subject> _subjects = [];
   bool _loading = true;
+  Map<String, dynamic>? _profile;
+  final _gamification = GamificationService();
 
   @override
   void initState() {
     super.initState();
-    _loadSubjects();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    await Future.wait([_loadSubjects(), _loadProfile()]);
+  }
+
+  Future<void> _loadProfile() async {
+    try {
+      final profile = await _gamification.fetchProfile();
+      if (mounted) setState(() => _profile = profile);
+    } catch (e) {
+      debugPrint('❌ Failed to load profile: $e');
+    }
   }
 
   Future<void> _loadSubjects() async {
@@ -87,7 +105,7 @@ class _NotesPageState extends State<NotesPage> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1A2036),
+        backgroundColor: Theme.of(context).cardColor,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Add Subject'),
         content: TextField(
@@ -152,20 +170,23 @@ class _NotesPageState extends State<NotesPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0C1223),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF0C1223),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         elevation: 0,
-        title: const Text(
+        title: Text(
           'My Subjects',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).textTheme.titleLarge?.color,
+          ),
         ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
               setState(() => _loading = true);
-              _loadSubjects();
+              _loadData();
             },
           ),
         ],
@@ -178,9 +199,25 @@ class _NotesPageState extends State<NotesPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: _loadSubjects,
-              child: _subjects.isEmpty
-                  ? Center(
+              onRefresh: _loadData,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _buildWalletCard(),
+                  const SizedBox(height: 24),
+                  Text(
+                    "Your Subjects",
+                    style: TextStyle(
+                      color:
+                          Theme.of(context).textTheme.titleLarge?.color ??
+                          Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (_subjects.isEmpty)
+                    Center(
                       child: Padding(
                         padding: const EdgeInsets.all(32),
                         child: Column(
@@ -204,88 +241,238 @@ class _NotesPageState extends State<NotesPage> {
                         ),
                       ),
                     )
-                  : ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _subjects.length,
-                      itemBuilder: (_, index) {
-                        final subject = _subjects[index];
-                        final name = subject.name;
-                        final color = _colors[index % _colors.length];
-                        final icon = _icons[index % _icons.length];
-                        return Dismissible(
-                          key: Key(subject.id),
-                          direction: DismissDirection.endToStart,
-                          background: Container(
-                            alignment: Alignment.centerRight,
-                            padding: const EdgeInsets.only(right: 24),
+                  else
+                    ...List.generate(_subjects.length, (index) {
+                      final subject = _subjects[index];
+                      final color = _colors[index % _colors.length];
+                      final icon = _icons[index % _icons.length];
+
+                      return Dismissible(
+                        key: Key(subject.id),
+                        direction: DismissDirection.endToStart,
+                        background: Container(
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.only(right: 24),
+                          decoration: BoxDecoration(
+                            color: Colors.red[900],
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Icon(Icons.delete, color: Colors.white),
+                        ),
+                        onDismissed: (_) => _deleteSubject(subject.id),
+                        child: GestureDetector(
+                          onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => SubjectDetailPage(
+                                subject: subject,
+                                baseColor: color,
+                              ),
+                            ),
+                          ).then((_) => _loadData()),
+                          child: Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: Colors.red[900],
+                              color: color,
                               borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.06),
+                              ),
                             ),
-                            child: const Icon(
-                              Icons.delete,
-                              color: Colors.white,
+                            child: Row(
+                              children: [
+                                Container(
+                                  height: 48,
+                                  width: 48,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  child: Icon(
+                                    icon,
+                                    color: Colors.white70,
+                                    size: 26,
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Text(
+                                    subject.name,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                                const Icon(
+                                  Icons.chevron_right,
+                                  color: Colors.white30,
+                                ),
+                              ],
                             ),
                           ),
-                          onDismissed: (_) => _deleteSubject(subject.id),
-                          child: GestureDetector(
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => SubjectDetailPage(
-                                  subject: subject,
-                                  baseColor: color,
-                                ),
-                              ),
-                            ).then((_) => _loadSubjects()),
-                            child: Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              padding: const EdgeInsets.all(20),
-                              decoration: BoxDecoration(
-                                color: color,
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color: Colors.white.withOpacity(0.06),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Container(
-                                    height: 48,
-                                    width: 48,
-                                    decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(14),
-                                    ),
-                                    child: Icon(
-                                      icon,
-                                      color: Colors.white70,
-                                      size: 26,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Text(
-                                      name,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                  ),
-                                  const Icon(
-                                    Icons.chevron_right,
-                                    color: Colors.white30,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    }),
+                ],
+              ),
             ),
     );
+  }
+
+  Widget _buildWalletCard() {
+    final coins = _profile?['lumen_coins'] ?? 0;
+    final xp = _profile?['xp'] ?? 0;
+    final rank = _profile?['rank_title'] ?? 'Novice Scholar';
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const LeaderboardPage()),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF2A1B54), Color(0xFF4A2B8A)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.purpleAccent.withOpacity(0.2),
+              blurRadius: 15,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "LUMEN WALLET",
+                      style: TextStyle(
+                        color: Colors.purpleAccent,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 2.0,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        const Icon(Icons.stars, color: Colors.amber, size: 32),
+                        const SizedBox(width: 8),
+                        Text(
+                          "$coins",
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            height: 1.0,
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        const Text(
+                          "Coins",
+                          style: TextStyle(color: Colors.amber, fontSize: 16),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: Colors.purpleAccent.withOpacity(0.5),
+                    ),
+                  ),
+                  child: Text(
+                    rank,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            LinearProgressIndicator(
+              value: (xp % 100) / 100.0,
+              backgroundColor: Colors.black26,
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                Colors.purpleAccent,
+              ),
+              borderRadius: BorderRadius.circular(4),
+              minHeight: 6,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "$xp XP Total · ${100 - (xp % 100)} XP to next rank",
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+            const SizedBox(height: 12),
+            const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  "Tap to view Global Leaderboard",
+                  style: TextStyle(
+                    color: Colors.purpleAccent,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(width: 4),
+                Icon(Icons.leaderboard, color: Colors.purpleAccent, size: 14),
+              ],
+            ),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const StorePage()),
+                ).then((_) => _loadData()); // Refresh coins when coming back
+              },
+              child: const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "Visit Avatar Marketplace",
+                    style: TextStyle(
+                      color: Colors.amber,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  SizedBox(width: 4),
+                  Icon(Icons.shopping_cart, color: Colors.amber, size: 14),
+                ],
+              ),
+            ),
+          ],
+        ), // end Column
+      ), // end Container
+    ); // end GestureDetector
   }
 }

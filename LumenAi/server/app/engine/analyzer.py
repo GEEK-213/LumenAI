@@ -25,7 +25,7 @@ class LectureAnalyzer:
         Returns the fundamental `contents` list to be reused across different prompt generators.
         This allows us to upload/process the file ONCE, and query it MULTIPLE times.
         """
-        NATIVE_SUPPORT = {".mp3", ".mp4", ".wav", ".pdf", ".mov"}
+        NATIVE_SUPPORT = {".mp3", ".mp4", ".wav", ".mov"}
         contents = []
 
         # 1. Ground Truth - Syllabus Context goes first
@@ -41,8 +41,10 @@ class LectureAnalyzer:
                 try:
                     file = self.client.files.upload(file=path)
                     # Wait for Google's infrastructure to process the video/audio
+                    # Use async sleep to avoid blocking the FastAPI event loop
+                    import asyncio
                     while file.state.name == "PROCESSING":
-                        time.sleep(2)
+                        await asyncio.sleep(2)
                         file = self.client.files.get(name=file.name)
                     contents.append(file)
                 except Exception as e:
@@ -58,11 +60,13 @@ class LectureAnalyzer:
                     
         return contents
 
-    def _execute_prompt(self, contents: list, instructions: str) -> str:
+    async def _execute_prompt(self, contents: list, instructions: str) -> str:
         """
         Internal helper to execute the prompt against Gemini LLM.
         Handles API Rate Limits and Quota Exhaustion gracefully.
+        Uses async sleep to avoid blocking the FastAPI event loop.
         """
+        import asyncio
         # We prepend the instruction to the list of contents (which might contain Video clips)
         prompted_contents = [instructions] + contents
         max_retries = 3
@@ -71,7 +75,7 @@ class LectureAnalyzer:
         for i in range(max_retries):
             try:
                 response = self.client.models.generate_content(
-                    model="gemini-2.0-flash", 
+                    model="gemini-2.5-flash", 
                     contents=prompted_contents,
                     config=types.GenerateContentConfig(
                         response_mime_type="application/json",
@@ -85,7 +89,7 @@ class LectureAnalyzer:
                 # If we get rate limited, exponential backoff and retry
                 if "429" in error_str or "503" in error_str or "quota" in error_str.lower():
                     last_error = e
-                    time.sleep((2 ** i) + 5)
+                    await asyncio.sleep((2 ** i) + 5)
                 else:
                     raise e
                     
@@ -104,7 +108,7 @@ class LectureAnalyzer:
         You are 'Lumen AI', an advanced academic assistant.
         Today's date is {today_date}.
         
-        GOAL: Summarize this text into 3 distinct paragraphs and extract 5-8 key topics.
+        GOAL: Summarize this text into 3 distinct paragraphs, extract 5-8 key topics, and generate a hierarchical mind map structure connecting these topics. Return AT LEAST 5 nodes in the mind map.
         
         OUTPUT FORMAT (Strict JSON):
         {{
@@ -125,7 +129,7 @@ class LectureAnalyzer:
             "transcript": "Full transcript (if audio/video provided)"
         }}
         """
-        return self._execute_prompt(contents, instructions)
+        return await self._execute_prompt(contents, instructions)
 
 
     async def generate_quiz(self, contents: list) -> str:
@@ -151,7 +155,7 @@ class LectureAnalyzer:
             }}
         ]
         """
-        return self._execute_prompt(contents, instructions)
+        return await self._execute_prompt(contents, instructions)
 
 
     async def generate_flashcards(self, contents: list) -> str:
@@ -175,4 +179,80 @@ class LectureAnalyzer:
             }}
         ]
         """
-        return self._execute_prompt(contents, instructions)
+        return await self._execute_prompt(contents, instructions)
+
+    async def generate_dynamic_quiz(self, contents: list, previous_questions: list) -> str:
+        """
+        Gamification (Phase 4): Generate 5 NOVEL MCQs avoiding previously asked questions.
+        """
+        import json
+        avoid_str = json.dumps(previous_questions, indent=2) if previous_questions else "None"
+        instructions = f"""
+        You are strictly an MCQ generating API.
+        
+        GOAL: Generate EXACTLY 5 *NOVEL* Multiple Choice Questions based on this text.
+        
+        CRITICAL CONSTRAINT: DO NOT generate any questions similar to the following previously asked questions:
+        {avoid_str}
+        
+        CONSTRAINT: Output ONLY strict RAW JSON array. No markdown blocks.
+        
+        OUTPUT FORMAT (Strict JSON Array):
+        [
+            {{
+                "question": "Exam-style MCQ question",
+                "options": ["Option A", "Option B", "Option C", "Option D"],
+                "correct_answer": "Option A", 
+                "explanation": "Brief explanation"
+            }}
+        ]
+        """
+        return await self._execute_prompt(contents, instructions)
+
+    async def generate_dynamic_flashcards(self, contents: list, previous_fronts: list) -> str:
+        """
+        Gamification (Phase 4): Generate 5 NOVEL Flashcards avoiding previously generated concepts.
+        """
+        import json
+        avoid_str = json.dumps(previous_fronts, indent=2) if previous_fronts else "None"
+        instructions = f"""
+        You are strictly a Flashcard generating API.
+        
+        GOAL: Generate EXACTLY 5 *NOVEL* Front/Back flashcards based on this text. Focus on definitions.
+        
+        CRITICAL CONSTRAINT: DO NOT generate flashcards for the following terms which the user already knows:
+        {avoid_str}
+        
+        CONSTRAINT: Output ONLY strict RAW JSON array. No markdown blocks.
+        
+        OUTPUT FORMAT (Strict JSON Array):
+        [
+            {{
+                "front": "Term (e.g., Polymorphism)", 
+                "back": "Definition based on syllabus/content"
+            }}
+        ]
+        """
+        return await self._execute_prompt(contents, instructions)
+
+    async def generate_podcast_script(self, contents: list) -> str:
+        """
+        Phase 5: Generate a LumenCast audio script from the lecture materials.
+        """
+        instructions = """
+        You are a talented scriptwriter for a deeply engaging educational podcast.
+        
+        GOAL: Write a 2-host conversational podcast script (Host 1: Alex, Host 2: Jamie) 
+        explaining the key concepts of the provided lecture material.
+        
+        STYLE:
+        - Conversational, enthusiastic, and insightful (like NPR's Planet Money or Stuff You Should Know).
+        - Use analogies and real-world examples.
+        - The hosts seamlessly bounce off each other, occasionally asking rhetorical questions.
+        - STRICTLY output spoken dialogue lines only. NO speaker labels (like Alex:, Jamie:) and NO stage directions ([laughs], etc).
+        - Separate each host's spoken paragraph by a double newline so the TTS can pause naturally.
+        - Do not explicitly say their names or introduce them, just jump right into the fascinating content.
+        
+        LENGTH: Aim for script text that would take about 2-3 minutes to read out loud.
+        """
+        return await self._execute_prompt(contents, instructions)

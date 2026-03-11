@@ -3,14 +3,38 @@ import json
 import shutil
 import tempfile
 import re
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
+import asyncio
+import logging
+import json_repair
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks, Depends
 from app.database import supabase
 from app.engine.analyzer import LectureAnalyzer, RateLimitError
 from app.engine.local_analyzer import LocalAnalyzer
+from app.middleware.auth import get_current_user
+from app.engine.auto_mapper import auto_map_lecture
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
-analyzer = LectureAnalyzer()
-local_analyzer = LocalAnalyzer()
+
+# Lazy-initialized analyzers — prevents startup crash if Gemini key or Ollama missing
+_analyzer = None
+_local_analyzer = None
+
+def get_analyzer():
+    global _analyzer
+    if _analyzer is None:
+        _analyzer = LectureAnalyzer()
+    return _analyzer
+
+def get_local_analyzer():
+    global _local_analyzer
+    if _local_analyzer is None:
+        _local_analyzer = LocalAnalyzer()
+    return _local_analyzer
+
+# Semaphore to cap concurrent AI analyses (prevents Gemini quota exhaustion)
+analysis_semaphore = asyncio.Semaphore(2)
 
 
 def extract_json(text: str) -> str:
@@ -96,7 +120,7 @@ async def save_quiz_background(engine, contents, user_id, lecture_id):
             try:
                 result_str = await engine.generate_quiz(contents)
                 clean_json = extract_json_array(result_str)
-                quizzes = json.loads(clean_json)
+                quizzes = json_repair.loads(clean_json)
                 
                 # Handle case where LLM returns a dictionary instead of a strict array
                 if isinstance(quizzes, dict):
@@ -150,7 +174,7 @@ async def save_flashcards_background(engine, contents, user_id, lecture_id):
             try:
                 result_str = await engine.generate_flashcards(contents)
                 clean_json = extract_json_array(result_str)
-                flashcards = json.loads(clean_json)
+                flashcards = json_repair.loads(clean_json)
                 
                 # Handle case where LLM returns a dictionary instead of a strict array
                 if isinstance(flashcards, dict):
@@ -192,8 +216,8 @@ async def process_lecture(
     file: UploadFile = File(...),
     subject_id: str = Form(...),
     unit_id: str = Form(None),
-    user_id: str = Form(...),
-    title: str = Form(None)
+    title: str = Form(None),
+    user_id: str = Depends(get_current_user),
 ):
     """
     Main Lecture Analysis Endpoint (SMART CHAINING)
@@ -227,41 +251,28 @@ async def process_lecture(
         result_json_str = None
         contents = None
 
-        # Determine which engine to use
-        use_local = os.getenv("USE_LOCAL_LLM", "false").lower() == "true"
-
-        engine = None
-        if use_local:
-            print("  🔧 USE_LOCAL_LLM=true — Skipping Gemini, using Ollama directly.")
-            engine_used = "local_ollama"
-            engine = local_analyzer
-            contents = await engine.prepare_content([tmp_path], syllabus_context)
-            result_json_str = await engine.generate_initial_view(contents)
-        else:
-            try:
-                engine = analyzer
+        try:
+            print("  🌐 Trying Gemini API first...")
+            engine_used = "gemini"
+            engine = get_analyzer()
+            async with analysis_semaphore:
                 contents = await engine.prepare_content([tmp_path], syllabus_context)
                 result_json_str = await engine.generate_initial_view(contents)
-            except RateLimitError as rle:
-                print(f"  ⚠️ Gemini quota limit hit: {rle}")
-                if use_local:
-                    print("  🔄 Falling back to Local LLM (Ollama)...")
-                    engine_used = "local_ollama"
-                    engine = local_analyzer
-                    contents = await engine.prepare_content([tmp_path], syllabus_context)
-                    result_json_str = await engine.generate_initial_view(contents)
-                else:
-                    raise HTTPException(
-                        status_code=429, 
-                        detail="Gemini API Quota Exceeded. Please wait about 60 seconds and try again."
-                    )
+        except Exception as e:
+            print(f"  ⚠️ Gemini failed ({e}). Falling back to Local LLM (Ollama)...")
+            engine_used = "local_ollama"
+            engine = get_local_analyzer()
+            async with analysis_semaphore:
+                contents = await engine.prepare_content([tmp_path], syllabus_context)
+                result_json_str = await engine.generate_initial_view(contents)
 
         if not result_json_str:
             raise HTTPException(status_code=500, detail="The AI model returned no response. Please try again.")
 
         try:
             clean_json = extract_json(result_json_str)
-            data = json.loads(clean_json)
+            # Use json_repair instead of strict json.loads to handle missing commas/unescaped quotes common in audio transcripts
+            data = json_repair.loads(clean_json)
             
             # Robustness: if LLM returned a quoted string instead of an object
             if isinstance(data, str):
@@ -270,7 +281,7 @@ async def process_lecture(
             elif not isinstance(data, dict):
                 data = {}
                 
-        except json.JSONDecodeError as e:
+        except Exception as e:
             print(f"❌ JSON Decode Error on Initial View: {e}")
             raise e
 
@@ -327,6 +338,16 @@ async def process_lecture(
         background_tasks.add_task(save_quiz_background, engine, contents, user_id, lecture_id)
         background_tasks.add_task(save_flashcards_background, engine, contents, user_id, lecture_id)
 
+        # Auto-map to a unit if none was provided
+        if not unit_id:
+            background_tasks.add_task(
+                auto_map_lecture,
+                lecture_id,
+                subject_id,
+                data.get("transcript", ""),
+                data.get("summary", ""),
+            )
+
 
         # RETURN INSTANTLY
         return {
@@ -353,8 +374,147 @@ async def process_lecture(
                 pass
 
 
+@router.post("/analyze_lecture/{lecture_id}")
+async def analyze_lecture_on_demand(lecture_id: str, background_tasks: BackgroundTasks, user_id: str = Depends(get_current_user)):
+    """
+    On-demand AI analysis for a previously pulled (un-analyzed) lecture.
+    Triggered by the 'Make it Smart' button in the Flutter UI.
+    """
+    import io
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaIoBaseDownload
+    from app.tasks.classroom_sync import get_valid_credentials
+    
+    # 1. Get the lecture row
+    lecture_res = supabase.table("lectures").select("*").eq("id", lecture_id).execute()
+    if not lecture_res.data:
+        raise HTTPException(status_code=404, detail="Lecture not found.")
+    
+    lecture = lecture_res.data[0]
+    drive_file_id = lecture.get("drive_file_id")
+    user_id = lecture["user_id"]
+    file_title = lecture["title"]
+    
+    if lecture.get("is_analyzed"):
+        return {"status": "already_analyzed", "message": "This lecture has already been analyzed."}
+    
+    if not drive_file_id:
+        raise HTTPException(status_code=400, detail="No Google Drive file ID stored. This lecture cannot be analyzed from Classroom.")
+    
+    # 2. Get user's Google tokens and build credentials with auto-refresh
+    token_res = supabase.table("user_integrations").select("google_tokens").eq("user_id", user_id).execute()
+    if not token_res.data or not token_res.data[0].get("google_tokens"):
+        raise HTTPException(status_code=400, detail="Google Classroom not connected. Please reconnect.")
+    
+    tokens = token_res.data[0]["google_tokens"]
+    creds = get_valid_credentials(tokens, user_id=user_id)
+    drive_service = build('drive', 'v3', credentials=creds)
+    
+    # 3. Re-download the file from Google Drive
+    print(f"🧠 Make it Smart: Re-downloading '{file_title}' from Drive...")
+    try:
+        request = drive_service.files().get_media(fileId=drive_file_id)
+        fh = io.BytesIO()
+        downloader = MediaIoBaseDownload(fh, request)
+        done = False
+        while not done:
+            status, done = downloader.next_chunk()
+    except Exception:
+        try:
+            request = drive_service.files().export_media(fileId=drive_file_id, mimeType='application/pdf')
+            fh = io.BytesIO()
+            downloader = MediaIoBaseDownload(fh, request)
+            done = False
+            while not done:
+                status, done = downloader.next_chunk()
+        except Exception as ex:
+            raise HTTPException(status_code=500, detail=f"Failed to download file from Drive: {ex}")
+    
+    fh.seek(0)
+    suffix = os.path.splitext(file_title)[1]
+    if not suffix:
+        suffix = '.pdf'
+    
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(fh.read())
+            tmp_path = tmp.name
+        
+        # 4. Run AI pipeline (with semaphore to limit concurrency)
+        print(f"🧠 Running AI analysis on '{file_title}'...")
+        engine = get_analyzer()
+        try:
+            async with analysis_semaphore:
+                contents = await engine.prepare_content([tmp_path], "")
+                result_json_str = await engine.generate_initial_view(contents)
+        except Exception as e:
+            print(f"⚠️ Gemini failed ({e}). Falling back to Ollama...")
+            engine = get_local_analyzer()
+            async with analysis_semaphore:
+                contents = await engine.prepare_content([tmp_path], "")
+                result_json_str = await engine.generate_initial_view(contents)
+        
+        if not result_json_str:
+            raise Exception("No AI content generated.")
+        
+        clean_json = extract_json(result_json_str)
+        data = json.loads(clean_json, strict=False)
+        
+        if isinstance(data, str):
+            data = {"summary": data}
+        elif not isinstance(data, dict):
+            data = {}
+        
+        # 5. Update the lecture row with analysis results
+        supabase.table("lectures").update({
+            "summary": data.get("summary", ""),
+            "transcript": data.get("transcript", ""),
+            "raw_analysis": data,
+            "is_analyzed": True,
+        }).eq("id", lecture_id).execute()
+        
+        print(f"✅ Lecture '{file_title}' is now SMART!")
+        
+        # 6. Save mind map if present
+        if data.get("mind_map"):
+            supabase.table("mind_maps").insert({
+                "user_id": user_id, "lecture_id": lecture_id,
+                "nodes": data["mind_map"].get("nodes", []),
+                "edges": data["mind_map"].get("edges", [])
+            }).execute()
+        
+        # 7. Fire quiz + flashcard generation in background
+        background_tasks.add_task(save_quiz_background, engine, contents, user_id, lecture_id)
+        background_tasks.add_task(save_flashcards_background, engine, contents, user_id, lecture_id)
+        
+        # Auto-map to a unit if none was set
+        if not lecture.get("unit_id"):
+            background_tasks.add_task(
+                auto_map_lecture,
+                lecture_id,
+                lecture["subject_id"],
+                data.get("transcript", ""),
+                data.get("summary", ""),
+            )
+        
+        return {"status": "success", "message": f"'{file_title}' has been analyzed!", "data": data}
+    
+    except Exception as e:
+        print(f"❌ Error analyzing lecture: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except:
+                pass
+
+
 @router.delete("/lecture/{lecture_id}")
-async def delete_lecture(lecture_id: str):
+async def delete_lecture(lecture_id: str, user_id: str = Depends(get_current_user)):
     """Delete a lecture and its cascades."""
     try:
         supabase.table("lectures").delete().eq("id", lecture_id).execute()
@@ -364,7 +524,7 @@ async def delete_lecture(lecture_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/lecture/{lecture_id}")
-async def rename_lecture(lecture_id: str, new_title: str = Form(...)):
+async def rename_lecture(lecture_id: str, new_title: str = Form(...), user_id: str = Depends(get_current_user)):
     """Rename a lecture."""
     try:
         response = supabase.table("lectures").update({"title": new_title}).eq("id", lecture_id).execute()
@@ -376,3 +536,181 @@ async def rename_lecture(lecture_id: str, new_title: str = Form(...)):
         print(f"❌ Error renaming lecture: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.post("/lecture/{lecture_id}/quiz/dynamic")
+async def generate_dynamic_quiz_endpoint(lecture_id: str, user_id: str = Depends(get_current_user)):
+    """Gamification: Generate 5 NOVEL MCQs avoiding existing ones."""
+    try:
+        # 1. Fetch Lecture Content
+        lecture_res = supabase.table("lectures").select("transcript, summary").eq("id", lecture_id).execute()
+        if not lecture_res.data:
+            raise HTTPException(status_code=404, detail="Lecture not found")
+            
+        lecture = lecture_res.data[0]
+        content = lecture.get("transcript") or lecture.get("summary") or ""
+        if not content:
+            raise HTTPException(status_code=400, detail="Lecture has no processable text.")
+            
+        # 2. Fetch Existing Questions
+        quizzes_res = supabase.table("quiz_questions").select("question").eq("lecture_id", lecture_id).execute()
+        previous_questions = [q.get("question") for q in (quizzes_res.data or []) if q.get("question")]
+        
+        # 3. Generate New Questions
+        print(f"🧠 Generating DYNAMIC Quizzes for {lecture_id}...")
+        engine = get_analyzer()
+        try:
+            result_str = await engine.generate_dynamic_quiz([content], previous_questions)
+        except Exception as e:
+            print(f"⚠️ Gemini failed ({e}). Falling back to Ollama...")
+            engine = get_local_analyzer()
+            result_str = await engine.generate_dynamic_quiz(content, previous_questions)
+            
+        # 4. Parse & Save
+        clean_json = extract_json_array(result_str)
+        quizzes = json_repair.loads(clean_json)
+        
+        if isinstance(quizzes, dict) and "quiz_questions" in quizzes:
+            quizzes = quizzes["quiz_questions"]
+            
+        db_quizzes = []
+        for q in quizzes:
+            if not isinstance(q, dict): continue
+            db_quizzes.append({
+                "user_id": user_id,
+                "lecture_id": lecture_id,
+                "question": q.get("question"),
+                "options": q.get("options", []),
+                "correct_answer": q.get("correct_answer"),
+                "explanation": q.get("explanation")
+            })
+            
+        if db_quizzes:
+            supabase.table("quiz_questions").insert(db_quizzes).execute()
+            
+        return {"status": "success", "data": db_quizzes}
+        
+    except Exception as e:
+        print(f"❌ Error generating dynamic quiz: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/lecture/{lecture_id}/flashcards/dynamic")
+async def generate_dynamic_flashcards_endpoint(lecture_id: str, user_id: str = Depends(get_current_user)):
+    """Gamification: Generate 5 NOVEL Flashcards avoiding existing concepts."""
+    try:
+        # 1. Fetch Lecture Content
+        lecture_res = supabase.table("lectures").select("transcript, summary").eq("id", lecture_id).execute()
+        if not lecture_res.data:
+            raise HTTPException(status_code=404, detail="Lecture not found")
+            
+        lecture = lecture_res.data[0]
+        content = lecture.get("transcript") or lecture.get("summary") or ""
+        if not content:
+            raise HTTPException(status_code=400, detail="Lecture has no processable text.")
+            
+        # 2. Fetch Existing Flashcard Fronts
+        cards_res = supabase.table("flashcards").select("front").eq("lecture_id", lecture_id).execute()
+        previous_fronts = [f.get("front") for f in (cards_res.data or []) if f.get("front")]
+        
+        # 3. Generate New Flashcards
+        print(f"🧠 Generating DYNAMIC Flashcards for {lecture_id}...")
+        engine = get_analyzer()
+        try:
+            result_str = await engine.generate_dynamic_flashcards([content], previous_fronts)
+        except Exception as e:
+            print(f"⚠️ Gemini failed ({e}). Falling back to Ollama...")
+            engine = get_local_analyzer()
+            result_str = await engine.generate_dynamic_flashcards(content, previous_fronts)
+            
+        # 4. Parse & Save
+        clean_json = extract_json_array(result_str)
+        cards = json_repair.loads(clean_json)
+        
+        if isinstance(cards, dict) and "flashcards" in cards:
+            cards = cards["flashcards"]
+            
+        db_cards = []
+        for c in cards:
+            if not isinstance(c, dict): continue
+            db_cards.append({
+                "user_id": user_id,
+                "lecture_id": lecture_id,
+                "front": c.get("front"),
+                "back": c.get("back")
+            })
+            
+        if db_cards:
+            supabase.table("flashcards").insert(db_cards).execute()
+            
+        return {"status": "success", "data": db_cards}
+        
+    except Exception as e:
+        print(f"❌ Error generating dynamic flashcards: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/lecture/{lecture_id}/podcast/generate")
+async def generate_podcast_endpoint(lecture_id: str, user_id: str = Depends(get_current_user)):
+    """Generate a TTS podcast from lecture notes using LLM scripting + Google TTS."""
+    from app.engine.audio_service import AudioService
+    try:
+        # 1. Fetch Lecture Content
+        lecture_res = supabase.table("lectures").select("transcript, summary").eq("id", lecture_id).execute()
+        if not lecture_res.data:
+            raise HTTPException(status_code=404, detail="Lecture not found")
+            
+        lecture = lecture_res.data[0]
+        content = lecture.get("transcript") or lecture.get("summary") or ""
+        if not content:
+            raise HTTPException(status_code=400, detail="Lecture has no processable text.")
+        
+        # 2. Generate Podcast Script via LLM
+        print(f"🎧 Generating Podcast Script for {lecture_id}...")
+        engine = get_analyzer()
+        try:
+            script_text = await engine.generate_podcast_script([content])
+        except Exception as e:
+            print(f"⚠️ Gemini podcast dictation failed ({e}). Falling back to Ollama...")
+            engine = get_local_analyzer()
+            script_text = await engine.generate_podcast_script(content)
+            
+        # 3. Generate Audio via gTTS
+        print(f"🎙️ Synthesizing Audio Podcast using gTTS...")
+        audio_service = AudioService()
+        audio_path = await audio_service.generate_podcast_audio(script_text)
+        
+        # 4. Upload to Supabase Storage
+        filename = f"podcast_{lecture_id}.mp3"
+        storage_path = f"{user_id}/{filename}"
+        
+        with open(audio_path, "rb") as f:
+            supabase.storage.from_("lumencasts").upload(
+                path=storage_path, 
+                file=f,
+                file_options={"content-type": "audio/mpeg", "upsert": "true"}
+            )
+            
+        public_url = supabase.storage.from_("lumencasts").get_public_url(storage_path)
+        
+        # Cleanup temp file
+        import os
+        if os.path.exists(audio_path):
+            os.remove(audio_path)
+            
+        # 5. Insert Record into LumenCasts table
+        cast_record = {
+            "lecture_id": lecture_id,
+            "audio_url": public_url,
+            "transcript": script_text
+        }
+        res = supabase.table("lumen_casts").insert(cast_record).execute()
+        
+        return {"status": "success", "data": res.data[0]}
+        
+    except Exception as e:
+        print(f"❌ Error generating podcast: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))

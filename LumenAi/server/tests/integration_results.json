@@ -1,0 +1,11 @@
+{
+  "timestamp": "2026-02-28 21:22:15",
+  "passed": 1,
+  "total": 3,
+  "elapsed_seconds": 18.5,
+  "tests": {
+    "process_text": "FAIL",
+    "chat": "PASS",
+    "syllabus": "FAIL"
+  }
+}
