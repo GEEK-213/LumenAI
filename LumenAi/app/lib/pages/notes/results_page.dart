@@ -7,6 +7,7 @@ import '../../services/gamification_service.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'mind_map_tab.dart';
 import 'code_sandbox_tab.dart';
+import '../../widgets/keyboard_shortcuts.dart';
 
 class AnalysisResultScreen extends StatefulWidget {
   final AnalysisResult result;
@@ -537,15 +538,23 @@ class _EnhancedQuizTabState extends State<EnhancedQuizTab> {
   final Map<int, String> _selectedAnswers = {};
   final QuizService _quizService = QuizService();
   final ApiService _apiService = ApiService();
+  final ScrollController _quizScrollController = ScrollController();
 
   late List<QuizQuestion> _currentQuestions;
   bool _quizCompleted = false;
   bool _isGeneratingNewQuiz = false;
+  int _focusedQuizIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _currentQuestions = widget.questions;
+  }
+
+  @override
+  void dispose() {
+    _quizScrollController.dispose();
+    super.dispose();
   }
 
   int get _correctCount {
@@ -766,93 +775,132 @@ class _EnhancedQuizTabState extends State<EnhancedQuizTab> {
       );
     }
 
-    return Column(
-      children: [
-        // Score tracker bar
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A1A2E),
-            border: Border(bottom: BorderSide(color: Colors.white12)),
-          ),
-          child: Row(
-            children: [
-              // Progress
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "$_answeredCount / $_totalCount answered",
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: _totalCount > 0
-                            ? _answeredCount / _totalCount
-                            : 0,
-                        backgroundColor: Colors.white12,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          _answeredCount == _totalCount
-                              ? _scoreColor
-                              : Colors.blueAccent,
+    return KeyboardShortcutWrapper(
+      onNumberKey: (optionIndex) {
+        if (_focusedQuizIndex < _currentQuestions.length) {
+          final q = _currentQuestions[_focusedQuizIndex];
+          if (optionIndex < q.options.length) {
+            _selectAnswer(_focusedQuizIndex, q.options[optionIndex]);
+            // Auto-advance focus to next unanswered
+            for (
+              int i = _focusedQuizIndex + 1;
+              i < _currentQuestions.length;
+              i++
+            ) {
+              if (!_selectedAnswers.containsKey(i)) {
+                setState(() => _focusedQuizIndex = i);
+                break;
+              }
+            }
+          }
+        }
+      },
+      onRight: () {
+        if (_focusedQuizIndex < _currentQuestions.length - 1) {
+          setState(() => _focusedQuizIndex++);
+        }
+      },
+      onLeft: () {
+        if (_focusedQuizIndex > 0) {
+          setState(() => _focusedQuizIndex--);
+        }
+      },
+      child: Column(
+        children: [
+          // Score tracker bar
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1A1A2E),
+              border: Border(bottom: BorderSide(color: Colors.white12)),
+            ),
+            child: Row(
+              children: [
+                // Progress
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "$_answeredCount / $_totalCount answered",
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 13,
                         ),
-                        minHeight: 6,
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 16),
-              // Score
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: _scoreColor.withOpacity(0.15),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: _scoreColor.withOpacity(0.4)),
-                ),
-                child: Text(
-                  "✓ $_correctCount",
-                  style: TextStyle(
-                    color: _scoreColor,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+                      const SizedBox(height: 6),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: _totalCount > 0
+                              ? _answeredCount / _totalCount
+                              : 0,
+                          backgroundColor: Colors.white12,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            _answeredCount == _totalCount
+                                ? _scoreColor
+                                : Colors.blueAccent,
+                          ),
+                          minHeight: 6,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
-              // Retake button (only after completion)
-              if (_quizCompleted) ...[
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.replay, color: Colors.orangeAccent),
-                  tooltip: 'Retake Quiz',
-                  onPressed: _retakeQuiz,
+                const SizedBox(width: 16),
+                // Score
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _scoreColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: _scoreColor.withOpacity(0.4)),
+                  ),
+                  child: Text(
+                    "✓ $_correctCount",
+                    style: TextStyle(
+                      color: _scoreColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
                 ),
+                // Retake button (only after completion)
+                if (_quizCompleted) ...[
+                  const SizedBox(width: 8),
+                  IconButton(
+                    icon: const Icon(Icons.replay, color: Colors.orangeAccent),
+                    tooltip: 'Retake Quiz',
+                    onPressed: _retakeQuiz,
+                  ),
+                ],
               ],
+            ),
+          ),
+          // Keyboard hint bar
+          const ShortcutHintBar(
+            hints: [
+              ShortcutHint('1-4', 'Select answer'),
+              ShortcutHint('←→', 'Navigate'),
             ],
           ),
-        ),
-        // Quiz cards
-        Expanded(
-          child: ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: _currentQuestions.length,
-            itemBuilder: (ctx, i) {
-              final q = _currentQuestions[i];
-              return _buildQuizCard(i, q);
-            },
+          // Quiz cards
+          Expanded(
+            child: ListView.builder(
+              controller: _quizScrollController,
+              padding: const EdgeInsets.all(16),
+              itemCount: _currentQuestions.length,
+              itemBuilder: (ctx, i) {
+                final q = _currentQuestions[i];
+                return _buildQuizCard(i, q);
+              },
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1141,114 +1189,149 @@ class _EnhancedFlashcardsTabState extends State<EnhancedFlashcardsTab> {
 
     if (_showSummary) return _buildMasterySummary();
 
-    return Column(
-      children: [
-        // Progress bar
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          decoration: const BoxDecoration(
-            color: Color(0xFF1A1A2E),
-            border: Border(bottom: BorderSide(color: Colors.white12)),
-          ),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    "Card ${_currentIndex + 1} of ${_currentFlashcards.length}",
-                    style: const TextStyle(color: Colors.white70, fontSize: 14),
-                  ),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.check_circle,
-                        color: Colors.greenAccent,
-                        size: 16,
+    return KeyboardShortcutWrapper(
+      onLeft: () {
+        if (_currentIndex > 0) {
+          _pageController.previousPage(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        }
+      },
+      onRight: () {
+        if (_currentIndex < _currentFlashcards.length - 1) {
+          _pageController.nextPage(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+          );
+        }
+      },
+      onSpace: () => _markCard(true),
+      onEnter: () => _markCard(false),
+      child: Column(
+        children: [
+          // Progress bar
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            decoration: const BoxDecoration(
+              color: Color(0xFF1A1A2E),
+              border: Border(bottom: BorderSide(color: Colors.white12)),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Card ${_currentIndex + 1} of ${_currentFlashcards.length}",
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        "$_knownCount",
-                        style: const TextStyle(
+                    ),
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.check_circle,
                           color: Colors.greenAccent,
-                          fontSize: 14,
+                          size: 16,
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Icon(Icons.replay, color: Colors.orangeAccent, size: 16),
-                      const SizedBox(width: 4),
-                      Text(
-                        "$_reviewCount",
-                        style: const TextStyle(
+                        const SizedBox(width: 4),
+                        Text(
+                          "$_knownCount",
+                          style: const TextStyle(
+                            color: Colors.greenAccent,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Icon(
+                          Icons.replay,
                           color: Colors.orangeAccent,
-                          fontSize: 14,
+                          size: 16,
                         ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: _currentFlashcards.isNotEmpty
-                      ? (_currentIndex + 1) / _currentFlashcards.length
-                      : 0,
-                  backgroundColor: Colors.white12,
-                  valueColor: const AlwaysStoppedAnimation<Color>(
-                    Colors.blueAccent,
-                  ),
-                  minHeight: 5,
+                        const SizedBox(width: 4),
+                        Text(
+                          "$_reviewCount",
+                          style: const TextStyle(
+                            color: Colors.orangeAccent,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-              ),
+                const SizedBox(height: 8),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: LinearProgressIndicator(
+                    value: _currentFlashcards.isNotEmpty
+                        ? (_currentIndex + 1) / _currentFlashcards.length
+                        : 0,
+                    backgroundColor: Colors.white12,
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      Colors.blueAccent,
+                    ),
+                    minHeight: 5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Keyboard hint bar
+          const ShortcutHintBar(
+            hints: [
+              ShortcutHint('←→', 'Navigate'),
+              ShortcutHint('Space', 'Know it'),
+              ShortcutHint('Enter', 'Review'),
             ],
           ),
-        ),
-        // Flashcard PageView
-        Expanded(
-          child: PageView.builder(
-            controller: _pageController,
-            itemCount: _currentFlashcards.length,
-            onPageChanged: (i) => setState(() => _currentIndex = i),
-            itemBuilder: (ctx, i) {
-              final card = _currentFlashcards[i];
-              return _SwipeableFlashcard(
-                front: card.front,
-                back: card.back,
-                onKnow: () => _markCard(true),
-                onReview: () => _markCard(false),
-                confidence: _confidence[i],
-              );
-            },
+          // Flashcard PageView
+          Expanded(
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: _currentFlashcards.length,
+              onPageChanged: (i) => setState(() => _currentIndex = i),
+              itemBuilder: (ctx, i) {
+                final card = _currentFlashcards[i];
+                return _SwipeableFlashcard(
+                  front: card.front,
+                  back: card.back,
+                  onKnow: () => _markCard(true),
+                  onReview: () => _markCard(false),
+                  confidence: _confidence[i],
+                );
+              },
+            ),
           ),
-        ),
-        // Swipe hint
-        Padding(
-          padding: const EdgeInsets.only(bottom: 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.arrow_back,
-                color: Colors.redAccent.withOpacity(0.5),
-                size: 18,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                "Swipe or use buttons below",
-                style: TextStyle(color: Colors.white38, fontSize: 12),
-              ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.arrow_forward,
-                color: Colors.greenAccent.withOpacity(0.5),
-                size: 18,
-              ),
-            ],
+          // Swipe hint
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.arrow_back,
+                  color: Colors.redAccent.withOpacity(0.5),
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  "Swipe or use buttons below",
+                  style: TextStyle(color: Colors.white38, fontSize: 12),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  Icons.arrow_forward,
+                  color: Colors.greenAccent.withOpacity(0.5),
+                  size: 18,
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 

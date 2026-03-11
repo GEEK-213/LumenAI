@@ -4,6 +4,7 @@ import '../../services/api_service.dart';
 import 'file_preview_page.dart';
 import 'input_type_page.dart';
 import 'results_page.dart';
+import '../spatial_canvas_page.dart';
 
 class SubjectDetailPage extends StatefulWidget {
   final Subject subject;
@@ -27,6 +28,7 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
   bool _loading = true;
   List<Map<String, dynamic>> _lectures = [];
   List<Map<String, dynamic>> _syllabi = [];
+  List<Unit> _units = [];
 
   @override
   void initState() {
@@ -46,10 +48,12 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
     try {
       final lectures = await _apiService.getSubjectLectures(widget.subject.id);
       final syllabi = await _apiService.getSubjectSyllabi(widget.subject.id);
+      final units = await _apiService.getUnits(widget.subject.id);
       if (mounted) {
         setState(() {
           _lectures = lectures;
           _syllabi = syllabi;
+          _units = units;
           _loading = false;
         });
       }
@@ -231,6 +235,34 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
     }
   }
 
+  /// Shows a bottom sheet with AI-powered unit suggestion and accept/reject actions.
+  void _showAutoMapSheet(Map<String, dynamic> lecture) async {
+    final lectureId = lecture['id'].toString();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1A1A2E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return _AutoMapSheetContent(
+              lectureId: lectureId,
+              units: _units,
+              apiService: _apiService,
+              onMapped: () {
+                Navigator.pop(ctx);
+                _loadData();
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
   String _formatDate(String isoString) {
     if (isoString.isEmpty) return '';
     try {
@@ -334,15 +366,59 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            title,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  title,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (isLecture &&
+                                  item['unit_id'] == null &&
+                                  item['is_analyzed'] == true)
+                                GestureDetector(
+                                  onTap: () => _showAutoMapSheet(item),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.amber.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: Colors.amber.withOpacity(0.4),
+                                      ),
+                                    ),
+                                    child: const Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.auto_fix_high,
+                                          color: Colors.amber,
+                                          size: 14,
+                                        ),
+                                        SizedBox(width: 4),
+                                        Text(
+                                          'Map',
+                                          style: TextStyle(
+                                            color: Colors.amber,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
                           const SizedBox(height: 4),
                           Text(
@@ -413,6 +489,24 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
           ),
           const SizedBox(height: 12),
           FloatingActionButton.extended(
+            heroTag: "canvas_btn",
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => SpatialCanvasPage(
+                    subject: widget.subject,
+                    baseColor: widget.baseColor,
+                  ),
+                ),
+              );
+            },
+            backgroundColor: Colors.deepPurple,
+            icon: const Icon(Icons.dashboard_customize, color: Colors.white),
+            label: const Text('Canvas', style: TextStyle(color: Colors.white)),
+          ),
+          const SizedBox(height: 12),
+          FloatingActionButton.extended(
             heroTag: "add_btn",
             onPressed: () {
               Navigator.push(
@@ -440,6 +534,328 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
                 _buildList(_syllabi, false),
               ],
             ),
+    );
+  }
+}
+
+/// Bottom sheet content for AI-powered auto-mapping
+class _AutoMapSheetContent extends StatefulWidget {
+  final String lectureId;
+  final List<Unit> units;
+  final ApiService apiService;
+  final VoidCallback onMapped;
+
+  const _AutoMapSheetContent({
+    required this.lectureId,
+    required this.units,
+    required this.apiService,
+    required this.onMapped,
+  });
+
+  @override
+  State<_AutoMapSheetContent> createState() => _AutoMapSheetContentState();
+}
+
+class _AutoMapSheetContentState extends State<_AutoMapSheetContent> {
+  bool _loading = true;
+  bool _applying = false;
+  Map<String, dynamic>? _suggestion;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchSuggestion();
+  }
+
+  Future<void> _fetchSuggestion() async {
+    try {
+      final result = await widget.apiService.getAutoMapSuggestion(
+        widget.lectureId,
+      );
+      if (mounted) {
+        setState(() {
+          _suggestion = result;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _loading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _acceptSuggestion() async {
+    if (_suggestion == null || _suggestion!['unit_id'] == null) return;
+    setState(() => _applying = true);
+    try {
+      await widget.apiService.applyAutoMap(
+        widget.lectureId,
+        _suggestion!['unit_id'],
+      );
+      widget.onMapped();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to apply: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _applying = false);
+    }
+  }
+
+  Future<void> _applyManual(String unitId) async {
+    setState(() => _applying = true);
+    try {
+      await widget.apiService.applyAutoMap(widget.lectureId, unitId);
+      widget.onMapped();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to apply: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _applying = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Handle
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              margin: const EdgeInsets.only(bottom: 16),
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const Row(
+            children: [
+              Icon(Icons.auto_fix_high, color: Colors.amber, size: 22),
+              SizedBox(width: 10),
+              Text(
+                'Smart Auto-Map',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'AI analyzes the lecture content and suggests which unit it belongs to.',
+            style: TextStyle(color: Colors.grey[400], fontSize: 13),
+          ),
+          const SizedBox(height: 20),
+
+          if (_loading)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Column(
+                  children: [
+                    CircularProgressIndicator(color: Colors.amber),
+                    SizedBox(height: 12),
+                    Text(
+                      'Analyzing with AI...',
+                      style: TextStyle(color: Colors.white54),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          else if (_error != null)
+            Center(
+              child: Text(
+                'Error: $_error',
+                style: const TextStyle(color: Colors.redAccent),
+              ),
+            )
+          else if (_suggestion == null || _suggestion!['unit_id'] == null)
+            Center(
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.help_outline,
+                    color: Colors.white38,
+                    size: 40,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text(
+                    'No matching unit found.',
+                    style: TextStyle(color: Colors.white54, fontSize: 15),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildManualPicker(),
+                ],
+              ),
+            )
+          else ...[
+            // Suggestion card
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.amber.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.amber.withOpacity(0.3)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.lightbulb,
+                        color: Colors.amber,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          _suggestion!['unit_name'] ?? 'Unknown Unit',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      _buildConfidenceBadge(
+                        (_suggestion!['confidence'] as num).toDouble(),
+                      ),
+                    ],
+                  ),
+                  if (_suggestion!['reason'] != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      _suggestion!['reason'],
+                      style: TextStyle(color: Colors.grey[300], fontSize: 13),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Action buttons
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: Colors.white24),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: const Text(
+                      'Dismiss',
+                      style: TextStyle(color: Colors.white54),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2,
+                  child: ElevatedButton.icon(
+                    onPressed: _applying ? null : _acceptSuggestion,
+                    icon: _applying
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : const Icon(Icons.check, size: 18),
+                    label: Text(_applying ? 'Applying...' : 'Accept'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.amber[700],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _buildManualPicker(),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConfidenceBadge(double confidence) {
+    final pct = (confidence * 100).toStringAsFixed(0);
+    final color = confidence >= 0.8
+        ? Colors.greenAccent
+        : confidence >= 0.5
+        ? Colors.amber
+        : Colors.redAccent;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        '$pct%',
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.bold,
+          fontSize: 13,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildManualPicker() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Or pick manually:',
+          style: TextStyle(color: Colors.grey[500], fontSize: 12),
+        ),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: widget.units.map((unit) {
+            return ActionChip(
+              label: Text(
+                unit.name,
+                style: const TextStyle(color: Colors.white, fontSize: 12),
+              ),
+              backgroundColor: Colors.white.withOpacity(0.08),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: BorderSide(color: Colors.white.withOpacity(0.1)),
+              ),
+              onPressed: _applying ? null : () => _applyManual(unit.id),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 }

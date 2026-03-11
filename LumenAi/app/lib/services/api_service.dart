@@ -424,4 +424,113 @@ class ApiService {
 
     return (response as List).map((e) => LumenCast.fromJson(e)).toList();
   }
+
+  // --- Phase 5: Smart Syllabus Auto-Mapping ---
+
+  /// Fetches an AI-generated mapping suggestion for an unmapped lecture.
+  Future<Map<String, dynamic>?> getAutoMapSuggestion(String lectureId) async {
+    final uri = Uri.parse('$baseUrl/mapping/suggest/$lectureId');
+    final headers = await _authHeaders();
+    final response = await http.get(uri, headers: headers);
+
+    if (response.statusCode != 200) {
+      throw Exception(
+        'Failed to get mapping suggestion: ${response.statusCode}',
+      );
+    }
+
+    final json = jsonDecode(response.body);
+    if (json['status'] == 'no_suggestion') return null;
+    return json['data'] as Map<String, dynamic>;
+  }
+
+  /// Applies a unit mapping to a lecture (user accepts the suggestion or picks manually).
+  Future<void> applyAutoMap(String lectureId, String unitId) async {
+    final uri = Uri.parse('$baseUrl/mapping/apply/$lectureId');
+    final headers = await _authHeaders();
+    final response = await http.post(
+      uri,
+      headers: {
+        ...headers,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: {'unit_id': unitId},
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to apply mapping: ${response.statusCode}');
+    }
+  }
+
+  /// Forces a fresh AI re-mapping attempt for a lecture.
+  Future<Map<String, dynamic>?> remapLecture(String lectureId) async {
+    final uri = Uri.parse('$baseUrl/mapping/remap/$lectureId');
+    final headers = await _authHeaders();
+    final response = await http.post(uri, headers: headers);
+
+    if (response.statusCode != 200) {
+      throw Exception('Failed to remap lecture: ${response.statusCode}');
+    }
+
+    final json = jsonDecode(response.body);
+    if (json['status'] == 'no_suggestion') return null;
+    return json['data'] as Map<String, dynamic>;
+  }
+
+  // --- Phase 5: Infinite Spatial Canvas ---
+
+  /// Fetches all canvas pins for a subject.
+  Future<List<Map<String, dynamic>>> getCanvasPins(String subjectId) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) return [];
+    final response = await _supabase
+        .from('canvas_pins')
+        .select()
+        .eq('user_id', userId)
+        .eq('subject_id', subjectId)
+        .order('created_at');
+    return List<Map<String, dynamic>>.from(response);
+  }
+
+  /// Saves a new pin to the canvas.
+  Future<Map<String, dynamic>> saveCanvasPin({
+    required String subjectId,
+    required String lectureId,
+    required String pinType,
+    required Map<String, dynamic> content,
+    required double x,
+    required double y,
+    String color = '#6C5CE7',
+  }) async {
+    final userId = _supabase.auth.currentUser?.id;
+    if (userId == null) throw Exception('Not authenticated');
+    final response = await _supabase
+        .from('canvas_pins')
+        .insert({
+          'user_id': userId,
+          'subject_id': subjectId,
+          'lecture_id': lectureId,
+          'pin_type': pinType,
+          'content': content,
+          'x': x,
+          'y': y,
+          'color': color,
+        })
+        .select()
+        .single();
+    return response;
+  }
+
+  /// Updates the position of a canvas pin.
+  Future<void> updatePinPosition(String pinId, double x, double y) async {
+    await _supabase
+        .from('canvas_pins')
+        .update({'x': x, 'y': y})
+        .eq('id', pinId);
+  }
+
+  /// Deletes a canvas pin.
+  Future<void> deleteCanvasPin(String pinId) async {
+    await _supabase.from('canvas_pins').delete().eq('id', pinId);
+  }
 }

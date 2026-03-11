@@ -11,6 +11,7 @@ from app.database import supabase
 from app.engine.analyzer import LectureAnalyzer, RateLimitError
 from app.engine.local_analyzer import LocalAnalyzer
 from app.middleware.auth import get_current_user
+from app.engine.auto_mapper import auto_map_lecture
 
 logger = logging.getLogger(__name__)
 
@@ -337,6 +338,16 @@ async def process_lecture(
         background_tasks.add_task(save_quiz_background, engine, contents, user_id, lecture_id)
         background_tasks.add_task(save_flashcards_background, engine, contents, user_id, lecture_id)
 
+        # Auto-map to a unit if none was provided
+        if not unit_id:
+            background_tasks.add_task(
+                auto_map_lecture,
+                lecture_id,
+                subject_id,
+                data.get("transcript", ""),
+                data.get("summary", ""),
+            )
+
 
         # RETURN INSTANTLY
         return {
@@ -476,6 +487,16 @@ async def analyze_lecture_on_demand(lecture_id: str, background_tasks: Backgroun
         # 7. Fire quiz + flashcard generation in background
         background_tasks.add_task(save_quiz_background, engine, contents, user_id, lecture_id)
         background_tasks.add_task(save_flashcards_background, engine, contents, user_id, lecture_id)
+        
+        # Auto-map to a unit if none was set
+        if not lecture.get("unit_id"):
+            background_tasks.add_task(
+                auto_map_lecture,
+                lecture_id,
+                lecture["subject_id"],
+                data.get("transcript", ""),
+                data.get("summary", ""),
+            )
         
         return {"status": "success", "message": f"'{file_title}' has been analyzed!", "data": data}
     

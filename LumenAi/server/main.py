@@ -11,7 +11,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 
-from app.routes import analysis, chat, ingestion, classroom
+from app.routes import analysis, chat, ingestion, classroom, mapping
 from app.tasks.classroom_sync import start_classroom_sync_job
 
 load_dotenv()
@@ -60,6 +60,7 @@ app.include_router(analysis.router, prefix="/analysis", tags=["Analysis"])
 app.include_router(chat.router, prefix="/chat", tags=["Chat"])
 app.include_router(ingestion.router, prefix="/ingestion", tags=["Ingestion"])
 app.include_router(classroom.router, prefix="/classroom", tags=["Classroom Integration"])
+app.include_router(mapping.router, prefix="/mapping", tags=["Auto-Mapping"])
 
 # --- Health Check ---
 @app.get("/health")

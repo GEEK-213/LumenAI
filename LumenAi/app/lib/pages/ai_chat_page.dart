@@ -6,6 +6,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import '../services/api_service.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'voice_tutor_page.dart';
 
 // --- Data Model for Messages
 class ChatMessage {
@@ -623,7 +624,27 @@ class _ChatScreenState extends State<ChatScreen> {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 8),
+
+          // Voice Tutor Button
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const VoiceTutorPage()),
+              );
+            },
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.blueAccent.withOpacity(0.15),
+                border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
+              ),
+              child: const Icon(Icons.mic, color: Colors.blueAccent, size: 22),
+            ),
+          ),
+          const SizedBox(width: 8),
 
           // Send Button
           GestureDetector(
