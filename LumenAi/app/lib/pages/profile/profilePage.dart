@@ -5,6 +5,7 @@ import '../../models/profile.dart';
 import '../../services/profile_service.dart';
 import '../../services/api_service.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:share_plus/share_plus.dart';
 
 import 'login.dart';
 
@@ -23,6 +24,11 @@ class _ProfilepageState extends State<Profilepage> {
   Profile? _profile;
   bool _isLoading = true;
 
+  int _dayStreak = 0;
+  int _notesScribed = 0;
+  int _aiGenerations = 0;
+  String _level = "Level 1";
+
   @override
   void initState() {
     super.initState();
@@ -36,9 +42,45 @@ class _ProfilepageState extends State<Profilepage> {
       // If profile doesn't exist (new user), create a default local instance
       final profile = fetchedProfile ?? Profile(id: user.id);
 
+      int streak = 0;
+      int notesCount = 0;
+      int aiCount = 0;
+      String level = "Level 1";
+
+      try {
+        // Fetch streak and level from lumen_profiles
+        final lumenProfile = await _supabase
+            .from('lumen_profiles')
+            .select('streak_days, rank_title')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+        if (lumenProfile != null) {
+          streak = lumenProfile['streak_days'] as int? ?? 0;
+          level = lumenProfile['rank_title']?.toString() ?? "Level 1";
+        }
+
+        // Fetch subjects to get subject IDs for this user
+        final subjects = await _supabase.from('subjects').select('id').eq('user_id', user.id);
+        if (subjects.isNotEmpty) {
+          final subjectIds = subjects.map((s) => s['id']).toList();
+          
+          // Fetch lectures
+          final lectures = await _supabase.from('lectures').select('id, is_analyzed').inFilter('subject_id', subjectIds);
+          notesCount = lectures.length;
+          aiCount = lectures.where((l) => l['is_analyzed'] == true).length;
+        }
+      } catch (e) {
+        print('Error fetching dynamic stats: $e');
+      }
+
       if (mounted) {
         setState(() {
           _profile = profile;
+          _dayStreak = streak;
+          _notesScribed = notesCount;
+          _aiGenerations = aiCount;
+          _level = level;
           _isLoading = false;
         });
       }
@@ -563,7 +605,7 @@ class _ProfilepageState extends State<Profilepage> {
                         child: _buildStatCard(
                           icon: Icons.local_fire_department,
                           iconColor: Colors.orange,
-                          value: _profile?.stats['streak']?.toString() ?? "0",
+                          value: _dayStreak.toString(),
                           label: "Day Streak",
                         ),
                       ),
@@ -572,9 +614,7 @@ class _ProfilepageState extends State<Profilepage> {
                         child: _buildStatCard(
                           icon: Icons.menu_book_rounded,
                           iconColor: Colors.teal,
-                          value:
-                              _profile?.stats['notes_scribed']?.toString() ??
-                              "0",
+                          value: _notesScribed.toString(),
                           label: "Notes Scribed",
                         ),
                       ),
@@ -798,9 +838,14 @@ class _ProfilepageState extends State<Profilepage> {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Sharing coming soon!")),
-                    );
+                    final name = _profile?.fullName ?? 'A Student';
+                    final message = '🚀 $name is levelling up on LumenAI!\n\n'
+                        '🔥 $_dayStreak-day learning streak\n'
+                        '📝 $_notesScribed notes scribed\n'
+                        '🤖 $_aiGenerations AI generations\n'
+                        '🏅 Rank: $_level\n\n'
+                        'LumenAI — Your AI-Powered Study Companion.';
+                    SharePlus.instance.share(ShareParams(text: message));
                   },
                   icon: const Icon(Icons.share, size: 16),
                   label: const Text("Share"),
@@ -929,7 +974,7 @@ class _ProfilepageState extends State<Profilepage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _profile?.stats['ai_generations']?.toString() ?? "0",
+                  _aiGenerations.toString(),
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -947,7 +992,7 @@ class _ProfilepageState extends State<Profilepage> {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
-                _profile?.stats['level']?.toString() ?? "Level 1",
+                _level,
                 style: const TextStyle(color: Colors.white, fontSize: 12),
               ),
               const SizedBox(height: 5),

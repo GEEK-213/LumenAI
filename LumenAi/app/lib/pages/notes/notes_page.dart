@@ -137,7 +137,10 @@ class _NotesPageState extends State<NotesPage> {
               Navigator.pop(context);
               _addSubject(controller.text);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).primaryColor,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Add'),
           ),
         ],

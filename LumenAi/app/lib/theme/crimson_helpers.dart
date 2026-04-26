@@ -45,7 +45,6 @@ class CrimsonHelpers {
             fontSize: 28,
             fontWeight: FontWeight.bold,
             letterSpacing: 1.5,
-            height: 1.0,
           ),
         ),
       ],

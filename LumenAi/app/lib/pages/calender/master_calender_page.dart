@@ -144,7 +144,7 @@ class _MasterCalenderPageState extends State<MasterCalenderPage> {
                 headerStyle: HeaderStyle(
                   formatButtonVisible: false,
                   titleCentered: true,
-                  titleTextStyle: isCrimson ? GoogleFonts.shareTechMono(color: Colors.white, fontWeight: FontWeight.bold) : const TextStyle(color: Colors.black),
+                  titleTextStyle: isCrimson ? GoogleFonts.shareTechMono(color: Colors.white, fontWeight: FontWeight.bold) : const TextStyle(color: Colors.white),
                 ),
                 availableGestures: AvailableGestures.all,
                 selectedDayPredicate: (day) => isSameDay(day, today),
@@ -154,7 +154,7 @@ class _MasterCalenderPageState extends State<MasterCalenderPage> {
                 onDaySelected: _OnDaySelected,
                 eventLoader: (day) => getEventsForDay(day),
                 daysOfWeekStyle: DaysOfWeekStyle(
-                  weekdayStyle: isCrimson ? GoogleFonts.shareTechMono(color: Colors.white70) : const TextStyle(color: Colors.black),
+                  weekdayStyle: isCrimson ? GoogleFonts.shareTechMono(color: Colors.white70) : const TextStyle(color: Colors.white70),
                   weekendStyle: isCrimson ? GoogleFonts.shareTechMono(color: CrimsonHelpers.crimsonRed) : const TextStyle(color: Colors.red),
                 ),
                 calendarStyle: CalendarStyle(
@@ -162,7 +162,7 @@ class _MasterCalenderPageState extends State<MasterCalenderPage> {
                     color: isCrimson ? CrimsonHelpers.crimsonRed : Colors.blue,
                     shape: isCrimson ? BoxShape.rectangle : BoxShape.circle,
                   ),
-                  defaultTextStyle: isCrimson ? GoogleFonts.shareTechMono(color: Colors.white) : const TextStyle(color: Colors.black),
+                  defaultTextStyle: isCrimson ? GoogleFonts.shareTechMono(color: Colors.white) : const TextStyle(color: Colors.white),
                   weekendTextStyle: isCrimson ? GoogleFonts.shareTechMono(color: CrimsonHelpers.crimsonRed) : const TextStyle(color: Colors.red),
                   selectedDecoration: BoxDecoration(
                     color: isCrimson ? CrimsonHelpers.crimsonRed : Colors.blue,

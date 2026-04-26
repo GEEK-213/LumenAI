@@ -436,9 +436,7 @@ class _MindMapViewState extends State<MindMapView>
                       final isRoot = i == 0;
                       final nodeRadius = isRoot ? 52.0 : 42.0;
                       final maxChars = isRoot ? 20 : 16;
-                      final displayLabel = label.length > maxChars
-                          ? '${label.substring(0, maxChars - 2)}..'
-                          : label;
+                      final displayLabel = label;
 
                       return Positioned(
                         left: pos.dx - nodeRadius,

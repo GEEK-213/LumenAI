@@ -76,10 +76,7 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
           tabs: [
             const Tab(text: "Summary"),
             if (_effectiveLectureId != null)
-              const Tab(
-                icon: Icon(Icons.headphones, size: 20),
-                text: "Podcast",
-              ),
+              const Tab(text: "Podcast"),
             const Tab(text: "Quiz"),
             const Tab(text: "Cards"),
             const Tab(text: "Mind Map"),
