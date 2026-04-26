@@ -1,0 +1,1779 @@
+﻿diff --git a/LumenAi/app/.gitignore b/LumenAi/app/.gitignore
+index 3988f17..ecb80c1 100644
+--- a/LumenAi/app/.gitignore
++++ b/LumenAi/app/.gitignore
+@@ -46,6 +46,7 @@ app.*.map.json
+ 
+ 
+ 
++/windows
+ 
+ 
+ 
+diff --git a/LumenAi/app/lib/main.dart b/LumenAi/app/lib/main.dart
+index 109dddd..cafb668 100644
+--- a/LumenAi/app/lib/main.dart
++++ b/LumenAi/app/lib/main.dart
+@@ -10,10 +10,13 @@ import 'pages/profile/login.dart';
+ import 'pages/main_page.dart';
+ import 'package:provider/provider.dart';
+ import 'theme/theme_provider.dart';
++import 'package:intl/date_symbol_data_local.dart';
+ 
+ void main() async {
+   WidgetsFlutterBinding.ensureInitialized();
+ 
++  await initializeDateFormatting();
++
+   // Global error handlers ΓÇö catch crashes gracefully
+   FlutterError.onError = (details) {
+     FlutterError.presentError(details);
+diff --git a/LumenAi/app/lib/pages/ai_chat_page.dart b/LumenAi/app/lib/pages/ai_chat_page.dart
+index 66f0b68..dce6a05 100644
+--- a/LumenAi/app/lib/pages/ai_chat_page.dart
++++ b/LumenAi/app/lib/pages/ai_chat_page.dart
+@@ -567,7 +567,7 @@ class _ChatScreenState extends State<ChatScreen> {
+                     style: const TextStyle(color: Colors.white70, fontSize: 12),
+                   ),
+                   backgroundColor: const Color(0xFF2A3A5C),
+-                  side: BorderSide(color: Colors.blueAccent.withOpacity(0.3)),
++                  side: BorderSide(color: Theme.of(context).primaryColor.withOpacity(0.3)),
+                   shape: RoundedRectangleBorder(
+                     borderRadius: BorderRadius.circular(20),
+                   ),
+@@ -638,10 +638,10 @@ class _ChatScreenState extends State<ChatScreen> {
+               padding: const EdgeInsets.all(12),
+               decoration: BoxDecoration(
+                 shape: BoxShape.circle,
+-                color: Colors.blueAccent.withOpacity(0.15),
+-                border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
++                color: Theme.of(context).primaryColor.withOpacity(0.15),
++                border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.3)),
+               ),
+-              child: const Icon(Icons.mic, color: Colors.blueAccent, size: 22),
++              child: Icon(Icons.mic, color: Theme.of(context).primaryColor, size: 22),
+             ),
+           ),
+           const SizedBox(width: 8),
+diff --git a/LumenAi/app/lib/pages/calender/master_calender_page.dart b/LumenAi/app/lib/pages/calender/master_calender_page.dart
+index 7bd4235..19cc812 100644
+--- a/LumenAi/app/lib/pages/calender/master_calender_page.dart
++++ b/LumenAi/app/lib/pages/calender/master_calender_page.dart
+@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
+ import 'package:table_calendar/table_calendar.dart';
+ import 'package:supabase_flutter/supabase_flutter.dart';
+ import '../../services/api_service.dart';
++import '../../theme/crimson_helpers.dart';
++import 'package:google_fonts/google_fonts.dart';
+ 
+ class MasterCalenderPage extends StatefulWidget {
+   const MasterCalenderPage({super.key});
+@@ -82,16 +84,22 @@ class _MasterCalenderPageState extends State<MasterCalenderPage> {
+ 
+   @override
+   Widget build(BuildContext context) {
++    final isCrimson = CrimsonHelpers.isCrimson(context);
+     return Scaffold(
++      backgroundColor: isCrimson ? CrimsonHelpers.crimsonBg : Theme.of(context).scaffoldBackgroundColor,
+       appBar: AppBar(
+-        title: const Text(
+-          "Master Calendar",
+-          style: TextStyle(fontWeight: FontWeight.w600),
+-        ),
++        backgroundColor: isCrimson ? Colors.black : null,
++        elevation: 0,
++        title: isCrimson
++            ? CrimsonHelpers.appBarTitle("CHRONO_LOG", "Master Calendar")
++            : const Text(
++                "Master Calendar",
++                style: TextStyle(fontWeight: FontWeight.w600),
++              ),
+         centerTitle: true,
+       ),
+       body: isLoading
+-          ? const Center(child: CircularProgressIndicator())
++          ? Center(child: CircularProgressIndicator(color: isCrimson ? CrimsonHelpers.crimsonRed : null))
+           : content(),
+     );
+   }
+@@ -99,6 +107,8 @@ class _MasterCalenderPageState extends State<MasterCalenderPage> {
+   Widget content() {
+     final events = getEventsForDay(today);
+ 
++    final isCrimson = CrimsonHelpers.isCrimson(context);
++
+     return Padding(
+       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+       child: Column(
+@@ -106,29 +116,35 @@ class _MasterCalenderPageState extends State<MasterCalenderPage> {
+         children: [
+           const SizedBox(height: 8),
+ 
+-          Text("Selected Date", style: Theme.of(context).textTheme.labelMedium),
++          Text(
++            isCrimson ? "SELECTED_ORBIT" : "Selected Date",
++            style: isCrimson ? GoogleFonts.shareTechMono(color: CrimsonHelpers.crimsonRed, fontSize: 11) : Theme.of(context).textTheme.labelMedium,
++          ),
+ 
+           const SizedBox(height: 4),
+ 
+           Text(
+             today.toString().split(" ")[0],
+-            style: Theme.of(context).textTheme.titleMedium,
++            style: isCrimson ? GoogleFonts.shareTechMono(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold) : Theme.of(context).textTheme.titleMedium,
+           ),
+ 
+           const SizedBox(height: 20),
+ 
+           Card(
+-            elevation: 2,
++            elevation: isCrimson ? 0 : 2,
++            color: isCrimson ? Colors.black : null,
+             shape: RoundedRectangleBorder(
+-              borderRadius: BorderRadius.circular(16),
++              borderRadius: isCrimson ? BorderRadius.zero : BorderRadius.circular(16),
++              side: isCrimson ? BorderSide(color: CrimsonHelpers.crimsonBorder) : BorderSide.none,
+             ),
+             child: Padding(
+               padding: const EdgeInsets.all(12.0),
+               child: TableCalendar(
+                 locale: "en_US",
+-                headerStyle: const HeaderStyle(
++                headerStyle: HeaderStyle(
+                   formatButtonVisible: false,
+                   titleCentered: true,
++                  titleTextStyle: isCrimson ? GoogleFonts.shareTechMono(color: Colors.white, fontWeight: FontWeight.bold) : const TextStyle(color: Colors.black),
+                 ),
+                 availableGestures: AvailableGestures.all,
+                 selectedDayPredicate: (day) => isSameDay(day, today),
+@@ -137,10 +153,25 @@ class _MasterCalenderPageState extends State<MasterCalenderPage> {
+                 lastDay: DateTime.utc(DateTime.now().year + 1, 12, 31),
+                 onDaySelected: _OnDaySelected,
+                 eventLoader: (day) => getEventsForDay(day),
+-                calendarStyle: const CalendarStyle(
++                daysOfWeekStyle: DaysOfWeekStyle(
++                  weekdayStyle: isCrimson ? GoogleFonts.shareTechMono(color: Colors.white70) : const TextStyle(color: Colors.black),
++                  weekendStyle: isCrimson ? GoogleFonts.shareTechMono(color: CrimsonHelpers.crimsonRed) : const TextStyle(color: Colors.red),
++                ),
++                calendarStyle: CalendarStyle(
+                   markerDecoration: BoxDecoration(
+-                    color: Colors.blue,
+-                    shape: BoxShape.circle,
++                    color: isCrimson ? CrimsonHelpers.crimsonRed : Colors.blue,
++                    shape: isCrimson ? BoxShape.rectangle : BoxShape.circle,
++                  ),
++                  defaultTextStyle: isCrimson ? GoogleFonts.shareTechMono(color: Colors.white) : const TextStyle(color: Colors.black),
++                  weekendTextStyle: isCrimson ? GoogleFonts.shareTechMono(color: CrimsonHelpers.crimsonRed) : const TextStyle(color: Colors.red),
++                  selectedDecoration: BoxDecoration(
++                    color: isCrimson ? CrimsonHelpers.crimsonRed : Colors.blue,
++                    shape: isCrimson ? BoxShape.rectangle : BoxShape.circle,
++                  ),
++                  todayDecoration: BoxDecoration(
++                    color: isCrimson ? CrimsonHelpers.crimsonRed.withOpacity(0.3) : Colors.blue.withOpacity(0.3),
++                    shape: isCrimson ? BoxShape.rectangle : BoxShape.circle,
++                    border: isCrimson ? Border.all(color: CrimsonHelpers.crimsonRed) : null,
+                   ),
+                 ),
+               ),
+@@ -149,13 +180,18 @@ class _MasterCalenderPageState extends State<MasterCalenderPage> {
+ 
+           const SizedBox(height: 24),
+ 
+-          Text("Events", style: Theme.of(context).textTheme.titleLarge),
++          isCrimson ? CrimsonHelpers.sectionHeading("Events") : Text("Events", style: Theme.of(context).textTheme.titleLarge),
+ 
+           const SizedBox(height: 12),
+ 
+           Expanded(
+             child: events.isEmpty
+-                ? const Center(child: Text("No events for this day"))
++                ? Center(
++                    child: Text(
++                      isCrimson ? "//NO_LOGS_FOUND//" : "No events for this day",
++                      style: isCrimson ? GoogleFonts.shareTechMono(color: Colors.white38) : null,
++                    ),
++                  )
+                 : ListView.separated(
+                     itemCount: events.length,
+                     separatorBuilder: (_, __) => const SizedBox(height: 12),
+@@ -190,32 +226,50 @@ class _MasterCalenderPageState extends State<MasterCalenderPage> {
+         icon = Icons.event;
+     }
+ 
++    final isCrimson = CrimsonHelpers.isCrimson(context);
++    final accentColor = isCrimson ? CrimsonHelpers.crimsonRed : Theme.of(context).colorScheme.primary;
++
+     return GestureDetector(
+       onTap: () {
+         showDialog(
+           context: context,
+           builder: (dialogContext) => AlertDialog(
+-            backgroundColor: const Color(0xFF1E2746),
++            backgroundColor: isCrimson ? Colors.black : const Color(0xFF1E2746),
++            shape: isCrimson ? const BeveledRectangleBorder(side: BorderSide(color: Colors.white54)) : null,
+             title: Row(
+               children: [
+-                Icon(icon, color: Theme.of(context).colorScheme.primary),
++                Icon(icon, color: accentColor),
+                 const SizedBox(width: 8),
+                 Expanded(
+                   child: Text(
+-                    event.type.toUpperCase(),
+-                    style: const TextStyle(color: Colors.white, fontSize: 16),
++                    isCrimson ? "[${event.type.toUpperCase()}]" : event.type.toUpperCase(),
++                    style: TextStyle(
++                      color: Colors.white,
++                      fontSize: 16,
++                      fontFamily: isCrimson ? 'ShareTechMono' : null,
++                    ),
+                   ),
+                 ),
+               ],
+             ),
+             content: Text(
+               event.title,
+-              style: const TextStyle(color: Colors.white70, fontSize: 16),
++              style: TextStyle(
++                color: Colors.white70,
++                fontSize: 16,
++                fontFamily: isCrimson ? 'ShareTechMono' : null,
++              ),
+             ),
+             actions: [
+               TextButton(
+                 onPressed: () => Navigator.pop(dialogContext),
+-                child: const Text("Close"),
++                child: Text(
++                  "CLOSE",
++                  style: TextStyle(
++                    color: accentColor,
++                    fontFamily: isCrimson ? 'ShareTechMono' : null,
++                  ),
++                ),
+               ),
+             ],
+           ),
+@@ -224,31 +278,36 @@ class _MasterCalenderPageState extends State<MasterCalenderPage> {
+       child: Container(
+         padding: const EdgeInsets.all(16),
+         decoration: BoxDecoration(
+-          borderRadius: BorderRadius.circular(16),
+-          color: Theme.of(context).colorScheme.surface,
++          borderRadius: isCrimson ? BorderRadius.zero : BorderRadius.circular(16),
++          color: isCrimson ? CrimsonHelpers.crimsonCard : Theme.of(context).colorScheme.surface,
++          border: isCrimson ? Border.all(color: CrimsonHelpers.crimsonBorder) : null,
+         ),
+         child: Row(
+           children: [
+-            Icon(icon, color: Theme.of(context).colorScheme.primary),
++            Icon(icon, color: accentColor),
+             const SizedBox(width: 16),
+             Expanded(
+               child: Column(
+                 crossAxisAlignment: CrossAxisAlignment.start,
+                 children: [
+                   Text(
+-                    event.title,
+-                    style: const TextStyle(
++                    isCrimson ? event.title.toUpperCase() : event.title,
++                    style: TextStyle(
+                       fontWeight: FontWeight.w600,
+                       fontSize: 16,
++                      color: Colors.white,
++                      fontFamily: isCrimson ? 'ShareTechMono' : null,
+                     ),
+                   ),
+                   const SizedBox(height: 4),
+                   Text(
+-                    event.type.toUpperCase(),
++                    isCrimson ? "//TYPE_ID::${event.type.toUpperCase()}" : event.type.toUpperCase(),
+                     style: TextStyle(
+-                      color: Theme.of(
+-                        context,
+-                      ).colorScheme.onSurface.withOpacity(0.6),
++                      color: isCrimson 
++                          ? Colors.white54 
++                          : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
++                      fontSize: 12,
++                      fontFamily: isCrimson ? 'ShareTechMono' : null,
+                     ),
+                   ),
+                 ],
+diff --git a/LumenAi/app/lib/pages/home/homePage.dart b/LumenAi/app/lib/pages/home/homePage.dart
+index 792fa39..a8c50d0 100644
+--- a/LumenAi/app/lib/pages/home/homePage.dart
++++ b/LumenAi/app/lib/pages/home/homePage.dart
+@@ -299,7 +299,7 @@ class _HomePageState extends State<HomePage> {
+                   ),
+                   child: CircleAvatar(
+                     radius: 25,
+-                    backgroundColor: Colors.blueAccent.withOpacity(0.3),
++                    backgroundColor: Theme.of(context).primaryColor.withOpacity(0.3),
+                     backgroundImage:
+                         _avatarUrl != null && _avatarUrl!.isNotEmpty
+                         ? NetworkImage(_avatarUrl!)
+@@ -366,7 +366,7 @@ class _HomePageState extends State<HomePage> {
+               decoration: BoxDecoration(
+                 color: Theme.of(
+                   context,
+-                ).colorScheme.surfaceVariant.withOpacity(0.5),
++                ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                 shape: BoxShape.circle,
+               ),
+               child: IconButton(
+@@ -386,7 +386,7 @@ class _HomePageState extends State<HomePage> {
+               decoration: BoxDecoration(
+                 color: Theme.of(
+                   context,
+-                ).colorScheme.surfaceVariant.withOpacity(0.5),
++                ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
+                 shape: BoxShape.circle,
+               ),
+               child: IconButton(
+diff --git a/LumenAi/app/lib/pages/main_page.dart b/LumenAi/app/lib/pages/main_page.dart
+index 0c03794..3da8d28 100644
+--- a/LumenAi/app/lib/pages/main_page.dart
++++ b/LumenAi/app/lib/pages/main_page.dart
+@@ -1,4 +1,5 @@
+ import 'package:flutter/material.dart';
++import '../theme/crimson_helpers.dart';
+ import 'calender/master_calender_page.dart';
+ import 'notes/notes_page.dart';
+ import 'home/homePage.dart';
+@@ -17,20 +18,12 @@ class _MainPageState extends State<MainPage> {
+ 
+   static const _breakpoint = 800.0;
+ 
+-  Widget _buildPage() {
+-    switch (_selectedIndex) {
+-      case 0:
+-        return const HomePage();
+-      case 1:
+-        return const MasterCalenderPage();
+-      case 2:
+-        return const NotesPage();
+-      case 3:
+-        return const Profilepage();
+-      default:
+-        return const HomePage();
+-    }
+-  }
++  final List<Widget> _pages = [
++    const HomePage(),
++    const MasterCalenderPage(),
++    const NotesPage(),
++    const Profilepage(),
++  ];
+ 
+   void _onItemTapped(int index) {
+     setState(() => _selectedIndex = index);
+@@ -43,7 +36,12 @@ class _MainPageState extends State<MainPage> {
+         final isWide = constraints.maxWidth >= _breakpoint;
+         return Scaffold(
+           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+-          body: isWide ? _buildDesktopLayout() : _buildPage(),
++          body: isWide 
++            ? _buildDesktopLayout() 
++            : IndexedStack(
++                index: _selectedIndex,
++                children: _pages,
++              ),
+           floatingActionButton: !isWide && _selectedIndex != 2
+               ? _buildRecorderFAB()
+               : null,
+@@ -57,17 +55,19 @@ class _MainPageState extends State<MainPage> {
+ 
+   // ΓöÇΓöÇΓöÇ Desktop: NavigationRail + Content ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+   Widget _buildDesktopLayout() {
++    final theme = Theme.of(context);
++    final isCrimson = CrimsonHelpers.isCrimson(context);
++    final primaryColor = theme.primaryColor;
++
+     return Row(
+       children: [
+         // Navigation Rail
+         Container(
+           decoration: BoxDecoration(
+-            color:
+-                Theme.of(context).bottomAppBarTheme.color ??
+-                Theme.of(context).colorScheme.surface,
++            color: theme.bottomAppBarTheme.color ?? theme.colorScheme.surface,
+             border: Border(
+               right: BorderSide(
+-                color: Theme.of(context).dividerColor.withOpacity(0.1),
++                color: theme.dividerColor.withOpacity(0.1),
+               ),
+             ),
+           ),
+@@ -75,17 +75,17 @@ class _MainPageState extends State<MainPage> {
+             selectedIndex: _selectedIndex,
+             onDestinationSelected: _onItemTapped,
+             backgroundColor: Colors.transparent,
+-            indicatorColor: Theme.of(context).primaryColor.withOpacity(0.15),
++            indicatorColor: primaryColor.withOpacity(0.15),
+             selectedIconTheme: IconThemeData(
+-              color: Theme.of(context).primaryColor,
++              color: primaryColor,
+             ),
+             unselectedIconTheme: IconThemeData(color: Colors.grey.shade500),
+-            selectedLabelTextStyle: TextStyle(
+-              color: Theme.of(context).primaryColor,
++            selectedLabelTextStyle: theme.navigationRailTheme.selectedLabelTextStyle ?? TextStyle(
++              color: primaryColor,
+               fontWeight: FontWeight.bold,
+               fontSize: 12,
+             ),
+-            unselectedLabelTextStyle: TextStyle(
++            unselectedLabelTextStyle: theme.navigationRailTheme.unselectedLabelTextStyle ?? TextStyle(
+               color: Colors.grey.shade500,
+               fontSize: 11,
+             ),
+@@ -99,16 +99,18 @@ class _MainPageState extends State<MainPage> {
+                     width: 44,
+                     height: 44,
+                     decoration: BoxDecoration(
+-                      gradient: const LinearGradient(
+-                        colors: [Colors.blueAccent, Colors.purpleAccent],
++                      gradient: isCrimson ? null : LinearGradient(
++                        colors: [primaryColor, Colors.purpleAccent],
+                         begin: Alignment.topLeft,
+                         end: Alignment.bottomRight,
+                       ),
+-                      borderRadius: BorderRadius.circular(14),
++                      color: isCrimson ? CrimsonHelpers.crimsonBg : null,
++                      border: isCrimson ? Border.all(color: CrimsonHelpers.crimsonRed, width: 2) : null,
++                      borderRadius: isCrimson ? BorderRadius.zero : BorderRadius.circular(14),
+                     ),
+-                    child: const Icon(
+-                      Icons.auto_awesome,
+-                      color: Colors.white,
++                    child: Icon(
++                      isCrimson ? Icons.terminal : Icons.auto_awesome,
++                      color: isCrimson ? CrimsonHelpers.crimsonRed : Colors.white,
+                       size: 22,
+                     ),
+                   ),
+@@ -158,13 +160,20 @@ class _MainPageState extends State<MainPage> {
+           ),
+         ),
+         // Content area
+-        Expanded(child: _buildPage()),
++        Expanded(
++          child: IndexedStack(
++            index: _selectedIndex,
++            children: _pages,
++          ),
++        ),
+       ],
+     );
+   }
+ 
+   // ΓöÇΓöÇΓöÇ Rail: Recorder button ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+   Widget _buildRailRecorderButton() {
++    final primaryColor = Theme.of(context).primaryColor;
++    final isCrimson = CrimsonHelpers.isCrimson(context);
+     return FloatingActionButton.small(
+       onPressed: () {
+         Navigator.push(
+@@ -178,15 +187,16 @@ class _MainPageState extends State<MainPage> {
+         height: 44,
+         width: 44,
+         decoration: BoxDecoration(
+-          gradient: const LinearGradient(
+-            colors: [Colors.blueAccent, Colors.purpleAccent],
++          gradient: isCrimson ? null : LinearGradient(
++            colors: [primaryColor, Colors.purpleAccent],
+             begin: Alignment.topLeft,
+             end: Alignment.bottomRight,
+           ),
+-          shape: BoxShape.circle,
++          color: isCrimson ? CrimsonHelpers.crimsonRed : null,
++          shape: isCrimson ? BoxShape.rectangle : BoxShape.circle,
+           boxShadow: [
+             BoxShadow(
+-              color: Colors.blueAccent.withOpacity(0.4),
++              color: (isCrimson ? CrimsonHelpers.crimsonRed : primaryColor).withOpacity(0.4),
+               blurRadius: 12,
+               spreadRadius: 1,
+             ),
+@@ -199,6 +209,8 @@ class _MainPageState extends State<MainPage> {
+ 
+   // ΓöÇΓöÇΓöÇ Mobile: Recorder FAB ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+   Widget _buildRecorderFAB() {
++    final primaryColor = Theme.of(context).primaryColor;
++    final isCrimson = CrimsonHelpers.isCrimson(context);
+     return FloatingActionButton(
+       onPressed: () {
+         Navigator.push(
+@@ -212,15 +224,16 @@ class _MainPageState extends State<MainPage> {
+         height: 56,
+         width: 56,
+         decoration: BoxDecoration(
+-          gradient: const LinearGradient(
+-            colors: [Colors.blueAccent, Colors.purpleAccent],
++          gradient: isCrimson ? null : LinearGradient(
++            colors: [primaryColor, Colors.purpleAccent],
+             begin: Alignment.topLeft,
+             end: Alignment.bottomRight,
+           ),
+-          shape: BoxShape.circle,
++          color: isCrimson ? CrimsonHelpers.crimsonRed : null,
++          shape: isCrimson ? BoxShape.rectangle : BoxShape.circle,
+           boxShadow: [
+             BoxShadow(
+-              color: Colors.blueAccent.withOpacity(0.4),
++              color: (isCrimson ? CrimsonHelpers.crimsonRed : primaryColor).withOpacity(0.4),
+               blurRadius: 15,
+               spreadRadius: 2,
+             ),
+diff --git a/LumenAi/app/lib/pages/notes/file_input_page.dart b/LumenAi/app/lib/pages/notes/file_input_page.dart
+index 50fd51e..9a5dedd 100644
+--- a/LumenAi/app/lib/pages/notes/file_input_page.dart
++++ b/LumenAi/app/lib/pages/notes/file_input_page.dart
+@@ -237,7 +237,7 @@ class _FileInputPageState extends State<FileInputPage> {
+               decoration: BoxDecoration(
+                 color: const Color(0xFF1E2746),
+                 borderRadius: BorderRadius.circular(16),
+-                border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
++                border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.3)),
+               ),
+               child: Column(
+                 crossAxisAlignment: CrossAxisAlignment.start,
+@@ -263,7 +263,7 @@ class _FileInputPageState extends State<FileInputPage> {
+                           ),
+                           dropdownColor: const Color(0xFF1E2746),
+                           style: const TextStyle(color: Colors.white),
+-                          value: _selectedSubject,
++                          initialValue: _selectedSubject,
+                           items: _subjects.map((s) {
+                             return DropdownMenuItem(
+                               value: s,
+@@ -286,7 +286,7 @@ class _FileInputPageState extends State<FileInputPage> {
+                     ),
+                     dropdownColor: const Color(0xFF1E2746),
+                     style: const TextStyle(color: Colors.white),
+-                    value: _selectedUnit,
++                    initialValue: _selectedUnit,
+                     items: _units.map((u) {
+                       return DropdownMenuItem(value: u, child: Text(u.name));
+                     }).toList(),
+@@ -345,8 +345,8 @@ class _FileInputPageState extends State<FileInputPage> {
+                   LinearProgressIndicator(
+                     value: _uploadProgress < 1.0 ? _uploadProgress : null,
+                     backgroundColor: Colors.white12,
+-                    valueColor: const AlwaysStoppedAnimation<Color>(
+-                      Colors.blueAccent,
++                    valueColor: AlwaysStoppedAnimation<Color>(
++                      Theme.of(context).primaryColor,
+                     ),
+                   ),
+                   const SizedBox(height: 10),
+@@ -364,7 +364,7 @@ class _FileInputPageState extends State<FileInputPage> {
+                 height: 50,
+                 child: ElevatedButton(
+                   style: ElevatedButton.styleFrom(
+-                    backgroundColor: Colors.blueAccent,
++                    backgroundColor: Theme.of(context).primaryColor,
+                     shape: RoundedRectangleBorder(
+                       borderRadius: BorderRadius.circular(12),
+                     ),
+diff --git a/LumenAi/app/lib/pages/notes/mind_map_tab.dart b/LumenAi/app/lib/pages/notes/mind_map_tab.dart
+index 35a40ff..5cf851c 100644
+--- a/LumenAi/app/lib/pages/notes/mind_map_tab.dart
++++ b/LumenAi/app/lib/pages/notes/mind_map_tab.dart
+@@ -282,9 +282,9 @@ class _MindMapViewState extends State<MindMapView>
+         actions: [
+           TextButton(
+             onPressed: () => Navigator.pop(ctx),
+-            child: const Text(
++            child: Text(
+               'Close',
+-              style: TextStyle(color: Colors.blueAccent),
++              style: TextStyle(color: Theme.of(context).primaryColor),
+             ),
+           ),
+         ],
+@@ -420,6 +420,7 @@ class _MindMapViewState extends State<MindMapView>
+                         edges: widget.edges,
+                         positions: _positions,
+                         opacity: _fadeAnim.value,
++                        linkColor: Theme.of(context).primaryColor,
+                       ),
+                     ),
+                     ...widget.nodes.asMap().entries.map((entry) {
+@@ -577,12 +578,14 @@ class _EdgePainter extends CustomPainter {
+   final List<Map<String, dynamic>> edges;
+   final Map<String, Offset> positions;
+   final double opacity;
++  final Color linkColor;
+ 
+   _EdgePainter({
+     required this.nodes,
+     required this.edges,
+     required this.positions,
+     required this.opacity,
++    required this.linkColor,
+   });
+ 
+   static String _toId(dynamic val) => val?.toString() ?? '';
+@@ -595,7 +598,7 @@ class _EdgePainter extends CustomPainter {
+       if (from == null || to == null) continue;
+ 
+       final paint = Paint()
+-        ..color = Colors.blueAccent.withValues(alpha: 0.45 * opacity)
++        ..color = linkColor.withValues(alpha: 0.45 * opacity)
+         ..strokeWidth = 2.5
+         ..style = PaintingStyle.stroke;
+ 
+diff --git a/LumenAi/app/lib/pages/notes/notes_page.dart b/LumenAi/app/lib/pages/notes/notes_page.dart
+index ca83096..fd64261 100644
+--- a/LumenAi/app/lib/pages/notes/notes_page.dart
++++ b/LumenAi/app/lib/pages/notes/notes_page.dart
+@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
+ import 'package:supabase_flutter/supabase_flutter.dart';
+ import '../../models/data_models.dart';
+ import '../../services/gamification_service.dart';
++import '../../theme/crimson_helpers.dart';
+ import 'subject_detail_page.dart';
+ import '../leaderboard_page.dart';
+ import '../store_page.dart';
+@@ -106,7 +107,7 @@ class _NotesPageState extends State<NotesPage> {
+       context: context,
+       builder: (_) => AlertDialog(
+         backgroundColor: Theme.of(context).cardColor,
+-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
++        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(CrimsonHelpers.isCrimson(context) ? 0 : 20)),
+         title: const Text('Add Subject'),
+         content: TextField(
+           controller: controller,
+@@ -117,8 +118,8 @@ class _NotesPageState extends State<NotesPage> {
+             enabledBorder: UnderlineInputBorder(
+               borderSide: BorderSide(color: Colors.grey[700]!),
+             ),
+-            focusedBorder: const UnderlineInputBorder(
+-              borderSide: BorderSide(color: Colors.blueAccent),
++            focusedBorder: UnderlineInputBorder(
++              borderSide: BorderSide(color: Theme.of(context).primaryColor),
+             ),
+           ),
+           onSubmitted: (v) {
+@@ -136,7 +137,7 @@ class _NotesPageState extends State<NotesPage> {
+               Navigator.pop(context);
+               _addSubject(controller.text);
+             },
+-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
++            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor),
+             child: const Text('Add'),
+           ),
+         ],
+@@ -193,7 +194,7 @@ class _NotesPageState extends State<NotesPage> {
+       ),
+       floatingActionButton: FloatingActionButton(
+         onPressed: _showAddDialog,
+-        backgroundColor: Colors.blueAccent,
++        backgroundColor: Theme.of(context).primaryColor,
+         child: const Icon(Icons.add),
+       ),
+       body: _loading
+@@ -255,7 +256,7 @@ class _NotesPageState extends State<NotesPage> {
+                           padding: const EdgeInsets.only(right: 24),
+                           decoration: BoxDecoration(
+                             color: Colors.red[900],
+-                            borderRadius: BorderRadius.circular(20),
++                            borderRadius: BorderRadius.circular(CrimsonHelpers.isCrimson(context) ? 0 : 20),
+                           ),
+                           child: const Icon(Icons.delete, color: Colors.white),
+                         ),
+@@ -274,10 +275,10 @@ class _NotesPageState extends State<NotesPage> {
+                             margin: const EdgeInsets.only(bottom: 12),
+                             padding: const EdgeInsets.all(20),
+                             decoration: BoxDecoration(
+-                              color: color,
+-                              borderRadius: BorderRadius.circular(20),
++                              color: CrimsonHelpers.isCrimson(context) ? CrimsonHelpers.crimsonCard : color,
++                              borderRadius: BorderRadius.circular(CrimsonHelpers.isCrimson(context) ? 0 : 20),
+                               border: Border.all(
+-                                color: Colors.white.withOpacity(0.06),
++                                color: CrimsonHelpers.isCrimson(context) ? CrimsonHelpers.crimsonBorder : Colors.white.withOpacity(0.06),
+                               ),
+                             ),
+                             child: Row(
+@@ -286,8 +287,8 @@ class _NotesPageState extends State<NotesPage> {
+                                   height: 48,
+                                   width: 48,
+                                   decoration: BoxDecoration(
+-                                    color: Colors.white.withOpacity(0.1),
+-                                    borderRadius: BorderRadius.circular(14),
++                                    color: CrimsonHelpers.isCrimson(context) ? CrimsonHelpers.crimsonRed.withOpacity(0.2) : Colors.white.withOpacity(0.1),
++                                    borderRadius: BorderRadius.circular(CrimsonHelpers.isCrimson(context) ? 0 : 14),
+                                   ),
+                                   child: Icon(
+                                     icon,
+@@ -337,15 +338,17 @@ class _NotesPageState extends State<NotesPage> {
+       child: Container(
+         padding: const EdgeInsets.all(20),
+         decoration: BoxDecoration(
+-          gradient: const LinearGradient(
+-            colors: [Color(0xFF2A1B54), Color(0xFF4A2B8A)],
++          gradient: LinearGradient(
++            colors: CrimsonHelpers.isCrimson(context)
++                ? [const Color(0xFF2A0A0A), const Color(0xFF4A1010)]
++                : [const Color(0xFF2A1B54), const Color(0xFF4A2B8A)],
+             begin: Alignment.topLeft,
+             end: Alignment.bottomRight,
+           ),
+-          borderRadius: BorderRadius.circular(24),
++          borderRadius: BorderRadius.circular(CrimsonHelpers.isCrimson(context) ? 0 : 24),
+           boxShadow: [
+             BoxShadow(
+-              color: Colors.purpleAccent.withOpacity(0.2),
++              color: (CrimsonHelpers.isCrimson(context) ? CrimsonHelpers.crimsonRed : Colors.purpleAccent).withOpacity(0.2),
+               blurRadius: 15,
+               offset: const Offset(0, 8),
+             ),
+@@ -360,10 +363,10 @@ class _NotesPageState extends State<NotesPage> {
+                 Column(
+                   crossAxisAlignment: CrossAxisAlignment.start,
+                   children: [
+-                    const Text(
++                    Text(
+                       "LUMEN WALLET",
+                       style: TextStyle(
+-                        color: Colors.purpleAccent,
++                        color: CrimsonHelpers.isCrimson(context) ? CrimsonHelpers.crimsonRed : Colors.purpleAccent,
+                         fontSize: 12,
+                         fontWeight: FontWeight.bold,
+                         letterSpacing: 2.0,
+@@ -402,7 +405,7 @@ class _NotesPageState extends State<NotesPage> {
+                     color: Colors.black26,
+                     borderRadius: BorderRadius.circular(20),
+                     border: Border.all(
+-                      color: Colors.purpleAccent.withOpacity(0.5),
++                      color: (CrimsonHelpers.isCrimson(context) ? CrimsonHelpers.crimsonRed : Colors.purpleAccent).withOpacity(0.5),
+                     ),
+                   ),
+                   child: Text(
+@@ -419,8 +422,8 @@ class _NotesPageState extends State<NotesPage> {
+             LinearProgressIndicator(
+               value: (xp % 100) / 100.0,
+               backgroundColor: Colors.black26,
+-              valueColor: const AlwaysStoppedAnimation<Color>(
+-                Colors.purpleAccent,
++              valueColor: AlwaysStoppedAnimation<Color>(
++                CrimsonHelpers.isCrimson(context) ? CrimsonHelpers.crimsonRed : Colors.purpleAccent,
+               ),
+               borderRadius: BorderRadius.circular(4),
+               minHeight: 6,
+@@ -431,19 +434,19 @@ class _NotesPageState extends State<NotesPage> {
+               style: const TextStyle(color: Colors.white70, fontSize: 12),
+             ),
+             const SizedBox(height: 12),
+-            const Row(
++            Row(
+               mainAxisAlignment: MainAxisAlignment.center,
+               children: [
+                 Text(
+                   "Tap to view Global Leaderboard",
+                   style: TextStyle(
+-                    color: Colors.purpleAccent,
++                    color: CrimsonHelpers.isCrimson(context) ? CrimsonHelpers.crimsonRed : Colors.purpleAccent,
+                     fontSize: 12,
+                     fontWeight: FontWeight.bold,
+                   ),
+                 ),
+                 SizedBox(width: 4),
+-                Icon(Icons.leaderboard, color: Colors.purpleAccent, size: 14),
++                Icon(Icons.leaderboard, color: CrimsonHelpers.isCrimson(context) ? CrimsonHelpers.crimsonRed : Colors.purpleAccent, size: 14),
+               ],
+             ),
+             const SizedBox(height: 8),
+diff --git a/LumenAi/app/lib/pages/notes/recorder.dart b/LumenAi/app/lib/pages/notes/recorder.dart
+index 1abf83a..3ba4f3c 100644
+--- a/LumenAi/app/lib/pages/notes/recorder.dart
++++ b/LumenAi/app/lib/pages/notes/recorder.dart
+@@ -1,7 +1,6 @@
+ import 'dart:async';
+ import 'dart:io';
+ import 'package:flutter/material.dart';
+-import 'package:flutter/services.dart';
+ import 'package:supabase_flutter/supabase_flutter.dart';
+ 
+ import '../../models/data_models.dart'; // Import models
+@@ -260,7 +259,7 @@ class _RecorderPageState extends State<RecorderPage> {
+                 decoration: BoxDecoration(
+                   color: const Color(0xFF1E2746),
+                   borderRadius: BorderRadius.circular(16),
+-                  border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
++                  border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.3)),
+                 ),
+                 child: Column(
+                   crossAxisAlignment: CrossAxisAlignment.start,
+@@ -286,7 +285,7 @@ class _RecorderPageState extends State<RecorderPage> {
+                               ),
+                             ),
+                             dropdownColor: const Color(0xFF1E2746),
+-                            value: _selectedSubject,
++                            initialValue: _selectedSubject,
+                             items: _subjects.map((s) {
+                               return DropdownMenuItem(
+                                 value: s,
+@@ -312,7 +311,7 @@ class _RecorderPageState extends State<RecorderPage> {
+                         contentPadding: EdgeInsets.symmetric(horizontal: 10),
+                       ),
+                       dropdownColor: const Color(0xFF1E2746),
+-                      value: _selectedUnit,
++                      initialValue: _selectedUnit,
+                       items: _units.map((u) {
+                         return DropdownMenuItem(
+                           value: u,
+@@ -346,7 +345,7 @@ class _RecorderPageState extends State<RecorderPage> {
+                           valueColor: AlwaysStoppedAnimation<Color>(
+                             _uploadProgress >= 1.0
+                                 ? Colors.greenAccent
+-                                : Colors.blueAccent,
++                                : Theme.of(context).primaryColor,
+                           ),
+                           minHeight: 8,
+                         ),
+@@ -365,7 +364,7 @@ class _RecorderPageState extends State<RecorderPage> {
+                         style: TextStyle(
+                           color: _uploadProgress >= 1.0
+                               ? Colors.greenAccent
+-                              : Colors.blueAccent,
++                              : Theme.of(context).primaryColor,
+                           fontWeight: FontWeight.bold,
+                           fontSize: 16,
+                         ),
+@@ -425,7 +424,7 @@ class _RecorderPageState extends State<RecorderPage> {
+                         BoxShadow(
+                           color: isRecording
+                               ? Colors.red.withOpacity(0.5)
+-                              : Colors.blueAccent.withOpacity(0.5),
++                              : Theme.of(context).primaryColor.withOpacity(0.5),
+                           blurRadius: 20,
+                           spreadRadius: 5,
+                         ),
+diff --git a/LumenAi/app/lib/pages/notes/results_page.dart b/LumenAi/app/lib/pages/notes/results_page.dart
+index b5b5c42..13c0369 100644
+--- a/LumenAi/app/lib/pages/notes/results_page.dart
++++ b/LumenAi/app/lib/pages/notes/results_page.dart
+@@ -8,6 +8,8 @@ import 'package:flutter_markdown/flutter_markdown.dart';
+ import 'mind_map_tab.dart';
+ import 'code_sandbox_tab.dart';
+ import '../../widgets/keyboard_shortcuts.dart';
++import '../../theme/crimson_helpers.dart';
++import 'package:google_fonts/google_fonts.dart';
+ 
+ class AnalysisResultScreen extends StatefulWidget {
+   final AnalysisResult result;
+@@ -35,8 +37,9 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
+     _currentResult = widget.result;
+ 
+     int tabCount = 4; // Summary, Quiz, Cards, Mind Map
+-    if (_effectiveLectureId != null)
++    if (_effectiveLectureId != null) {
+       tabCount++; // Podcast requires DB interaction
++    }
+     if (_currentResult.codeSnippets.isNotEmpty) tabCount++; // Code
+ 
+     _tabController = TabController(length: tabCount, vsync: this);
+@@ -50,20 +53,26 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
+ 
+   @override
+   Widget build(BuildContext context) {
++    final isCrimson = CrimsonHelpers.isCrimson(context);
++
+     return Scaffold(
+-      backgroundColor: const Color(0xFF0F2027),
++      backgroundColor: isCrimson ? CrimsonHelpers.crimsonBg : const Color(0xFF0F2027),
+       appBar: AppBar(
+-        backgroundColor: Colors.transparent,
++        backgroundColor: isCrimson ? Colors.black : Colors.transparent,
+         elevation: 0,
+         centerTitle: true,
+-        title: const Text(
+-          "Analysis Results",
+-          style: TextStyle(fontWeight: FontWeight.bold),
+-        ),
++        title: isCrimson
++            ? CrimsonHelpers.appBarTitle("AN_LOG", "Analysis Results")
++            : const Text(
++                "Analysis Results",
++                style: TextStyle(fontWeight: FontWeight.bold),
++              ),
+         bottom: TabBar(
+           controller: _tabController,
+-          indicatorColor: Colors.purpleAccent,
+-          isScrollable: true, // Switched to true to accommodate new tabs
++          indicatorColor: isCrimson ? CrimsonHelpers.crimsonRed : Colors.purpleAccent,
++          isScrollable: true,
++          labelStyle: isCrimson ? GoogleFonts.shareTechMono(fontWeight: FontWeight.bold, fontSize: 13) : null,
++          unselectedLabelStyle: isCrimson ? GoogleFonts.shareTechMono(fontSize: 13) : null,
+           tabs: [
+             const Tab(text: "Summary"),
+             if (_effectiveLectureId != null)
+@@ -101,13 +110,17 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
+         ),
+       ),
+       floatingActionButton: _isRefreshing
+-          ? const FloatingActionButton(
++          ? FloatingActionButton(
+               onPressed: null,
+-              child: CircularProgressIndicator(color: Colors.white),
++              backgroundColor: isCrimson ? Colors.black : null,
++              shape: isCrimson ? BeveledRectangleBorder(side: BorderSide(color: CrimsonHelpers.crimsonRed)) : null,
++              child: CircularProgressIndicator(color: isCrimson ? CrimsonHelpers.crimsonRed : Colors.white),
+             )
+           : FloatingActionButton(
+               onPressed: _refreshData,
+               tooltip: 'Refresh Analysis',
++              backgroundColor: isCrimson ? CrimsonHelpers.crimsonRed : null,
++              shape: isCrimson ? const BeveledRectangleBorder() : null,
+               child: const Icon(Icons.refresh),
+             ),
+     );
+@@ -154,16 +167,20 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
+           Container(
+             padding: const EdgeInsets.all(16),
+             decoration: BoxDecoration(
+-              color: const Color(0xFF1E2746),
+-              borderRadius: BorderRadius.circular(12),
++              color: CrimsonHelpers.isCrimson(context) ? CrimsonHelpers.crimsonCard : const Color(0xFF1E2746),
++              borderRadius: CrimsonHelpers.isCrimson(context) ? BorderRadius.zero : BorderRadius.circular(12),
++              border: CrimsonHelpers.isCrimson(context) ? Border.all(color: CrimsonHelpers.crimsonBorder) : null,
+             ),
+             child: MarkdownBody(
+               data: _currentResult.summary,
+               styleSheet: MarkdownStyleSheet(
+-                p: const TextStyle(color: Colors.white, height: 1.5),
+-                strong: const TextStyle(
++                p: CrimsonHelpers.isCrimson(context)
++                    ? GoogleFonts.shareTechMono(color: Colors.white, height: 1.5)
++                    : const TextStyle(color: Colors.white, height: 1.5),
++                strong: TextStyle(
+                   color: Colors.white,
+                   fontWeight: FontWeight.bold,
++                  fontFamily: CrimsonHelpers.isCrimson(context) ? 'ShareTechMono' : null,
+                 ),
+                 listBullet: const TextStyle(color: Colors.white),
+               ),
+@@ -174,13 +191,22 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
+           const SizedBox(height: 10),
+           Wrap(
+             spacing: 8,
++            runSpacing: 8,
+             children: _currentResult.topics
+                 .map(
+-                  (t) => Chip(
+-                    label: Text(t),
+-                    backgroundColor: Colors.blueAccent.withOpacity(0.2),
+-                    labelStyle: const TextStyle(color: Colors.white),
+-                  ),
++                  (t) => CrimsonHelpers.isCrimson(context)
++                      ? Container(
++                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
++                          decoration: BoxDecoration(
++                            border: Border.all(color: CrimsonHelpers.crimsonRed),
++                          ),
++                          child: CrimsonHelpers.monoText(t.toUpperCase(), size: 12),
++                        )
++                      : Chip(
++                          label: Text(t),
++                          backgroundColor: Theme.of(context).primaryColor.withOpacity(0.2),
++                          labelStyle: const TextStyle(color: Colors.white),
++                        ),
+                 )
+                 .toList(),
+           ),
+@@ -229,6 +255,12 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
+   }
+ 
+   Widget _buildSectionTitle(String title) {
++    if (CrimsonHelpers.isCrimson(context)) {
++      return Padding(
++        padding: const EdgeInsets.only(bottom: 8.0),
++        child: CrimsonHelpers.sectionHeading(title),
++      );
++    }
+     return Text(
+       title,
+       style: const TextStyle(
+@@ -339,14 +371,14 @@ class _LumenCastPlayerWidgetState extends State<LumenCastPlayerWidget> {
+   String _formatDuration(Duration d) {
+     final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+     final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+-    return "\$minutes:\$seconds";
++    return "$minutes:$seconds";
+   }
+ 
+   @override
+   Widget build(BuildContext context) {
+     if (_isLoading) {
+-      return const Center(
+-        child: CircularProgressIndicator(color: Colors.blueAccent),
++      return Center(
++        child: CircularProgressIndicator(color: Theme.of(context).primaryColor),
+       );
+     }
+ 
+@@ -682,7 +714,7 @@ class _EnhancedQuizTabState extends State<EnhancedQuizTab> {
+           ),
+           ElevatedButton(
+             onPressed: () => Navigator.pop(ctx),
+-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
++            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor),
+             child: const Text("Review Answers"),
+           ),
+         ],
+@@ -839,7 +871,7 @@ class _EnhancedQuizTabState extends State<EnhancedQuizTab> {
+                           valueColor: AlwaysStoppedAnimation<Color>(
+                             _answeredCount == _totalCount
+                                 ? _scoreColor
+-                                : Colors.blueAccent,
++                                : Theme.of(context).primaryColor,
+                           ),
+                           minHeight: 6,
+                         ),
+@@ -942,8 +974,8 @@ class _EnhancedQuizTabState extends State<EnhancedQuizTab> {
+                 borderColor = Colors.red;
+                 highlightColor = Colors.red.withOpacity(0.2);
+               } else if (isSelected) {
+-                borderColor = Colors.blueAccent;
+-                highlightColor = Colors.blueAccent.withOpacity(0.2);
++                borderColor = Theme.of(context).primaryColor;
++                highlightColor = Theme.of(context).primaryColor.withOpacity(0.2);
+               }
+ 
+               return GestureDetector(
+@@ -1152,7 +1184,7 @@ class _EnhancedFlashcardsTabState extends State<EnhancedFlashcardsTab> {
+         child: Column(
+           mainAxisSize: MainAxisSize.min,
+           children: [
+-            const CircularProgressIndicator(color: Colors.blueAccent),
++            CircularProgressIndicator(color: Theme.of(context).primaryColor),
+             const SizedBox(height: 20),
+             const Text(
+               "Generating novel flashcards...",
+@@ -1270,8 +1302,8 @@ class _EnhancedFlashcardsTabState extends State<EnhancedFlashcardsTab> {
+                         ? (_currentIndex + 1) / _currentFlashcards.length
+                         : 0,
+                     backgroundColor: Colors.white12,
+-                    valueColor: const AlwaysStoppedAnimation<Color>(
+-                      Colors.blueAccent,
++                    valueColor: AlwaysStoppedAnimation<Color>(
++                      Theme.of(context).primaryColor,
+                     ),
+                     minHeight: 5,
+                   ),
+@@ -1407,7 +1439,7 @@ class _EnhancedFlashcardsTabState extends State<EnhancedFlashcardsTab> {
+                   icon: const Icon(Icons.refresh),
+                   label: const Text("Start Over"),
+                   style: ElevatedButton.styleFrom(
+-                    backgroundColor: Colors.blueAccent,
++                    backgroundColor: Theme.of(context).primaryColor,
+                     padding: const EdgeInsets.symmetric(
+                       horizontal: 20,
+                       vertical: 12,
+@@ -1545,7 +1577,7 @@ class _SwipeableFlashcardState extends State<_SwipeableFlashcard> {
+         ),
+         borderRadius: BorderRadius.circular(20),
+         border: Border.all(
+-          color: isBack ? Colors.blueAccent.withOpacity(0.5) : Colors.white12,
++          color: isBack ? Theme.of(context).primaryColor.withOpacity(0.5) : Colors.white12,
+           width: 2,
+         ),
+         boxShadow: [
+@@ -1563,7 +1595,7 @@ class _SwipeableFlashcardState extends State<_SwipeableFlashcard> {
+           Text(
+             isBack ? "ANSWER" : "QUESTION",
+             style: TextStyle(
+-              color: (isBack ? Colors.blueAccent : Colors.white38),
++              color: (isBack ? Theme.of(context).primaryColor : Colors.white38),
+               fontSize: 11,
+               fontWeight: FontWeight.w600,
+               letterSpacing: 2,
+@@ -1576,7 +1608,7 @@ class _SwipeableFlashcardState extends State<_SwipeableFlashcard> {
+                 text,
+                 textAlign: TextAlign.center,
+                 style: TextStyle(
+-                  color: isBack ? Colors.white : Colors.blueAccent,
++                  color: isBack ? Colors.white : Theme.of(context).primaryColor,
+                   fontSize: 20,
+                   fontWeight: isBack ? FontWeight.w500 : FontWeight.bold,
+                   height: 1.4,
+diff --git a/LumenAi/app/lib/pages/notes/subject_detail_page.dart b/LumenAi/app/lib/pages/notes/subject_detail_page.dart
+index e143a61..05ea246 100644
+--- a/LumenAi/app/lib/pages/notes/subject_detail_page.dart
++++ b/LumenAi/app/lib/pages/notes/subject_detail_page.dart
+@@ -5,6 +5,8 @@ import 'file_preview_page.dart';
+ import 'input_type_page.dart';
+ import 'results_page.dart';
+ import '../spatial_canvas_page.dart';
++import '../../theme/crimson_helpers.dart';
++import 'package:google_fonts/google_fonts.dart';
+ 
+ class SubjectDetailPage extends StatefulWidget {
+   final Subject subject;
+@@ -158,8 +160,8 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
+             enabledBorder: UnderlineInputBorder(
+               borderSide: BorderSide(color: Colors.grey[700]!),
+             ),
+-            focusedBorder: const UnderlineInputBorder(
+-              borderSide: BorderSide(color: Colors.blueAccent),
++            focusedBorder: UnderlineInputBorder(
++              borderSide: BorderSide(color: Theme.of(context).primaryColor),
+             ),
+           ),
+           onSubmitted: (v) {
+@@ -177,7 +179,7 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
+               Navigator.pop(context);
+               _renameItem(id, controller.text, isLecture);
+             },
+-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
++            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor),
+             child: const Text('Save'),
+           ),
+         ],
+@@ -347,18 +349,26 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
+                 child: Row(
+                   children: [
+                     CircleAvatar(
+-                      backgroundColor: widget.baseColor.withOpacity(0.2),
++                      backgroundColor: CrimsonHelpers.isCrimson(context)
++                          ? CrimsonHelpers.crimsonRed.withOpacity(0.1)
++                          : widget.baseColor.withOpacity(0.2),
+                       child: Icon(
+                         isLecture
+                             ? (item['is_analyzed'] == true
+-                                  ? Icons.auto_awesome
+-                                  : Icons.description)
++                                ? (CrimsonHelpers.isCrimson(context)
++                                    ? Icons.bolt
++                                    : Icons.auto_awesome)
++                                : Icons.description)
+                             : Icons.article,
+                         color: isLecture
+                             ? (item['is_analyzed'] == true
+-                                  ? widget.baseColor
+-                                  : Colors.grey[400])
+-                            : widget.baseColor,
++                                ? (CrimsonHelpers.isCrimson(context)
++                                    ? CrimsonHelpers.crimsonRed
++                                    : widget.baseColor)
++                                : Colors.grey[400])
++                            : (CrimsonHelpers.isCrimson(context)
++                                ? CrimsonHelpers.crimsonRed
++                                : widget.baseColor),
+                       ),
+                     ),
+                     const SizedBox(width: 16),
+@@ -370,12 +380,20 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
+                             children: [
+                               Expanded(
+                                 child: Text(
+-                                  title,
+-                                  style: const TextStyle(
+-                                    color: Colors.white,
+-                                    fontSize: 16,
+-                                    fontWeight: FontWeight.bold,
+-                                  ),
++                                  CrimsonHelpers.isCrimson(context)
++                                      ? title.toUpperCase()
++                                      : title,
++                                  style: CrimsonHelpers.isCrimson(context)
++                                      ? GoogleFonts.shareTechMono(
++                                          color: Colors.white,
++                                          fontSize: 14,
++                                          fontWeight: FontWeight.bold,
++                                        )
++                                      : const TextStyle(
++                                          color: Colors.white,
++                                          fontSize: 16,
++                                          fontWeight: FontWeight.bold,
++                                        ),
+                                   maxLines: 1,
+                                   overflow: TextOverflow.ellipsis,
+                                 ),
+@@ -423,10 +441,15 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
+                           const SizedBox(height: 4),
+                           Text(
+                             date,
+-                            style: TextStyle(
+-                              color: Colors.grey[400],
+-                              fontSize: 12,
+-                            ),
++                            style: CrimsonHelpers.isCrimson(context)
++                                ? GoogleFonts.shareTechMono(
++                                    color: Colors.white54,
++                                    fontSize: 10,
++                                  )
++                                : TextStyle(
++                                    color: Colors.grey[400],
++                                    fontSize: 12,
++                                  ),
+                           ),
+                         ],
+                       ),
+@@ -459,15 +482,23 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
+ 
+   @override
+   Widget build(BuildContext context) {
++    final isCrimson = CrimsonHelpers.isCrimson(context);
++
+     return Scaffold(
+-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
++      backgroundColor: isCrimson
++          ? CrimsonHelpers.crimsonBg
++          : Theme.of(context).scaffoldBackgroundColor,
+       appBar: AppBar(
+-        title: Text(widget.subject.name),
+-        backgroundColor: widget.baseColor,
++        title: isCrimson
++            ? CrimsonHelpers.appBarTitle("DATA_STREAM", widget.subject.name)
++            : Text(widget.subject.name),
++        backgroundColor: isCrimson ? Colors.black : widget.baseColor,
+         elevation: 0,
+         bottom: TabBar(
+           controller: _tabController,
+-          indicatorColor: Colors.white,
++          indicatorColor: isCrimson ? CrimsonHelpers.crimsonRed : Colors.white,
++          labelStyle: isCrimson ? GoogleFonts.shareTechMono(fontWeight: FontWeight.bold) : null,
++          unselectedLabelStyle: isCrimson ? GoogleFonts.shareTechMono() : null,
+           tabs: const [
+             Tab(text: "Lectures"),
+             Tab(text: "Syllabi"),
+@@ -480,11 +511,22 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
+           FloatingActionButton.extended(
+             heroTag: "sync_btn",
+             onPressed: _syncClassroom,
+-            backgroundColor: Colors.amber[800],
+-            icon: const Icon(Icons.cloud_sync, color: Colors.white),
+-            label: const Text(
++            backgroundColor: isCrimson ? Colors.black : Colors.amber[800],
++            shape: isCrimson
++                ? BeveledRectangleBorder(
++                    side: BorderSide(color: CrimsonHelpers.crimsonRed),
++                  )
++                : null,
++            icon: Icon(
++              Icons.cloud_sync,
++              color: isCrimson ? CrimsonHelpers.crimsonRed : Colors.white,
++            ),
++            label: Text(
+               'Pull from Classroom',
+-              style: TextStyle(color: Colors.white),
++              style: TextStyle(
++                color: isCrimson ? CrimsonHelpers.crimsonRed : Colors.white,
++                fontFamily: isCrimson ? 'ShareTechMono' : null,
++              ),
+             ),
+           ),
+           const SizedBox(height: 12),
+@@ -501,9 +543,23 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
+                 ),
+               );
+             },
+-            backgroundColor: Colors.deepPurple,
+-            icon: const Icon(Icons.dashboard_customize, color: Colors.white),
+-            label: const Text('Canvas', style: TextStyle(color: Colors.white)),
++            backgroundColor: isCrimson ? Colors.black : Colors.deepPurple,
++            shape: isCrimson
++                ? BeveledRectangleBorder(
++                    side: BorderSide(color: Colors.white),
++                  )
++                : null,
++            icon: Icon(
++              Icons.dashboard_customize,
++              color: isCrimson ? Colors.white : Colors.white,
++            ),
++            label: Text(
++              'Canvas',
++              style: TextStyle(
++                color: isCrimson ? Colors.white : Colors.white,
++                fontFamily: isCrimson ? 'ShareTechMono' : null,
++              ),
++            ),
+           ),
+           const SizedBox(height: 12),
+           FloatingActionButton.extended(
+@@ -516,11 +572,16 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
+                 ),
+               ).then((_) => _loadData()); // Reload when coming back
+             },
+-            backgroundColor: widget.baseColor,
++            backgroundColor: isCrimson ? CrimsonHelpers.crimsonRed : widget.baseColor,
++            shape: isCrimson ? BeveledRectangleBorder() : null,
+             icon: const Icon(Icons.add, color: Colors.white),
+-            label: const Text(
++            label: Text(
+               'Add Material',
+-              style: TextStyle(color: Colors.white),
++              style: TextStyle(
++                color: Colors.white,
++                fontFamily: isCrimson ? 'ShareTechMono' : null,
++                fontWeight: isCrimson ? FontWeight.bold : null,
++              ),
+             ),
+           ),
+         ],
+diff --git a/LumenAi/app/lib/pages/profile/profilePage.dart b/LumenAi/app/lib/pages/profile/profilePage.dart
+index e66a486..c26bace 100644
+--- a/LumenAi/app/lib/pages/profile/profilePage.dart
++++ b/LumenAi/app/lib/pages/profile/profilePage.dart
+@@ -734,8 +734,8 @@ class _ProfilepageState extends State<Profilepage> {
+                   onTap: _pickAndUploadImage,
+                   child: Container(
+                     padding: const EdgeInsets.all(6),
+-                    decoration: const BoxDecoration(
+-                      color: Colors.blueAccent,
++                    decoration: BoxDecoration(
++                      color: Theme.of(context).primaryColor,
+                       shape: BoxShape.circle,
+                     ),
+                     child: const Icon(
+@@ -828,7 +828,7 @@ class _ProfilepageState extends State<Profilepage> {
+       ),
+       child: Text(
+         text,
+-        style: const TextStyle(color: Colors.blueAccent, fontSize: 12),
++        style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 12),
+       ),
+     );
+   }
+@@ -848,7 +848,7 @@ class _ProfilepageState extends State<Profilepage> {
+         if (actionText != null)
+           Text(
+             actionText,
+-            style: const TextStyle(color: Colors.blueAccent, fontSize: 12),
++            style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 12),
+           ),
+       ],
+     );
+@@ -1026,7 +1026,7 @@ class _ProfilepageState extends State<Profilepage> {
+               color: Color(0xFF1A2235),
+               shape: BoxShape.circle,
+             ),
+-            child: Icon(icon, color: Colors.blueAccent, size: 18),
++            child: Icon(icon, color: Theme.of(context).primaryColor, size: 18),
+           ),
+           title: Text(
+             title,
+diff --git a/LumenAi/app/lib/pages/store_page.dart b/LumenAi/app/lib/pages/store_page.dart
+index 57307f8..027c08f 100644
+--- a/LumenAi/app/lib/pages/store_page.dart
++++ b/LumenAi/app/lib/pages/store_page.dart
+@@ -18,8 +18,9 @@ class _StorePageState extends State<StorePage> {
+   bool _loading = true;
+   bool _purchasing = false;
+ 
+-  // Hardcoded Catalog
+-  final List<Map<String, dynamic>> _catalog = [
++  // Optimize: Move the catalog into a static list of templates
++  // and resolve dynamic colors in the builder to avoid ANRs.
++  static const List<Map<String, dynamic>> _catalogTemplates = [
+     {
+       'id': 'avatar_socratic',
+       'name': 'Socratic Tutor Avatar',
+@@ -27,7 +28,7 @@ class _StorePageState extends State<StorePage> {
+           'An AI persona that asks guiding questions instead of giving direct answers.',
+       'cost': 150,
+       'icon': Icons.psychology,
+-      'color': Colors.blueAccent,
++      'colorKey': 'primary',
+       'type': 'Avatar',
+     },
+     {
+@@ -200,18 +201,22 @@ class _StorePageState extends State<StorePage> {
+               children: [
+                 ListView.builder(
+                   padding: const EdgeInsets.all(16),
+-                  itemCount: _catalog.length,
++                  itemCount: _catalogTemplates.length,
+                   itemBuilder: (context, index) {
+-                    final item = _catalog[index];
++                    final item = _catalogTemplates[index];
+                     final id = item['id'] as String;
+                     final name = item['name'] as String;
+                     final desc = item['description'] as String;
+                     final cost = item['cost'] as int;
+                     final isOwned = _unlockedItems.contains(id);
+                     final icon = item['icon'] as IconData;
+-                    final baseColor = item['color'] as Color;
+                     final type = item['type'] as String;
+ 
++                    // Resolve color: primaryColor if key matches, else the hardcoded color
++                    final Color baseColor = item['colorKey'] == 'primary'
++                        ? currentAppTheme.primaryColor
++                        : (item['color'] as Color? ?? Colors.purpleAccent);
++
+                     return Container(
+                       margin: const EdgeInsets.only(bottom: 16),
+                       decoration: BoxDecoration(
+@@ -356,7 +361,7 @@ class _StorePageState extends State<StorePage> {
+           return ElevatedButton(
+             onPressed: onEquip,
+             style: ElevatedButton.styleFrom(
+-              backgroundColor: Colors.blueAccent,
++              backgroundColor: Theme.of(context).primaryColor,
+               foregroundColor: Colors.white,
+               shape: RoundedRectangleBorder(
+                 borderRadius: BorderRadius.circular(20),
+diff --git a/LumenAi/app/lib/pages/voice_tutor_page.dart b/LumenAi/app/lib/pages/voice_tutor_page.dart
+index 054afe0..c1f05f0 100644
+--- a/LumenAi/app/lib/pages/voice_tutor_page.dart
++++ b/LumenAi/app/lib/pages/voice_tutor_page.dart
+@@ -30,7 +30,7 @@ class _VoiceTutorPageState extends State<VoiceTutorPage>
+   bool _isSpeaking = false;
+   String _currentTranscript = '';
+   String _lastAnswer = '';
+-  List<Map<String, String>> _history = []; // conversation pairs
++  final List<Map<String, String>> _history = []; // conversation pairs
+ 
+   // Context selection
+   List<Subject> _subjects = [];
+@@ -352,7 +352,7 @@ class _VoiceTutorPageState extends State<VoiceTutorPage>
+                 size: const Size(200, 60),
+                 painter: _WaveformPainter(
+                   _waveController.value,
+-                  Colors.blueAccent,
++                  Theme.of(context).primaryColor,
+                 ),
+               ),
+             ),
+@@ -360,7 +360,7 @@ class _VoiceTutorPageState extends State<VoiceTutorPage>
+             Text(
+               'Thinking...',
+               style: TextStyle(
+-                color: Colors.blueAccent.withOpacity(0.8),
++                color: Theme.of(context).primaryColor.withOpacity(0.8),
+                 fontSize: 16,
+               ),
+             ),
+@@ -475,7 +475,7 @@ class _VoiceTutorPageState extends State<VoiceTutorPage>
+       child: Column(
+         mainAxisSize: MainAxisSize.min,
+         children: [
+-          Icon(Icons.mic, size: 64, color: Colors.blueAccent.withOpacity(0.3)),
++          Icon(Icons.mic, size: 64, color: Theme.of(context).primaryColor.withOpacity(0.3)),
+           const SizedBox(height: 16),
+           const Text(
+             'Tap the microphone and ask\nanything about your studies',
+@@ -524,9 +524,9 @@ class _VoiceTutorPageState extends State<VoiceTutorPage>
+               child: Row(
+                 mainAxisSize: MainAxisSize.min,
+                 children: [
+-                  const Icon(
++                  Icon(
+                     Icons.chat_bubble_outline,
+-                    color: Colors.blueAccent,
++                    color: Theme.of(context).primaryColor,
+                     size: 14,
+                   ),
+                   const SizedBox(width: 6),
+@@ -558,9 +558,9 @@ class _VoiceTutorPageState extends State<VoiceTutorPage>
+               margin: const EdgeInsets.only(bottom: 12),
+               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+               decoration: BoxDecoration(
+-                color: Colors.blueAccent.withOpacity(0.1),
++                color: Theme.of(context).primaryColor.withOpacity(0.1),
+                 borderRadius: BorderRadius.circular(12),
+-                border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
++                border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.3)),
+               ),
+               child: Text(
+                 _currentTranscript,
+@@ -584,7 +584,7 @@ class _VoiceTutorPageState extends State<VoiceTutorPage>
+                       ? 'Speaking...'
+                       : 'Tap to speak',
+                   style: TextStyle(
+-                    color: _isListening ? Colors.blueAccent : Colors.white38,
++                    color: _isListening ? Theme.of(context).primaryColor : Colors.white38,
+                     fontSize: 14,
+                   ),
+                   textAlign: TextAlign.center,
+@@ -624,7 +624,7 @@ class _VoiceTutorPageState extends State<VoiceTutorPage>
+                               color:
+                                   (_isListening
+                                           ? Colors.redAccent
+-                                          : Colors.blueAccent)
++                                          : Theme.of(context).primaryColor)
+                                       .withOpacity(0.4),
+                               blurRadius: _isListening ? 24 : 12,
+                               spreadRadius: _isListening ? 4 : 0,
+diff --git a/LumenAi/app/lib/services/api_service.dart b/LumenAi/app/lib/services/api_service.dart
+index 8d9a206..30d60be 100644
+--- a/LumenAi/app/lib/services/api_service.dart
++++ b/LumenAi/app/lib/services/api_service.dart
+@@ -8,8 +8,7 @@ import '../config.dart';
+ import '../models/data_models.dart';
+ 
+ class MultipartRequestWithProgress extends http.MultipartRequest {
+-  MultipartRequestWithProgress(String method, Uri url, {this.onProgress})
+-    : super(method, url);
++  MultipartRequestWithProgress(super.method, super.url, {this.onProgress});
+ 
+   final void Function(int bytes, int totalBytes)? onProgress;
+ 
+diff --git a/LumenAi/app/lib/services/gamification_service.dart b/LumenAi/app/lib/services/gamification_service.dart
+index 7cb9524..e25c508 100644
+--- a/LumenAi/app/lib/services/gamification_service.dart
++++ b/LumenAi/app/lib/services/gamification_service.dart
+@@ -51,9 +51,9 @@ class GamificationService {
+ 
+       // Calculate rank based on XP
+       String rank = 'Novice Scholar';
+-      if (newXp >= 1000)
++      if (newXp >= 1000) {
+         rank = 'Lumen Grandmaster';
+-      else if (newXp >= 500)
++      } else if (newXp >= 500)
+         rank = 'Expert Scholar';
+       else if (newXp >= 200)
+         rank = 'Adept';
+diff --git a/LumenAi/app/lib/theme/app_theme.dart b/LumenAi/app/lib/theme/app_theme.dart
+index 66d0818..05fc165 100644
+--- a/LumenAi/app/lib/theme/app_theme.dart
++++ b/LumenAi/app/lib/theme/app_theme.dart
+@@ -61,41 +61,204 @@ class AppTheme {
+       id: 'theme_crimson',
+       name: 'Crimson Tech',
+       themeData: ThemeData.dark().copyWith(
+-        scaffoldBackgroundColor: const Color(0xFF121212),
+-        cardColor: const Color(0xFF1E1E1E),
++        scaffoldBackgroundColor: const Color(0xFF0A0A0A),
++        cardColor: const Color(0xFF141414),
+         bottomAppBarTheme: const BottomAppBarThemeData(
+           color: Color(0xFF000000),
+         ),
+         primaryColor: const Color(0xFFD32F2F),
+         textTheme: GoogleFonts.shareTechMonoTextTheme(
+           ThemeData.dark().textTheme,
++        ).apply(
++          bodyColor: Colors.white,
++          displayColor: Colors.white,
+         ),
+-        cardTheme: const CardThemeData(
+-          color: Color(0xFF1E1E1E),
++        iconTheme: const IconThemeData(color: Colors.white70),
++        dividerColor: const Color(0xFF2A2A2A),
++        // AppBar
++        appBarTheme: AppBarTheme(
++          backgroundColor: const Color(0xFF0A0A0A),
++          foregroundColor: Colors.white,
+           elevation: 0,
+-          shape: BeveledRectangleBorder(
+-            side: BorderSide(color: Color(0xFFD32F2F), width: 1.5),
++          titleTextStyle: GoogleFonts.shareTechMono(
++            color: Colors.white,
++            fontSize: 20,
++            fontWeight: FontWeight.bold,
++            letterSpacing: 1.5,
+           ),
++          iconTheme: const IconThemeData(color: Colors.white),
+         ),
+-        bottomSheetTheme: const BottomSheetThemeData(
+-          backgroundColor: Color(0xFF1A1A1A),
+-          shape: BeveledRectangleBorder(
+-            side: BorderSide(color: Color(0xFFD32F2F), width: 1.5),
++        // Card
++        cardTheme: const CardThemeData(
++          color: Color(0xFF141414),
++          elevation: 0,
++          shape: RoundedRectangleBorder(
++            side: BorderSide(color: Color(0xFF333333), width: 1.0),
++            borderRadius: BorderRadius.zero,
+           ),
+         ),
++        // FAB
++        floatingActionButtonTheme: const FloatingActionButtonThemeData(
++          backgroundColor: Color(0xFFD32F2F),
++          foregroundColor: Colors.white,
++          shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
++          elevation: 0,
++        ),
++        // Elevated Buttons
+         elevatedButtonTheme: ElevatedButtonThemeData(
+           style: ElevatedButton.styleFrom(
+             backgroundColor: const Color(0xFFD32F2F),
+             foregroundColor: Colors.white,
+-            shape: const BeveledRectangleBorder(
+-              side: BorderSide(color: Color(0xFFD32F2F), width: 1.5),
++            elevation: 0,
++            shape: const RoundedRectangleBorder(
++              borderRadius: BorderRadius.zero,
++            ),
++            textStyle: GoogleFonts.shareTechMono(
++              fontWeight: FontWeight.bold,
++              letterSpacing: 1.2,
++            ),
++          ),
++        ),
++        // Text Buttons
++        textButtonTheme: TextButtonThemeData(
++          style: TextButton.styleFrom(
++            foregroundColor: const Color(0xFFD32F2F),
++            textStyle: GoogleFonts.shareTechMono(),
++          ),
++        ),
++        // Outlined Buttons
++        outlinedButtonTheme: OutlinedButtonThemeData(
++          style: OutlinedButton.styleFrom(
++            foregroundColor: Colors.white,
++            side: const BorderSide(color: Color(0xFF555555), width: 1.0),
++            shape: const RoundedRectangleBorder(
++              borderRadius: BorderRadius.zero,
+             ),
++            textStyle: GoogleFonts.shareTechMono(),
++          ),
++        ),
++        // Input fields
++        inputDecorationTheme: InputDecorationTheme(
++          filled: true,
++          fillColor: const Color(0xFF141414),
++          hintStyle: GoogleFonts.shareTechMono(color: Colors.white38, fontSize: 14),
++          labelStyle: GoogleFonts.shareTechMono(color: const Color(0xFFD32F2F), fontSize: 14),
++          border: const OutlineInputBorder(
++            borderRadius: BorderRadius.zero,
++            borderSide: BorderSide(color: Color(0xFF333333)),
++          ),
++          enabledBorder: const OutlineInputBorder(
++            borderRadius: BorderRadius.zero,
++            borderSide: BorderSide(color: Color(0xFF333333)),
++          ),
++          focusedBorder: const OutlineInputBorder(
++            borderRadius: BorderRadius.zero,
++            borderSide: BorderSide(color: Color(0xFFD32F2F), width: 1.5),
+           ),
+         ),
++        // Dialog
++        dialogTheme: DialogThemeData(
++          backgroundColor: const Color(0xFF0A0A0A),
++          shape: const RoundedRectangleBorder(
++            borderRadius: BorderRadius.zero,
++            side: BorderSide(color: Color(0xFF333333), width: 1.0),
++          ),
++          titleTextStyle: GoogleFonts.shareTechMono(
++            color: Colors.white,
++            fontSize: 18,
++            fontWeight: FontWeight.bold,
++          ),
++        ),
++        // BottomSheet
++        bottomSheetTheme: const BottomSheetThemeData(
++          backgroundColor: Color(0xFF0A0A0A),
++          shape: RoundedRectangleBorder(
++            side: BorderSide(color: Color(0xFF333333), width: 1.0),
++            borderRadius: BorderRadius.vertical(top: Radius.circular(0)),
++          ),
++        ),
++        // TabBar
++        tabBarTheme: TabBarThemeData(
++          labelColor: const Color(0xFFD32F2F),
++          unselectedLabelColor: Colors.white54,
++          indicatorColor: const Color(0xFFD32F2F),
++          labelStyle: GoogleFonts.shareTechMono(
++            fontWeight: FontWeight.bold,
++            fontSize: 13,
++            letterSpacing: 1.0,
++          ),
++          unselectedLabelStyle: GoogleFonts.shareTechMono(
++            fontSize: 13,
++            letterSpacing: 1.0,
++          ),
++        ),
++        // Bottom Navigation
++        navigationBarTheme: NavigationBarThemeData(
++          backgroundColor: const Color(0xFF000000),
++          indicatorColor: const Color(0xFFD32F2F).withOpacity(0.2),
++          iconTheme: WidgetStateProperty.resolveWith((states) {
++            if (states.contains(WidgetState.selected)) {
++              return const IconThemeData(color: Color(0xFFD32F2F));
++            }
++            return const IconThemeData(color: Colors.white54);
++          }),
++          labelTextStyle: WidgetStateProperty.resolveWith((states) {
++            if (states.contains(WidgetState.selected)) {
++              return GoogleFonts.shareTechMono(
++                color: const Color(0xFFD32F2F),
++                fontSize: 11,
++              );
++            }
++            return GoogleFonts.shareTechMono(
++              color: Colors.white54,
++              fontSize: 11,
++            );
++          }),
++        ),
++        // NavigationRail
++        navigationRailTheme: NavigationRailThemeData(
++          backgroundColor: const Color(0xFF000000),
++          indicatorColor: const Color(0xFFD32F2F).withOpacity(0.2),
++          selectedIconTheme: const IconThemeData(color: Color(0xFFD32F2F)),
++          unselectedIconTheme: const IconThemeData(color: Colors.white54),
++          selectedLabelTextStyle: GoogleFonts.shareTechMono(
++            color: const Color(0xFFD32F2F),
++            fontSize: 11,
++          ),
++          unselectedLabelTextStyle: GoogleFonts.shareTechMono(
++            color: Colors.white54,
++            fontSize: 11,
++          ),
++        ),
++        // SnackBar
++        snackBarTheme: SnackBarThemeData(
++          backgroundColor: const Color(0xFF1A1A1A),
++          contentTextStyle: GoogleFonts.shareTechMono(color: Colors.white),
++          shape: const RoundedRectangleBorder(
++            borderRadius: BorderRadius.zero,
++            side: BorderSide(color: Color(0xFFD32F2F)),
++          ),
++        ),
++        // Chip
++        chipTheme: ChipThemeData(
++          backgroundColor: const Color(0xFF141414),
++          selectedColor: const Color(0xFFD32F2F),
++          labelStyle: GoogleFonts.shareTechMono(color: Colors.white, fontSize: 12),
++          side: const BorderSide(color: Color(0xFF333333)),
++          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
++        ),
++        // Progress
++        progressIndicatorTheme: const ProgressIndicatorThemeData(
++          color: Color(0xFFD32F2F),
++          linearTrackColor: Color(0xFF333333),
++        ),
++        // ColorScheme
+         colorScheme: const ColorScheme.dark().copyWith(
+           primary: const Color(0xFFD32F2F),
+           secondary: const Color(0xFFFF5252),
+-          surface: const Color(0xFF1E1E1E),
++          surface: const Color(0xFF141414),
++          onSurface: Colors.white,
++          onPrimary: Colors.white,
+         ),
+       ),
+     ),
+diff --git a/LumenAi/app/pubspec.lock b/LumenAi/app/pubspec.lock
+index d7697b2..d8aa077 100644
+--- a/LumenAi/app/pubspec.lock
++++ b/LumenAi/app/pubspec.lock
+@@ -529,7 +529,7 @@ packages:
+     source: hosted
+     version: "0.2.2"
+   intl:
+-    dependency: transitive
++    dependency: "direct main"
+     description:
+       name: intl
+       sha256: "3df61194eb431efc39c4ceba583b95633a403f46c9fd341e550ce0bfa50e9aa5"
+diff --git a/LumenAi/app/pubspec.yaml b/LumenAi/app/pubspec.yaml
+index 964b775..3c52bd1 100644
+--- a/LumenAi/app/pubspec.yaml
++++ b/LumenAi/app/pubspec.yaml
+@@ -58,6 +58,7 @@ dependencies:
+   provider: ^6.1.5+1
+   speech_to_text: ^7.3.0
+   flutter_tts: ^4.2.5
++  intl: ^0.20.2
+ 
+ dev_dependencies:
+   flutter_test:

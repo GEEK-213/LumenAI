@@ -30,7 +30,7 @@ class _VoiceTutorPageState extends State<VoiceTutorPage>
   bool _isSpeaking = false;
   String _currentTranscript = '';
   String _lastAnswer = '';
-  List<Map<String, String>> _history = []; // conversation pairs
+  final List<Map<String, String>> _history = []; // conversation pairs
 
   // Context selection
   List<Subject> _subjects = [];
@@ -352,7 +352,7 @@ class _VoiceTutorPageState extends State<VoiceTutorPage>
                 size: const Size(200, 60),
                 painter: _WaveformPainter(
                   _waveController.value,
-                  Colors.blueAccent,
+                  Theme.of(context).primaryColor,
                 ),
               ),
             ),
@@ -360,7 +360,7 @@ class _VoiceTutorPageState extends State<VoiceTutorPage>
             Text(
               'Thinking...',
               style: TextStyle(
-                color: Colors.blueAccent.withOpacity(0.8),
+                color: Theme.of(context).primaryColor.withOpacity(0.8),
                 fontSize: 16,
               ),
             ),
@@ -475,7 +475,7 @@ class _VoiceTutorPageState extends State<VoiceTutorPage>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.mic, size: 64, color: Colors.blueAccent.withOpacity(0.3)),
+          Icon(Icons.mic, size: 64, color: Theme.of(context).primaryColor.withOpacity(0.3)),
           const SizedBox(height: 16),
           const Text(
             'Tap the microphone and ask\nanything about your studies',
@@ -524,9 +524,9 @@ class _VoiceTutorPageState extends State<VoiceTutorPage>
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.chat_bubble_outline,
-                    color: Colors.blueAccent,
+                    color: Theme.of(context).primaryColor,
                     size: 14,
                   ),
                   const SizedBox(width: 6),
@@ -558,9 +558,9 @@ class _VoiceTutorPageState extends State<VoiceTutorPage>
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.blueAccent.withOpacity(0.1),
+                color: Theme.of(context).primaryColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
+                border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.3)),
               ),
               child: Text(
                 _currentTranscript,
@@ -584,7 +584,7 @@ class _VoiceTutorPageState extends State<VoiceTutorPage>
                       ? 'Speaking...'
                       : 'Tap to speak',
                   style: TextStyle(
-                    color: _isListening ? Colors.blueAccent : Colors.white38,
+                    color: _isListening ? Theme.of(context).primaryColor : Colors.white38,
                     fontSize: 14,
                   ),
                   textAlign: TextAlign.center,
@@ -624,7 +624,7 @@ class _VoiceTutorPageState extends State<VoiceTutorPage>
                               color:
                                   (_isListening
                                           ? Colors.redAccent
-                                          : Colors.blueAccent)
+                                          : Theme.of(context).primaryColor)
                                       .withOpacity(0.4),
                               blurRadius: _isListening ? 24 : 12,
                               spreadRadius: _isListening ? 4 : 0,

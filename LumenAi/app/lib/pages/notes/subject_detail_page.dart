@@ -5,6 +5,8 @@ import 'file_preview_page.dart';
 import 'input_type_page.dart';
 import 'results_page.dart';
 import '../spatial_canvas_page.dart';
+import '../../theme/crimson_helpers.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class SubjectDetailPage extends StatefulWidget {
   final Subject subject;
@@ -158,8 +160,8 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
             enabledBorder: UnderlineInputBorder(
               borderSide: BorderSide(color: Colors.grey[700]!),
             ),
-            focusedBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.blueAccent),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Theme.of(context).primaryColor),
             ),
           ),
           onSubmitted: (v) {
@@ -177,7 +179,7 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
               Navigator.pop(context);
               _renameItem(id, controller.text, isLecture);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor),
             child: const Text('Save'),
           ),
         ],
@@ -347,18 +349,26 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
                 child: Row(
                   children: [
                     CircleAvatar(
-                      backgroundColor: widget.baseColor.withOpacity(0.2),
+                      backgroundColor: CrimsonHelpers.isCrimson(context)
+                          ? CrimsonHelpers.crimsonRed.withOpacity(0.1)
+                          : widget.baseColor.withOpacity(0.2),
                       child: Icon(
                         isLecture
                             ? (item['is_analyzed'] == true
-                                  ? Icons.auto_awesome
-                                  : Icons.description)
+                                ? (CrimsonHelpers.isCrimson(context)
+                                    ? Icons.bolt
+                                    : Icons.auto_awesome)
+                                : Icons.description)
                             : Icons.article,
                         color: isLecture
                             ? (item['is_analyzed'] == true
-                                  ? widget.baseColor
-                                  : Colors.grey[400])
-                            : widget.baseColor,
+                                ? (CrimsonHelpers.isCrimson(context)
+                                    ? CrimsonHelpers.crimsonRed
+                                    : widget.baseColor)
+                                : Colors.grey[400])
+                            : (CrimsonHelpers.isCrimson(context)
+                                ? CrimsonHelpers.crimsonRed
+                                : widget.baseColor),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -370,12 +380,20 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
                             children: [
                               Expanded(
                                 child: Text(
-                                  title,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                  ),
+                                  CrimsonHelpers.isCrimson(context)
+                                      ? title.toUpperCase()
+                                      : title,
+                                  style: CrimsonHelpers.isCrimson(context)
+                                      ? GoogleFonts.shareTechMono(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.bold,
+                                        )
+                                      : const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -423,10 +441,15 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
                           const SizedBox(height: 4),
                           Text(
                             date,
-                            style: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 12,
-                            ),
+                            style: CrimsonHelpers.isCrimson(context)
+                                ? GoogleFonts.shareTechMono(
+                                    color: Colors.white54,
+                                    fontSize: 10,
+                                  )
+                                : TextStyle(
+                                    color: Colors.grey[400],
+                                    fontSize: 12,
+                                  ),
                           ),
                         ],
                       ),
@@ -459,15 +482,23 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
 
   @override
   Widget build(BuildContext context) {
+    final isCrimson = CrimsonHelpers.isCrimson(context);
+
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: isCrimson
+          ? CrimsonHelpers.crimsonBg
+          : Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(widget.subject.name),
-        backgroundColor: widget.baseColor,
+        title: isCrimson
+            ? CrimsonHelpers.appBarTitle("DATA_STREAM", widget.subject.name)
+            : Text(widget.subject.name),
+        backgroundColor: isCrimson ? Colors.black : widget.baseColor,
         elevation: 0,
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.white,
+          indicatorColor: isCrimson ? CrimsonHelpers.crimsonRed : Colors.white,
+          labelStyle: isCrimson ? GoogleFonts.shareTechMono(fontWeight: FontWeight.bold) : null,
+          unselectedLabelStyle: isCrimson ? GoogleFonts.shareTechMono() : null,
           tabs: const [
             Tab(text: "Lectures"),
             Tab(text: "Syllabi"),
@@ -480,11 +511,22 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
           FloatingActionButton.extended(
             heroTag: "sync_btn",
             onPressed: _syncClassroom,
-            backgroundColor: Colors.amber[800],
-            icon: const Icon(Icons.cloud_sync, color: Colors.white),
-            label: const Text(
+            backgroundColor: isCrimson ? Colors.black : Colors.amber[800],
+            shape: isCrimson
+                ? BeveledRectangleBorder(
+                    side: BorderSide(color: CrimsonHelpers.crimsonRed),
+                  )
+                : null,
+            icon: Icon(
+              Icons.cloud_sync,
+              color: isCrimson ? CrimsonHelpers.crimsonRed : Colors.white,
+            ),
+            label: Text(
               'Pull from Classroom',
-              style: TextStyle(color: Colors.white),
+              style: TextStyle(
+                color: isCrimson ? CrimsonHelpers.crimsonRed : Colors.white,
+                fontFamily: isCrimson ? 'ShareTechMono' : null,
+              ),
             ),
           ),
           const SizedBox(height: 12),
@@ -501,9 +543,23 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
                 ),
               );
             },
-            backgroundColor: Colors.deepPurple,
-            icon: const Icon(Icons.dashboard_customize, color: Colors.white),
-            label: const Text('Canvas', style: TextStyle(color: Colors.white)),
+            backgroundColor: isCrimson ? Colors.black : Colors.deepPurple,
+            shape: isCrimson
+                ? BeveledRectangleBorder(
+                    side: BorderSide(color: Colors.white),
+                  )
+                : null,
+            icon: Icon(
+              Icons.dashboard_customize,
+              color: isCrimson ? Colors.white : Colors.white,
+            ),
+            label: Text(
+              'Canvas',
+              style: TextStyle(
+                color: isCrimson ? Colors.white : Colors.white,
+                fontFamily: isCrimson ? 'ShareTechMono' : null,
+              ),
+            ),
           ),
           const SizedBox(height: 12),
           FloatingActionButton.extended(
@@ -516,11 +572,16 @@ class _SubjectDetailPageState extends State<SubjectDetailPage>
                 ),
               ).then((_) => _loadData()); // Reload when coming back
             },
-            backgroundColor: widget.baseColor,
+            backgroundColor: isCrimson ? CrimsonHelpers.crimsonRed : widget.baseColor,
+            shape: isCrimson ? BeveledRectangleBorder() : null,
             icon: const Icon(Icons.add, color: Colors.white),
-            label: const Text(
+            label: Text(
               'Add Material',
-              style: TextStyle(color: Colors.white),
+              style: TextStyle(
+                color: Colors.white,
+                fontFamily: isCrimson ? 'ShareTechMono' : null,
+                fontWeight: isCrimson ? FontWeight.bold : null,
+              ),
             ),
           ),
         ],

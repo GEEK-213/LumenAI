@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/data_models.dart'; // Import models
@@ -260,7 +259,7 @@ class _RecorderPageState extends State<RecorderPage> {
                 decoration: BoxDecoration(
                   color: const Color(0xFF1E2746),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
+                  border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.3)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -286,7 +285,7 @@ class _RecorderPageState extends State<RecorderPage> {
                               ),
                             ),
                             dropdownColor: const Color(0xFF1E2746),
-                            value: _selectedSubject,
+                            initialValue: _selectedSubject,
                             items: _subjects.map((s) {
                               return DropdownMenuItem(
                                 value: s,
@@ -312,7 +311,7 @@ class _RecorderPageState extends State<RecorderPage> {
                         contentPadding: EdgeInsets.symmetric(horizontal: 10),
                       ),
                       dropdownColor: const Color(0xFF1E2746),
-                      value: _selectedUnit,
+                      initialValue: _selectedUnit,
                       items: _units.map((u) {
                         return DropdownMenuItem(
                           value: u,
@@ -346,7 +345,7 @@ class _RecorderPageState extends State<RecorderPage> {
                           valueColor: AlwaysStoppedAnimation<Color>(
                             _uploadProgress >= 1.0
                                 ? Colors.greenAccent
-                                : Colors.blueAccent,
+                                : Theme.of(context).primaryColor,
                           ),
                           minHeight: 8,
                         ),
@@ -365,7 +364,7 @@ class _RecorderPageState extends State<RecorderPage> {
                         style: TextStyle(
                           color: _uploadProgress >= 1.0
                               ? Colors.greenAccent
-                              : Colors.blueAccent,
+                              : Theme.of(context).primaryColor,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
@@ -425,7 +424,7 @@ class _RecorderPageState extends State<RecorderPage> {
                         BoxShadow(
                           color: isRecording
                               ? Colors.red.withOpacity(0.5)
-                              : Colors.blueAccent.withOpacity(0.5),
+                              : Theme.of(context).primaryColor.withOpacity(0.5),
                           blurRadius: 20,
                           spreadRadius: 5,
                         ),

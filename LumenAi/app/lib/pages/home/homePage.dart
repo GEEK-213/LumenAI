@@ -299,7 +299,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                   child: CircleAvatar(
                     radius: 25,
-                    backgroundColor: Colors.blueAccent.withOpacity(0.3),
+                    backgroundColor: Theme.of(context).primaryColor.withOpacity(0.3),
                     backgroundImage:
                         _avatarUrl != null && _avatarUrl!.isNotEmpty
                         ? NetworkImage(_avatarUrl!)
@@ -366,7 +366,7 @@ class _HomePageState extends State<HomePage> {
               decoration: BoxDecoration(
                 color: Theme.of(
                   context,
-                ).colorScheme.surfaceVariant.withOpacity(0.5),
+                ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
                 shape: BoxShape.circle,
               ),
               child: IconButton(
@@ -386,7 +386,7 @@ class _HomePageState extends State<HomePage> {
               decoration: BoxDecoration(
                 color: Theme.of(
                   context,
-                ).colorScheme.surfaceVariant.withOpacity(0.5),
+                ).colorScheme.surfaceContainerHighest.withOpacity(0.5),
                 shape: BoxShape.circle,
               ),
               child: IconButton(

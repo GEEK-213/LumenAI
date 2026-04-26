@@ -734,8 +734,8 @@ class _ProfilepageState extends State<Profilepage> {
                   onTap: _pickAndUploadImage,
                   child: Container(
                     padding: const EdgeInsets.all(6),
-                    decoration: const BoxDecoration(
-                      color: Colors.blueAccent,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor,
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(
@@ -828,7 +828,7 @@ class _ProfilepageState extends State<Profilepage> {
       ),
       child: Text(
         text,
-        style: const TextStyle(color: Colors.blueAccent, fontSize: 12),
+        style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 12),
       ),
     );
   }
@@ -848,7 +848,7 @@ class _ProfilepageState extends State<Profilepage> {
         if (actionText != null)
           Text(
             actionText,
-            style: const TextStyle(color: Colors.blueAccent, fontSize: 12),
+            style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 12),
           ),
       ],
     );
@@ -1026,7 +1026,7 @@ class _ProfilepageState extends State<Profilepage> {
               color: Color(0xFF1A2235),
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, color: Colors.blueAccent, size: 18),
+            child: Icon(icon, color: Theme.of(context).primaryColor, size: 18),
           ),
           title: Text(
             title,

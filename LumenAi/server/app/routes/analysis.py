@@ -384,6 +384,7 @@ async def analyze_lecture_on_demand(lecture_id: str, background_tasks: Backgroun
     from googleapiclient.discovery import build
     from googleapiclient.http import MediaIoBaseDownload
     from app.tasks.classroom_sync import get_valid_credentials
+    from app.utils.encryption import decrypt_dict
     
     # 1. Get the lecture row
     lecture_res = supabase.table("lectures").select("*").eq("id", lecture_id).execute()
@@ -406,7 +407,15 @@ async def analyze_lecture_on_demand(lecture_id: str, background_tasks: Backgroun
     if not token_res.data or not token_res.data[0].get("google_tokens"):
         raise HTTPException(status_code=400, detail="Google Classroom not connected. Please reconnect.")
     
-    tokens = token_res.data[0]["google_tokens"]
+    raw_tokens = token_res.data[0]["google_tokens"]
+    try:
+        if isinstance(raw_tokens, str):
+            tokens = decrypt_dict(raw_tokens)
+        else:
+            tokens = raw_tokens
+    except Exception:
+        raise HTTPException(status_code=400, detail="Failed to decrypt tokens. Please reconnect Google Classroom.")
+        
     creds = get_valid_credentials(tokens, user_id=user_id)
     drive_service = build('drive', 'v3', credentials=creds)
     

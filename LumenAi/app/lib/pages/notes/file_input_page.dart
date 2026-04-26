@@ -237,7 +237,7 @@ class _FileInputPageState extends State<FileInputPage> {
               decoration: BoxDecoration(
                 color: const Color(0xFF1E2746),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
+                border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.3)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -263,7 +263,7 @@ class _FileInputPageState extends State<FileInputPage> {
                           ),
                           dropdownColor: const Color(0xFF1E2746),
                           style: const TextStyle(color: Colors.white),
-                          value: _selectedSubject,
+                          initialValue: _selectedSubject,
                           items: _subjects.map((s) {
                             return DropdownMenuItem(
                               value: s,
@@ -286,7 +286,7 @@ class _FileInputPageState extends State<FileInputPage> {
                     ),
                     dropdownColor: const Color(0xFF1E2746),
                     style: const TextStyle(color: Colors.white),
-                    value: _selectedUnit,
+                    initialValue: _selectedUnit,
                     items: _units.map((u) {
                       return DropdownMenuItem(value: u, child: Text(u.name));
                     }).toList(),
@@ -345,8 +345,8 @@ class _FileInputPageState extends State<FileInputPage> {
                   LinearProgressIndicator(
                     value: _uploadProgress < 1.0 ? _uploadProgress : null,
                     backgroundColor: Colors.white12,
-                    valueColor: const AlwaysStoppedAnimation<Color>(
-                      Colors.blueAccent,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Theme.of(context).primaryColor,
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -364,7 +364,7 @@ class _FileInputPageState extends State<FileInputPage> {
                 height: 50,
                 child: ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
+                    backgroundColor: Theme.of(context).primaryColor,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),

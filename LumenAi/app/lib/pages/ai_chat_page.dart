@@ -567,7 +567,7 @@ class _ChatScreenState extends State<ChatScreen> {
                     style: const TextStyle(color: Colors.white70, fontSize: 12),
                   ),
                   backgroundColor: const Color(0xFF2A3A5C),
-                  side: BorderSide(color: Colors.blueAccent.withOpacity(0.3)),
+                  side: BorderSide(color: Theme.of(context).primaryColor.withOpacity(0.3)),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
@@ -638,10 +638,10 @@ class _ChatScreenState extends State<ChatScreen> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: Colors.blueAccent.withOpacity(0.15),
-                border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
+                color: Theme.of(context).primaryColor.withOpacity(0.15),
+                border: Border.all(color: Theme.of(context).primaryColor.withOpacity(0.3)),
               ),
-              child: const Icon(Icons.mic, color: Colors.blueAccent, size: 22),
+              child: Icon(Icons.mic, color: Theme.of(context).primaryColor, size: 22),
             ),
           ),
           const SizedBox(width: 8),

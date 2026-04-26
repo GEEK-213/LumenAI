@@ -51,9 +51,9 @@ class GamificationService {
 
       // Calculate rank based on XP
       String rank = 'Novice Scholar';
-      if (newXp >= 1000)
+      if (newXp >= 1000) {
         rank = 'Lumen Grandmaster';
-      else if (newXp >= 500)
+      } else if (newXp >= 500)
         rank = 'Expert Scholar';
       else if (newXp >= 200)
         rank = 'Adept';

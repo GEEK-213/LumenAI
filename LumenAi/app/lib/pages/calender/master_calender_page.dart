@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../services/api_service.dart';
+import '../../theme/crimson_helpers.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class MasterCalenderPage extends StatefulWidget {
   const MasterCalenderPage({super.key});
@@ -82,22 +84,30 @@ class _MasterCalenderPageState extends State<MasterCalenderPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isCrimson = CrimsonHelpers.isCrimson(context);
     return Scaffold(
+      backgroundColor: isCrimson ? CrimsonHelpers.crimsonBg : Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        title: const Text(
-          "Master Calendar",
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
+        backgroundColor: isCrimson ? Colors.black : null,
+        elevation: 0,
+        title: isCrimson
+            ? CrimsonHelpers.appBarTitle("CHRONO_LOG", "Master Calendar")
+            : const Text(
+                "Master Calendar",
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
         centerTitle: true,
       ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(child: CircularProgressIndicator(color: isCrimson ? CrimsonHelpers.crimsonRed : null))
           : content(),
     );
   }
 
   Widget content() {
     final events = getEventsForDay(today);
+
+    final isCrimson = CrimsonHelpers.isCrimson(context);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -106,29 +116,35 @@ class _MasterCalenderPageState extends State<MasterCalenderPage> {
         children: [
           const SizedBox(height: 8),
 
-          Text("Selected Date", style: Theme.of(context).textTheme.labelMedium),
+          Text(
+            isCrimson ? "SELECTED_ORBIT" : "Selected Date",
+            style: isCrimson ? GoogleFonts.shareTechMono(color: CrimsonHelpers.crimsonRed, fontSize: 11) : Theme.of(context).textTheme.labelMedium,
+          ),
 
           const SizedBox(height: 4),
 
           Text(
             today.toString().split(" ")[0],
-            style: Theme.of(context).textTheme.titleMedium,
+            style: isCrimson ? GoogleFonts.shareTechMono(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold) : Theme.of(context).textTheme.titleMedium,
           ),
 
           const SizedBox(height: 20),
 
           Card(
-            elevation: 2,
+            elevation: isCrimson ? 0 : 2,
+            color: isCrimson ? Colors.black : null,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: isCrimson ? BorderRadius.zero : BorderRadius.circular(16),
+              side: isCrimson ? BorderSide(color: CrimsonHelpers.crimsonBorder) : BorderSide.none,
             ),
             child: Padding(
               padding: const EdgeInsets.all(12.0),
               child: TableCalendar(
                 locale: "en_US",
-                headerStyle: const HeaderStyle(
+                headerStyle: HeaderStyle(
                   formatButtonVisible: false,
                   titleCentered: true,
+                  titleTextStyle: isCrimson ? GoogleFonts.shareTechMono(color: Colors.white, fontWeight: FontWeight.bold) : const TextStyle(color: Colors.black),
                 ),
                 availableGestures: AvailableGestures.all,
                 selectedDayPredicate: (day) => isSameDay(day, today),
@@ -137,10 +153,25 @@ class _MasterCalenderPageState extends State<MasterCalenderPage> {
                 lastDay: DateTime.utc(DateTime.now().year + 1, 12, 31),
                 onDaySelected: _OnDaySelected,
                 eventLoader: (day) => getEventsForDay(day),
-                calendarStyle: const CalendarStyle(
+                daysOfWeekStyle: DaysOfWeekStyle(
+                  weekdayStyle: isCrimson ? GoogleFonts.shareTechMono(color: Colors.white70) : const TextStyle(color: Colors.black),
+                  weekendStyle: isCrimson ? GoogleFonts.shareTechMono(color: CrimsonHelpers.crimsonRed) : const TextStyle(color: Colors.red),
+                ),
+                calendarStyle: CalendarStyle(
                   markerDecoration: BoxDecoration(
-                    color: Colors.blue,
-                    shape: BoxShape.circle,
+                    color: isCrimson ? CrimsonHelpers.crimsonRed : Colors.blue,
+                    shape: isCrimson ? BoxShape.rectangle : BoxShape.circle,
+                  ),
+                  defaultTextStyle: isCrimson ? GoogleFonts.shareTechMono(color: Colors.white) : const TextStyle(color: Colors.black),
+                  weekendTextStyle: isCrimson ? GoogleFonts.shareTechMono(color: CrimsonHelpers.crimsonRed) : const TextStyle(color: Colors.red),
+                  selectedDecoration: BoxDecoration(
+                    color: isCrimson ? CrimsonHelpers.crimsonRed : Colors.blue,
+                    shape: isCrimson ? BoxShape.rectangle : BoxShape.circle,
+                  ),
+                  todayDecoration: BoxDecoration(
+                    color: isCrimson ? CrimsonHelpers.crimsonRed.withOpacity(0.3) : Colors.blue.withOpacity(0.3),
+                    shape: isCrimson ? BoxShape.rectangle : BoxShape.circle,
+                    border: isCrimson ? Border.all(color: CrimsonHelpers.crimsonRed) : null,
                   ),
                 ),
               ),
@@ -149,13 +180,18 @@ class _MasterCalenderPageState extends State<MasterCalenderPage> {
 
           const SizedBox(height: 24),
 
-          Text("Events", style: Theme.of(context).textTheme.titleLarge),
+          isCrimson ? CrimsonHelpers.sectionHeading("Events") : Text("Events", style: Theme.of(context).textTheme.titleLarge),
 
           const SizedBox(height: 12),
 
           Expanded(
             child: events.isEmpty
-                ? const Center(child: Text("No events for this day"))
+                ? Center(
+                    child: Text(
+                      isCrimson ? "//NO_LOGS_FOUND//" : "No events for this day",
+                      style: isCrimson ? GoogleFonts.shareTechMono(color: Colors.white38) : null,
+                    ),
+                  )
                 : ListView.separated(
                     itemCount: events.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
@@ -190,32 +226,50 @@ class _MasterCalenderPageState extends State<MasterCalenderPage> {
         icon = Icons.event;
     }
 
+    final isCrimson = CrimsonHelpers.isCrimson(context);
+    final accentColor = isCrimson ? CrimsonHelpers.crimsonRed : Theme.of(context).colorScheme.primary;
+
     return GestureDetector(
       onTap: () {
         showDialog(
           context: context,
           builder: (dialogContext) => AlertDialog(
-            backgroundColor: const Color(0xFF1E2746),
+            backgroundColor: isCrimson ? Colors.black : const Color(0xFF1E2746),
+            shape: isCrimson ? const BeveledRectangleBorder(side: BorderSide(color: Colors.white54)) : null,
             title: Row(
               children: [
-                Icon(icon, color: Theme.of(context).colorScheme.primary),
+                Icon(icon, color: accentColor),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
-                    event.type.toUpperCase(),
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    isCrimson ? "[${event.type.toUpperCase()}]" : event.type.toUpperCase(),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontFamily: isCrimson ? 'ShareTechMono' : null,
+                    ),
                   ),
                 ),
               ],
             ),
             content: Text(
               event.title,
-              style: const TextStyle(color: Colors.white70, fontSize: 16),
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 16,
+                fontFamily: isCrimson ? 'ShareTechMono' : null,
+              ),
             ),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(dialogContext),
-                child: const Text("Close"),
+                child: Text(
+                  "CLOSE",
+                  style: TextStyle(
+                    color: accentColor,
+                    fontFamily: isCrimson ? 'ShareTechMono' : null,
+                  ),
+                ),
               ),
             ],
           ),
@@ -224,31 +278,36 @@ class _MasterCalenderPageState extends State<MasterCalenderPage> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          color: Theme.of(context).colorScheme.surface,
+          borderRadius: isCrimson ? BorderRadius.zero : BorderRadius.circular(16),
+          color: isCrimson ? CrimsonHelpers.crimsonCard : Theme.of(context).colorScheme.surface,
+          border: isCrimson ? Border.all(color: CrimsonHelpers.crimsonBorder) : null,
         ),
         child: Row(
           children: [
-            Icon(icon, color: Theme.of(context).colorScheme.primary),
+            Icon(icon, color: accentColor),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    event.title,
-                    style: const TextStyle(
+                    isCrimson ? event.title.toUpperCase() : event.title,
+                    style: TextStyle(
                       fontWeight: FontWeight.w600,
                       fontSize: 16,
+                      color: Colors.white,
+                      fontFamily: isCrimson ? 'ShareTechMono' : null,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    event.type.toUpperCase(),
+                    isCrimson ? "//TYPE_ID::${event.type.toUpperCase()}" : event.type.toUpperCase(),
                     style: TextStyle(
-                      color: Theme.of(
-                        context,
-                      ).colorScheme.onSurface.withOpacity(0.6),
+                      color: isCrimson 
+                          ? Colors.white54 
+                          : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+                      fontSize: 12,
+                      fontFamily: isCrimson ? 'ShareTechMono' : null,
                     ),
                   ),
                 ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/data_models.dart';
 import '../../services/gamification_service.dart';
+import '../../theme/crimson_helpers.dart';
 import 'subject_detail_page.dart';
 import '../leaderboard_page.dart';
 import '../store_page.dart';
@@ -106,7 +107,7 @@ class _NotesPageState extends State<NotesPage> {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: Theme.of(context).cardColor,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(CrimsonHelpers.isCrimson(context) ? 0 : 20)),
         title: const Text('Add Subject'),
         content: TextField(
           controller: controller,
@@ -117,8 +118,8 @@ class _NotesPageState extends State<NotesPage> {
             enabledBorder: UnderlineInputBorder(
               borderSide: BorderSide(color: Colors.grey[700]!),
             ),
-            focusedBorder: const UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.blueAccent),
+            focusedBorder: UnderlineInputBorder(
+              borderSide: BorderSide(color: Theme.of(context).primaryColor),
             ),
           ),
           onSubmitted: (v) {
@@ -136,7 +137,7 @@ class _NotesPageState extends State<NotesPage> {
               Navigator.pop(context);
               _addSubject(controller.text);
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor),
             child: const Text('Add'),
           ),
         ],
@@ -192,8 +193,9 @@ class _NotesPageState extends State<NotesPage> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: null,
         onPressed: _showAddDialog,
-        backgroundColor: Colors.blueAccent,
+        backgroundColor: Theme.of(context).primaryColor,
         child: const Icon(Icons.add),
       ),
       body: _loading
@@ -255,7 +257,7 @@ class _NotesPageState extends State<NotesPage> {
                           padding: const EdgeInsets.only(right: 24),
                           decoration: BoxDecoration(
                             color: Colors.red[900],
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(CrimsonHelpers.isCrimson(context) ? 0 : 20),
                           ),
                           child: const Icon(Icons.delete, color: Colors.white),
                         ),
@@ -274,10 +276,10 @@ class _NotesPageState extends State<NotesPage> {
                             margin: const EdgeInsets.only(bottom: 12),
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: color,
-                              borderRadius: BorderRadius.circular(20),
+                              color: CrimsonHelpers.isCrimson(context) ? CrimsonHelpers.crimsonCard : color,
+                              borderRadius: BorderRadius.circular(CrimsonHelpers.isCrimson(context) ? 0 : 20),
                               border: Border.all(
-                                color: Colors.white.withOpacity(0.06),
+                                color: CrimsonHelpers.isCrimson(context) ? CrimsonHelpers.crimsonBorder : Colors.white.withOpacity(0.06),
                               ),
                             ),
                             child: Row(
@@ -286,8 +288,8 @@ class _NotesPageState extends State<NotesPage> {
                                   height: 48,
                                   width: 48,
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(14),
+                                    color: CrimsonHelpers.isCrimson(context) ? CrimsonHelpers.crimsonRed.withOpacity(0.2) : Colors.white.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(CrimsonHelpers.isCrimson(context) ? 0 : 14),
                                   ),
                                   child: Icon(
                                     icon,
@@ -337,15 +339,17 @@ class _NotesPageState extends State<NotesPage> {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF2A1B54), Color(0xFF4A2B8A)],
+          gradient: LinearGradient(
+            colors: CrimsonHelpers.isCrimson(context)
+                ? [const Color(0xFF2A0A0A), const Color(0xFF4A1010)]
+                : [const Color(0xFF2A1B54), const Color(0xFF4A2B8A)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(CrimsonHelpers.isCrimson(context) ? 0 : 24),
           boxShadow: [
             BoxShadow(
-              color: Colors.purpleAccent.withOpacity(0.2),
+              color: (CrimsonHelpers.isCrimson(context) ? CrimsonHelpers.crimsonRed : Colors.purpleAccent).withOpacity(0.2),
               blurRadius: 15,
               offset: const Offset(0, 8),
             ),
@@ -360,10 +364,10 @@ class _NotesPageState extends State<NotesPage> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       "LUMEN WALLET",
                       style: TextStyle(
-                        color: Colors.purpleAccent,
+                        color: CrimsonHelpers.isCrimson(context) ? CrimsonHelpers.crimsonRed : Colors.purpleAccent,
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 2.0,
@@ -402,7 +406,7 @@ class _NotesPageState extends State<NotesPage> {
                     color: Colors.black26,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: Colors.purpleAccent.withOpacity(0.5),
+                      color: (CrimsonHelpers.isCrimson(context) ? CrimsonHelpers.crimsonRed : Colors.purpleAccent).withOpacity(0.5),
                     ),
                   ),
                   child: Text(
@@ -419,8 +423,8 @@ class _NotesPageState extends State<NotesPage> {
             LinearProgressIndicator(
               value: (xp % 100) / 100.0,
               backgroundColor: Colors.black26,
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                Colors.purpleAccent,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                CrimsonHelpers.isCrimson(context) ? CrimsonHelpers.crimsonRed : Colors.purpleAccent,
               ),
               borderRadius: BorderRadius.circular(4),
               minHeight: 6,
@@ -431,19 +435,19 @@ class _NotesPageState extends State<NotesPage> {
               style: const TextStyle(color: Colors.white70, fontSize: 12),
             ),
             const SizedBox(height: 12),
-            const Row(
+            Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   "Tap to view Global Leaderboard",
                   style: TextStyle(
-                    color: Colors.purpleAccent,
+                    color: CrimsonHelpers.isCrimson(context) ? CrimsonHelpers.crimsonRed : Colors.purpleAccent,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 SizedBox(width: 4),
-                Icon(Icons.leaderboard, color: Colors.purpleAccent, size: 14),
+                Icon(Icons.leaderboard, color: CrimsonHelpers.isCrimson(context) ? CrimsonHelpers.crimsonRed : Colors.purpleAccent, size: 14),
               ],
             ),
             const SizedBox(height: 8),

@@ -83,8 +83,8 @@ async def ask_ai(
         # 1. Try Gemini API first
         try:
             from google import genai
-            api_key = os.getenv("GEMINI_API_KEY")
-            client = genai.Client(api_key=api_key)
+            from app.config import Config
+            client = genai.Client(api_key=Config.GEMINI_API_KEY)
             full_prompt = f"{system_prompt}\n\n{user_message}"
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
