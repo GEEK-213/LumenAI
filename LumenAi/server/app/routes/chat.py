@@ -80,19 +80,47 @@ async def ask_ai(
     user_message = "\n\n".join(parts)
 
     try:
-        # 1. Try Gemini API first
+        # 1. Try Gemini API with key rotation
+        gemini_succeeded = False
+        raw_answer = None
+        
         try:
+            import asyncio
             from google import genai
-            api_key = os.getenv("GEMINI_API_KEY")
-            client = genai.Client(api_key=api_key)
+            from app.config import Config
+            
             full_prompt = f"{system_prompt}\n\n{user_message}"
-            response = client.models.generate_content(
-                model="gemini-2.5-flash",
-                contents=[full_prompt],
-            )
-            raw_answer = response.text
+            all_keys = Config.GEMINI_API_KEYS or []
+            last_gemini_error = None
+            
+            for key_idx, api_key in enumerate(all_keys):
+                try:
+                    client = genai.Client(api_key=api_key)
+                    response = client.models.generate_content(
+                        model="gemini-2.5-flash",
+                        contents=[full_prompt],
+                    )
+                    raw_answer = response.text
+                    gemini_succeeded = True
+                    break  # ✅ Success — stop rotating
+                except Exception as key_err:
+                    last_gemini_error = key_err
+                    err_str = str(key_err).lower()
+                    if any(s in err_str for s in ["429", "resource_exhausted", "quota"]):
+                        logger.warning(
+                            f"Chat key ...{api_key[-6:]} quota hit "
+                            f"({key_idx + 1}/{len(all_keys)}). Rotating..."
+                        )
+                        await asyncio.sleep(1)  # Brief non-blocking backoff
+                        continue  # Try next key
+                    else:
+                        raise key_err  # Non-quota error — don't rotate
+            
+            if not gemini_succeeded:
+                raise Exception(f"All {len(all_keys)} Gemini keys exhausted: {last_gemini_error}")
+                
         except Exception as e:
-            # 2. Fallback to Ollama if Gemini API fails
+            # 2. Fallback to Ollama if ALL Gemini keys fail
             logger.warning(f"Chat Gemini failed ({e}). Falling back to Ollama...")
             import ollama
             response = ollama.chat(

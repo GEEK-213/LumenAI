@@ -10,9 +10,12 @@ import 'pages/profile/login.dart';
 import 'pages/main_page.dart';
 import 'package:provider/provider.dart';
 import 'theme/theme_provider.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  await initializeDateFormatting('en_US', null);
 
   // Global error handlers — catch crashes gracefully
   FlutterError.onError = (details) {

@@ -86,6 +86,7 @@ class HomePageCyberpunk extends StatelessWidget {
                 border: Border.all(color: Colors.white, width: 2),
               ),
               child: FloatingActionButton(
+                heroTag: null,
                 onPressed: onChatPressed,
                 backgroundColor: const Color(0xFFFF003C),
                 shape: const BeveledRectangleBorder(),

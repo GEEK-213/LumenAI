@@ -1,23 +1,77 @@
+"""
+LumenAI Lecture Analyzer — Gemini Engine with API Key Rotation.
+
+Architecture:
+  1. Loads ALL Gemini API keys from Config.GEMINI_API_KEYS (comma-separated in .env)
+  2. Tracks a rotating index so each new request starts with the next key in line (round-robin)
+  3. On a 429/quota error, instantly rotates to the next key and retries
+  4. If ALL keys are exhausted, raises RateLimitError so the caller can fall back to Ollama
+  5. Uses await asyncio.sleep() for backoff — never blocks the FastAPI event loop
+"""
+
 import os
-import time
+import asyncio
 import json
+import logging
 from datetime import datetime
 from google import genai
 from google.genai import types
 from markitdown import MarkItDown
 from app.config import Config
 
+logger = logging.getLogger(__name__)
+
 
 class RateLimitError(Exception):
-    """Raised when Gemini API is rate-limited or quota exceeded."""
+    """Raised when ALL Gemini API keys are rate-limited or quota exceeded."""
     pass
 
 
 class LectureAnalyzer:
+    """
+    Primary AI engine using Google Gemini 2.5 Flash.
+    Supports multi-key rotation to maximize free-tier throughput.
+    """
+
     def __init__(self):
-        # Initialize Gemini Client
-        self.client = genai.Client(api_key=Config.GEMINI_API_KEY)
+        # --- API Key Rotation State ---
+        self.api_keys = Config.GEMINI_API_KEYS or []
+        self.key_count = len(self.api_keys)
+
+        if self.key_count == 0:
+            raise ValueError("No Gemini API keys configured. Set GEMINI_KEYS or Gemini_API_key in .env")
+
+        # Round-robin pointer — starts at 0, increments on each new request
+        self._current_key_index = 0
+
+        # Initialize the client with the first key
+        self.client = genai.Client(api_key=self.api_keys[0])
         self.md = MarkItDown()
+
+        logger.info(f"🔑 Gemini Key Rotation Engine initialized with {self.key_count} key(s)")
+
+    def _rotate_client(self) -> str:
+        """
+        Advances the round-robin pointer to the next API key and
+        rebuilds the Gemini client with that key.
+        Returns the new key (truncated for logging).
+        """
+        self._current_key_index = (self._current_key_index + 1) % self.key_count
+        new_key = self.api_keys[self._current_key_index]
+        self.client = genai.Client(api_key=new_key)
+        # Log only the last 6 characters for security
+        return f"...{new_key[-6:]}"
+
+    def _is_quota_error(self, error: Exception) -> bool:
+        """
+        Checks if an exception is a quota/rate-limit error (429, 503, RESOURCE_EXHAUSTED).
+        These are the ONLY errors that trigger key rotation.
+        Other errors (bad prompt, network timeout) are NOT retried with a new key.
+        """
+        error_str = str(error).lower()
+        return any(signal in error_str for signal in [
+            "429", "503", "resource_exhausted", "quota", "rate limit", "too many requests"
+        ])
 
     async def prepare_content(self, file_paths: list[str], syllabus_context: str = "") -> list:
         """
@@ -42,7 +96,6 @@ class LectureAnalyzer:
                     file = self.client.files.upload(file=path)
                     # Wait for Google's infrastructure to process the video/audio
                     # Use async sleep to avoid blocking the FastAPI event loop
-                    import asyncio
                     while file.state.name == "PROCESSING":
                         await asyncio.sleep(2)
                         file = self.client.files.get(name=file.name)
@@ -62,38 +115,82 @@ class LectureAnalyzer:
 
     async def _execute_prompt(self, contents: list, instructions: str) -> str:
         """
-        Internal helper to execute the prompt against Gemini LLM.
-        Handles API Rate Limits and Quota Exhaustion gracefully.
-        Uses async sleep to avoid blocking the FastAPI event loop.
+        Core prompt execution engine with API Key Rotation.
+
+        Algorithm:
+          1. Try the current key (up to 2 retries with exponential backoff)
+          2. If the key throws a quota error (429/503/RESOURCE_EXHAUSTED):
+             → Instantly rotate to the next key in the list
+             → Reset retry counter for the new key
+          3. If ALL keys have been tried and all are exhausted:
+             → Raise RateLimitError (caller falls back to Ollama)
+          4. Non-quota errors (bad prompt, network) are raised immediately
+
+        This ensures the user's request survives even during peak usage
+        by squeezing every drop of quota from all available keys.
         """
-        import asyncio
-        # We prepend the instruction to the list of contents (which might contain Video clips)
         prompted_contents = [instructions] + contents
-        max_retries = 3
+
+        # How many retries per individual key before rotating
+        RETRIES_PER_KEY = 2
+        # Track how many keys we've fully exhausted
+        keys_exhausted = 0
         last_error = None
-        
-        for i in range(max_retries):
-            try:
-                response = self.client.models.generate_content(
-                    model="gemini-2.5-flash", 
-                    contents=prompted_contents,
-                    config=types.GenerateContentConfig(
-                        response_mime_type="application/json",
-                        response_modalities=["TEXT"]
+
+        while keys_exhausted < self.key_count:
+            current_key_preview = f"...{self.api_keys[self._current_key_index][-6:]}"
+            
+            for attempt in range(RETRIES_PER_KEY):
+                try:
+                    response = self.client.models.generate_content(
+                        model="gemini-2.5-flash", 
+                        contents=prompted_contents,
+                        config=types.GenerateContentConfig(
+                            response_mime_type="application/json",
+                            response_modalities=["TEXT"]
+                        )
                     )
-                )
-                return response.text
-            except Exception as e:
-                print(f"  ⚠️ Gemini Error (Attempt {i+1}): {e}")
-                error_str = str(e)
-                # If we get rate limited, exponential backoff and retry
-                if "429" in error_str or "503" in error_str or "quota" in error_str.lower():
+                    return response.text  # ✅ Success — return immediately
+
+                except Exception as e:
                     last_error = e
-                    await asyncio.sleep((2 ** i) + 5)
-                else:
-                    raise e
-                    
-        raise RateLimitError(f"Gemini rate limited after {max_retries} attempts: {last_error}")
+
+                    if self._is_quota_error(e):
+                        # Quota error — backoff briefly then retry same key
+                        backoff = (2 ** attempt) + 1  # 2s, 3s
+                        logger.warning(
+                            f"⚠️ Key {current_key_preview} quota hit "
+                            f"(attempt {attempt + 1}/{RETRIES_PER_KEY}). "
+                            f"Backing off {backoff}s..."
+                        )
+                        await asyncio.sleep(backoff)
+                    else:
+                        # Non-quota error (bad prompt, network) — don't rotate, just fail
+                        logger.error(f"❌ Gemini non-quota error: {e}")
+                        raise e
+
+            # If we reach here, this key's retries are fully exhausted
+            keys_exhausted += 1
+
+            if keys_exhausted < self.key_count:
+                # Rotate to the next key
+                new_key_preview = self._rotate_client()
+                logger.warning(
+                    f"🔄 Key {current_key_preview} fully exhausted. "
+                    f"Rotating to key {new_key_preview} "
+                    f"({keys_exhausted}/{self.key_count} exhausted)"
+                )
+            else:
+                logger.error(
+                    f"🚨 ALL {self.key_count} Gemini keys exhausted! "
+                    f"Raising RateLimitError for Ollama fallback."
+                )
+
+        # All keys tried and failed — let the caller fall back to Ollama
+        raise RateLimitError(
+            f"All {self.key_count} Gemini API key(s) exhausted after "
+            f"{RETRIES_PER_KEY} retries each. Last error: {last_error}"
+        )
 
 
     async def generate_initial_view(self, contents: list) -> str:

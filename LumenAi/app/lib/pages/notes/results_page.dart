@@ -8,6 +8,8 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'mind_map_tab.dart';
 import 'code_sandbox_tab.dart';
 import '../../widgets/keyboard_shortcuts.dart';
+import '../../theme/crimson_helpers.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AnalysisResultScreen extends StatefulWidget {
   final AnalysisResult result;
@@ -35,8 +37,9 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
     _currentResult = widget.result;
 
     int tabCount = 4; // Summary, Quiz, Cards, Mind Map
-    if (_effectiveLectureId != null)
+    if (_effectiveLectureId != null) {
       tabCount++; // Podcast requires DB interaction
+    }
     if (_currentResult.codeSnippets.isNotEmpty) tabCount++; // Code
 
     _tabController = TabController(length: tabCount, vsync: this);
@@ -50,27 +53,30 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
 
   @override
   Widget build(BuildContext context) {
+    final isCrimson = CrimsonHelpers.isCrimson(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0F2027),
+      backgroundColor: isCrimson ? CrimsonHelpers.crimsonBg : const Color(0xFF0F2027),
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: isCrimson ? Colors.black : Colors.transparent,
         elevation: 0,
         centerTitle: true,
-        title: const Text(
-          "Analysis Results",
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
+        title: isCrimson
+            ? CrimsonHelpers.appBarTitle("AN_LOG", "Analysis Results")
+            : const Text(
+                "Analysis Results",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.purpleAccent,
-          isScrollable: true, // Switched to true to accommodate new tabs
+          indicatorColor: isCrimson ? CrimsonHelpers.crimsonRed : Colors.purpleAccent,
+          isScrollable: true,
+          labelStyle: isCrimson ? GoogleFonts.shareTechMono(fontWeight: FontWeight.bold, fontSize: 13) : null,
+          unselectedLabelStyle: isCrimson ? GoogleFonts.shareTechMono(fontSize: 13) : null,
           tabs: [
             const Tab(text: "Summary"),
             if (_effectiveLectureId != null)
-              const Tab(
-                icon: Icon(Icons.headphones, size: 20),
-                text: "Podcast",
-              ),
+              const Tab(text: "Podcast"),
             const Tab(text: "Quiz"),
             const Tab(text: "Cards"),
             const Tab(text: "Mind Map"),
@@ -101,13 +107,17 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
         ),
       ),
       floatingActionButton: _isRefreshing
-          ? const FloatingActionButton(
+          ? FloatingActionButton(
               onPressed: null,
-              child: CircularProgressIndicator(color: Colors.white),
+              backgroundColor: isCrimson ? Colors.black : null,
+              shape: isCrimson ? BeveledRectangleBorder(side: BorderSide(color: CrimsonHelpers.crimsonRed)) : null,
+              child: CircularProgressIndicator(color: isCrimson ? CrimsonHelpers.crimsonRed : Colors.white),
             )
           : FloatingActionButton(
               onPressed: _refreshData,
               tooltip: 'Refresh Analysis',
+              backgroundColor: isCrimson ? CrimsonHelpers.crimsonRed : null,
+              shape: isCrimson ? const BeveledRectangleBorder() : null,
               child: const Icon(Icons.refresh),
             ),
     );
@@ -154,16 +164,20 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E2746),
-              borderRadius: BorderRadius.circular(12),
+              color: CrimsonHelpers.isCrimson(context) ? CrimsonHelpers.crimsonCard : const Color(0xFF1E2746),
+              borderRadius: CrimsonHelpers.isCrimson(context) ? BorderRadius.zero : BorderRadius.circular(12),
+              border: CrimsonHelpers.isCrimson(context) ? Border.all(color: CrimsonHelpers.crimsonBorder) : null,
             ),
             child: MarkdownBody(
               data: _currentResult.summary,
               styleSheet: MarkdownStyleSheet(
-                p: const TextStyle(color: Colors.white, height: 1.5),
-                strong: const TextStyle(
+                p: CrimsonHelpers.isCrimson(context)
+                    ? GoogleFonts.shareTechMono(color: Colors.white, height: 1.5)
+                    : const TextStyle(color: Colors.white, height: 1.5),
+                strong: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
+                  fontFamily: CrimsonHelpers.isCrimson(context) ? 'ShareTechMono' : null,
                 ),
                 listBullet: const TextStyle(color: Colors.white),
               ),
@@ -174,13 +188,22 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
+            runSpacing: 8,
             children: _currentResult.topics
                 .map(
-                  (t) => Chip(
-                    label: Text(t),
-                    backgroundColor: Colors.blueAccent.withOpacity(0.2),
-                    labelStyle: const TextStyle(color: Colors.white),
-                  ),
+                  (t) => CrimsonHelpers.isCrimson(context)
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: CrimsonHelpers.crimsonRed),
+                          ),
+                          child: CrimsonHelpers.monoText(t.toUpperCase(), size: 12),
+                        )
+                      : Chip(
+                          label: Text(t),
+                          backgroundColor: Theme.of(context).primaryColor.withOpacity(0.2),
+                          labelStyle: const TextStyle(color: Colors.white),
+                        ),
                 )
                 .toList(),
           ),
@@ -229,6 +252,12 @@ class _AnalysisResultScreenState extends State<AnalysisResultScreen>
   }
 
   Widget _buildSectionTitle(String title) {
+    if (CrimsonHelpers.isCrimson(context)) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8.0),
+        child: CrimsonHelpers.sectionHeading(title),
+      );
+    }
     return Text(
       title,
       style: const TextStyle(
@@ -339,14 +368,14 @@ class _LumenCastPlayerWidgetState extends State<LumenCastPlayerWidget> {
   String _formatDuration(Duration d) {
     final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
     final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return "\$minutes:\$seconds";
+    return "$minutes:$seconds";
   }
 
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.blueAccent),
+      return Center(
+        child: CircularProgressIndicator(color: Theme.of(context).primaryColor),
       );
     }
 
@@ -682,7 +711,7 @@ class _EnhancedQuizTabState extends State<EnhancedQuizTab> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+            style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).primaryColor),
             child: const Text("Review Answers"),
           ),
         ],
@@ -839,7 +868,7 @@ class _EnhancedQuizTabState extends State<EnhancedQuizTab> {
                           valueColor: AlwaysStoppedAnimation<Color>(
                             _answeredCount == _totalCount
                                 ? _scoreColor
-                                : Colors.blueAccent,
+                                : Theme.of(context).primaryColor,
                           ),
                           minHeight: 6,
                         ),
@@ -942,8 +971,8 @@ class _EnhancedQuizTabState extends State<EnhancedQuizTab> {
                 borderColor = Colors.red;
                 highlightColor = Colors.red.withOpacity(0.2);
               } else if (isSelected) {
-                borderColor = Colors.blueAccent;
-                highlightColor = Colors.blueAccent.withOpacity(0.2);
+                borderColor = Theme.of(context).primaryColor;
+                highlightColor = Theme.of(context).primaryColor.withOpacity(0.2);
               }
 
               return GestureDetector(
@@ -1152,7 +1181,7 @@ class _EnhancedFlashcardsTabState extends State<EnhancedFlashcardsTab> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const CircularProgressIndicator(color: Colors.blueAccent),
+            CircularProgressIndicator(color: Theme.of(context).primaryColor),
             const SizedBox(height: 20),
             const Text(
               "Generating novel flashcards...",
@@ -1270,8 +1299,8 @@ class _EnhancedFlashcardsTabState extends State<EnhancedFlashcardsTab> {
                         ? (_currentIndex + 1) / _currentFlashcards.length
                         : 0,
                     backgroundColor: Colors.white12,
-                    valueColor: const AlwaysStoppedAnimation<Color>(
-                      Colors.blueAccent,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      Theme.of(context).primaryColor,
                     ),
                     minHeight: 5,
                   ),
@@ -1407,7 +1436,7 @@ class _EnhancedFlashcardsTabState extends State<EnhancedFlashcardsTab> {
                   icon: const Icon(Icons.refresh),
                   label: const Text("Start Over"),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blueAccent,
+                    backgroundColor: Theme.of(context).primaryColor,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 20,
                       vertical: 12,
@@ -1545,7 +1574,7 @@ class _SwipeableFlashcardState extends State<_SwipeableFlashcard> {
         ),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(
-          color: isBack ? Colors.blueAccent.withOpacity(0.5) : Colors.white12,
+          color: isBack ? Theme.of(context).primaryColor.withOpacity(0.5) : Colors.white12,
           width: 2,
         ),
         boxShadow: [
@@ -1563,7 +1592,7 @@ class _SwipeableFlashcardState extends State<_SwipeableFlashcard> {
           Text(
             isBack ? "ANSWER" : "QUESTION",
             style: TextStyle(
-              color: (isBack ? Colors.blueAccent : Colors.white38),
+              color: (isBack ? Theme.of(context).primaryColor : Colors.white38),
               fontSize: 11,
               fontWeight: FontWeight.w600,
               letterSpacing: 2,
@@ -1576,7 +1605,7 @@ class _SwipeableFlashcardState extends State<_SwipeableFlashcard> {
                 text,
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: isBack ? Colors.white : Colors.blueAccent,
+                  color: isBack ? Colors.white : Theme.of(context).primaryColor,
                   fontSize: 20,
                   fontWeight: isBack ? FontWeight.w500 : FontWeight.bold,
                   height: 1.4,

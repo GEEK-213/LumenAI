@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/crimson_helpers.dart';
 import 'calender/master_calender_page.dart';
 import 'notes/notes_page.dart';
 import 'home/homePage.dart';
@@ -17,20 +18,12 @@ class _MainPageState extends State<MainPage> {
 
   static const _breakpoint = 800.0;
 
-  Widget _buildPage() {
-    switch (_selectedIndex) {
-      case 0:
-        return const HomePage();
-      case 1:
-        return const MasterCalenderPage();
-      case 2:
-        return const NotesPage();
-      case 3:
-        return const Profilepage();
-      default:
-        return const HomePage();
-    }
-  }
+  final List<Widget> _pages = [
+    const HomePage(),
+    const MasterCalenderPage(),
+    const NotesPage(),
+    const Profilepage(),
+  ];
 
   void _onItemTapped(int index) {
     setState(() => _selectedIndex = index);
@@ -43,7 +36,12 @@ class _MainPageState extends State<MainPage> {
         final isWide = constraints.maxWidth >= _breakpoint;
         return Scaffold(
           backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          body: isWide ? _buildDesktopLayout() : _buildPage(),
+          body: isWide 
+            ? _buildDesktopLayout() 
+            : IndexedStack(
+                index: _selectedIndex,
+                children: _pages,
+              ),
           floatingActionButton: !isWide && _selectedIndex != 2
               ? _buildRecorderFAB()
               : null,
@@ -57,17 +55,19 @@ class _MainPageState extends State<MainPage> {
 
   // ─── Desktop: NavigationRail + Content ────────────────────────────
   Widget _buildDesktopLayout() {
+    final theme = Theme.of(context);
+    final isCrimson = CrimsonHelpers.isCrimson(context);
+    final primaryColor = theme.primaryColor;
+
     return Row(
       children: [
         // Navigation Rail
         Container(
           decoration: BoxDecoration(
-            color:
-                Theme.of(context).bottomAppBarTheme.color ??
-                Theme.of(context).colorScheme.surface,
+            color: theme.bottomAppBarTheme.color ?? theme.colorScheme.surface,
             border: Border(
               right: BorderSide(
-                color: Theme.of(context).dividerColor.withOpacity(0.1),
+                color: theme.dividerColor.withOpacity(0.1),
               ),
             ),
           ),
@@ -75,17 +75,17 @@ class _MainPageState extends State<MainPage> {
             selectedIndex: _selectedIndex,
             onDestinationSelected: _onItemTapped,
             backgroundColor: Colors.transparent,
-            indicatorColor: Theme.of(context).primaryColor.withOpacity(0.15),
+            indicatorColor: primaryColor.withOpacity(0.15),
             selectedIconTheme: IconThemeData(
-              color: Theme.of(context).primaryColor,
+              color: primaryColor,
             ),
             unselectedIconTheme: IconThemeData(color: Colors.grey.shade500),
-            selectedLabelTextStyle: TextStyle(
-              color: Theme.of(context).primaryColor,
+            selectedLabelTextStyle: theme.navigationRailTheme.selectedLabelTextStyle ?? TextStyle(
+              color: primaryColor,
               fontWeight: FontWeight.bold,
               fontSize: 12,
             ),
-            unselectedLabelTextStyle: TextStyle(
+            unselectedLabelTextStyle: theme.navigationRailTheme.unselectedLabelTextStyle ?? TextStyle(
               color: Colors.grey.shade500,
               fontSize: 11,
             ),
@@ -99,16 +99,18 @@ class _MainPageState extends State<MainPage> {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Colors.blueAccent, Colors.purpleAccent],
+                      gradient: isCrimson ? null : LinearGradient(
+                        colors: [primaryColor, Colors.purpleAccent],
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(14),
+                      color: isCrimson ? CrimsonHelpers.crimsonBg : null,
+                      border: isCrimson ? Border.all(color: CrimsonHelpers.crimsonRed, width: 2) : null,
+                      borderRadius: isCrimson ? BorderRadius.zero : BorderRadius.circular(14),
                     ),
-                    child: const Icon(
-                      Icons.auto_awesome,
-                      color: Colors.white,
+                    child: Icon(
+                      isCrimson ? Icons.terminal : Icons.auto_awesome,
+                      color: isCrimson ? CrimsonHelpers.crimsonRed : Colors.white,
                       size: 22,
                     ),
                   ),
@@ -158,14 +160,22 @@ class _MainPageState extends State<MainPage> {
           ),
         ),
         // Content area
-        Expanded(child: _buildPage()),
+        Expanded(
+          child: IndexedStack(
+            index: _selectedIndex,
+            children: _pages,
+          ),
+        ),
       ],
     );
   }
 
   // ─── Rail: Recorder button ────────────────────────────────────────
   Widget _buildRailRecorderButton() {
+    final primaryColor = Theme.of(context).primaryColor;
+    final isCrimson = CrimsonHelpers.isCrimson(context);
     return FloatingActionButton.small(
+      heroTag: null,
       onPressed: () {
         Navigator.push(
           context,
@@ -178,15 +188,16 @@ class _MainPageState extends State<MainPage> {
         height: 44,
         width: 44,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Colors.blueAccent, Colors.purpleAccent],
+          gradient: isCrimson ? null : LinearGradient(
+            colors: [primaryColor, Colors.purpleAccent],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          shape: BoxShape.circle,
+          color: isCrimson ? CrimsonHelpers.crimsonRed : null,
+          shape: isCrimson ? BoxShape.rectangle : BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Colors.blueAccent.withOpacity(0.4),
+              color: (isCrimson ? CrimsonHelpers.crimsonRed : primaryColor).withOpacity(0.4),
               blurRadius: 12,
               spreadRadius: 1,
             ),
@@ -199,7 +210,10 @@ class _MainPageState extends State<MainPage> {
 
   // ─── Mobile: Recorder FAB ────────────────────────────────────────
   Widget _buildRecorderFAB() {
+    final primaryColor = Theme.of(context).primaryColor;
+    final isCrimson = CrimsonHelpers.isCrimson(context);
     return FloatingActionButton(
+      heroTag: null,
       onPressed: () {
         Navigator.push(
           context,
@@ -212,15 +226,16 @@ class _MainPageState extends State<MainPage> {
         height: 56,
         width: 56,
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Colors.blueAccent, Colors.purpleAccent],
+          gradient: isCrimson ? null : LinearGradient(
+            colors: [primaryColor, Colors.purpleAccent],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          shape: BoxShape.circle,
+          color: isCrimson ? CrimsonHelpers.crimsonRed : null,
+          shape: isCrimson ? BoxShape.rectangle : BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Colors.blueAccent.withOpacity(0.4),
+              color: (isCrimson ? CrimsonHelpers.crimsonRed : primaryColor).withOpacity(0.4),
               blurRadius: 15,
               spreadRadius: 2,
             ),

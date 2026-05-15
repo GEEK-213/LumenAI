@@ -18,8 +18,9 @@ class _StorePageState extends State<StorePage> {
   bool _loading = true;
   bool _purchasing = false;
 
-  // Hardcoded Catalog
-  final List<Map<String, dynamic>> _catalog = [
+  // Optimize: Move the catalog into a static list of templates
+  // and resolve dynamic colors in the builder to avoid ANRs.
+  static const List<Map<String, dynamic>> _catalogTemplates = [
     {
       'id': 'avatar_socratic',
       'name': 'Socratic Tutor Avatar',
@@ -27,7 +28,7 @@ class _StorePageState extends State<StorePage> {
           'An AI persona that asks guiding questions instead of giving direct answers.',
       'cost': 150,
       'icon': Icons.psychology,
-      'color': Colors.blueAccent,
+      'colorKey': 'primary',
       'type': 'Avatar',
     },
     {
@@ -200,17 +201,21 @@ class _StorePageState extends State<StorePage> {
               children: [
                 ListView.builder(
                   padding: const EdgeInsets.all(16),
-                  itemCount: _catalog.length,
+                  itemCount: _catalogTemplates.length,
                   itemBuilder: (context, index) {
-                    final item = _catalog[index];
+                    final item = _catalogTemplates[index];
                     final id = item['id'] as String;
                     final name = item['name'] as String;
                     final desc = item['description'] as String;
                     final cost = item['cost'] as int;
                     final isOwned = _unlockedItems.contains(id);
                     final icon = item['icon'] as IconData;
-                    final baseColor = item['color'] as Color;
                     final type = item['type'] as String;
+
+                    // Resolve color: primaryColor if key matches, else the hardcoded color
+                    final Color baseColor = item['colorKey'] == 'primary'
+                        ? currentAppTheme.primaryColor
+                        : (item['color'] as Color? ?? Colors.purpleAccent);
 
                     return Container(
                       margin: const EdgeInsets.only(bottom: 16),
@@ -356,7 +361,7 @@ class _StorePageState extends State<StorePage> {
           return ElevatedButton(
             onPressed: onEquip,
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blueAccent,
+              backgroundColor: Theme.of(context).primaryColor,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(20),

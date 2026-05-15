@@ -58,6 +58,8 @@ dependencies:
   provider: ^6.1.5+1
   speech_to_text: ^7.3.0
   flutter_tts: ^4.2.5
+  intl: ^0.20.2
+  share_plus: ^12.0.2
 
 dev_dependencies:
   flutter_test:
@@ -71,6 +73,7 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.7
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -125,4 +128,11 @@ flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/icon/app_icon.png"
-  min_sdk_version: 21
+  min_sdk_android: 21
+
+flutter_native_splash:
+  color: "#050B18"
+  image: "assets/icon/app_icon.png"
+  android_12:
+    color: "#050B18"
+    image: "assets/icon/app_icon.png"

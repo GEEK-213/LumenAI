@@ -282,9 +282,9 @@ class _MindMapViewState extends State<MindMapView>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text(
+            child: Text(
               'Close',
-              style: TextStyle(color: Colors.blueAccent),
+              style: TextStyle(color: Theme.of(context).primaryColor),
             ),
           ),
         ],
@@ -420,6 +420,7 @@ class _MindMapViewState extends State<MindMapView>
                         edges: widget.edges,
                         positions: _positions,
                         opacity: _fadeAnim.value,
+                        linkColor: Theme.of(context).primaryColor,
                       ),
                     ),
                     ...widget.nodes.asMap().entries.map((entry) {
@@ -435,9 +436,7 @@ class _MindMapViewState extends State<MindMapView>
                       final isRoot = i == 0;
                       final nodeRadius = isRoot ? 52.0 : 42.0;
                       final maxChars = isRoot ? 20 : 16;
-                      final displayLabel = label.length > maxChars
-                          ? '${label.substring(0, maxChars - 2)}..'
-                          : label;
+                      final displayLabel = label;
 
                       return Positioned(
                         left: pos.dx - nodeRadius,
@@ -577,12 +576,14 @@ class _EdgePainter extends CustomPainter {
   final List<Map<String, dynamic>> edges;
   final Map<String, Offset> positions;
   final double opacity;
+  final Color linkColor;
 
   _EdgePainter({
     required this.nodes,
     required this.edges,
     required this.positions,
     required this.opacity,
+    required this.linkColor,
   });
 
   static String _toId(dynamic val) => val?.toString() ?? '';
@@ -595,7 +596,7 @@ class _EdgePainter extends CustomPainter {
       if (from == null || to == null) continue;
 
       final paint = Paint()
-        ..color = Colors.blueAccent.withValues(alpha: 0.45 * opacity)
+        ..color = linkColor.withValues(alpha: 0.45 * opacity)
         ..strokeWidth = 2.5
         ..style = PaintingStyle.stroke;
 

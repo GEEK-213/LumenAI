@@ -8,8 +8,7 @@ import '../config.dart';
 import '../models/data_models.dart';
 
 class MultipartRequestWithProgress extends http.MultipartRequest {
-  MultipartRequestWithProgress(String method, Uri url, {this.onProgress})
-    : super(method, url);
+  MultipartRequestWithProgress(super.method, super.url, {this.onProgress});
 
   final void Function(int bytes, int totalBytes)? onProgress;
 

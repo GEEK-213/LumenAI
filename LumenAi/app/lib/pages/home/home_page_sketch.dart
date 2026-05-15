@@ -93,6 +93,7 @@ class HomePageSketch extends StatelessWidget {
                 radius: 16,
               ),
               child: FloatingActionButton(
+                heroTag: null,
                 onPressed: onChatPressed,
                 backgroundColor: Colors.transparent,
                 elevation: 0,
